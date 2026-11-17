@@ -6,7 +6,14 @@
 export type Parsed = Record<string, unknown>;
 const parsedText = (p: Parsed, k: string, fallback: string) =>
   p[k] != null ? String(p[k]) : fallback;
-const parsedNotes = (p: Parsed) => (typeof p.notes === "string" ? p.notes : null);
+
+/** The file's notes, plus its reference (such as an invoice number) when it has one. */
+export function notesWithRef(p: Parsed): string | null {
+  const notes = typeof p.notes === "string" ? p.notes.trim() : "";
+  const ref = typeof p.reference === "string" ? p.reference.trim() : "";
+  if (ref && !notes.includes(ref)) return notes ? `${notes} (ref ${ref})` : `Ref ${ref}`;
+  return notes || null;
+}
 
 /** Has an imported earning changed from what the file said? */
 export function earningDiffersFromImport(
@@ -23,14 +30,16 @@ export function earningDiffersFromImport(
   },
   p: Parsed
 ): boolean {
+  const paidInFile = p.paid === true && p.date != null;
+  const clientInFile = typeof p.payee === "string" && p.payee.trim() !== "";
   return (
     e.description !== parsedText(p, "description", "Imported earnings entry") ||
     (p.date != null && e.work_date !== String(p.date)) ||
     e.gross_amount_pence !== (typeof p.amount_pence === "number" ? p.amount_pence : 0) ||
-    (e.notes ?? null) !== parsedNotes(p) ||
-    e.status !== "expected" ||
-    e.paid_date != null ||
-    e.client_id != null ||
+    (e.notes ?? null) !== notesWithRef(p) ||
+    e.status !== (paidInFile ? "paid" : "expected") ||
+    (e.paid_date ?? null) !== (paidInFile ? String(p.date) : null) ||
+    (e.client_id != null && !clientInFile) ||
     e.booking_id != null ||
     e.invoice_id != null
   );
@@ -51,12 +60,14 @@ export function expenseDiffersFromImport(
   p: Parsed,
   hasReceipt: boolean
 ): boolean {
+  const gross = typeof p.amount_pence === "number" ? Math.abs(p.amount_pence) : 0;
+  const vat = typeof p.vat_pence === "number" ? Math.min(Math.abs(p.vat_pence), gross) : 0;
   return (
     x.description !== parsedText(p, "description", "Imported expense") ||
     (p.date != null && x.expense_date !== String(p.date)) ||
-    x.net_amount_pence !== (typeof p.amount_pence === "number" ? Math.abs(p.amount_pence) : 0) ||
-    x.vat_amount_pence !== 0 ||
-    (x.notes ?? null) !== parsedNotes(p) ||
+    x.net_amount_pence !== gross - vat ||
+    x.vat_amount_pence !== vat ||
+    (x.notes ?? null) !== notesWithRef(p) ||
     x.business_use_percent !== 100 ||
     x.booking_id != null ||
     x.earnings_entry_id != null ||

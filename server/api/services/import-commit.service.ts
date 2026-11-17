@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNotNull, sql, or, isNull } from "drizzle-orm";
 import { db } from "../config/db";
+import { storage } from "../../storage";
 import {
   import_batches,
   import_rows,
@@ -8,7 +9,12 @@ import {
   expense_categories,
   receipts,
 } from "@shared/schema";
-import { earningDiffersFromImport, expenseDiffersFromImport, type Parsed } from "./import-diff";
+import {
+  earningDiffersFromImport,
+  expenseDiffersFromImport,
+  notesWithRef,
+  type Parsed,
+} from "./import-diff";
 import type { ImportRow } from "@shared/schema";
 
 // ── Category resolver ─────────────────────────────────────────────────────────
@@ -78,20 +84,29 @@ async function writeRecord(
       reviewReason = "assumed_date";
     }
 
+    // The file's payee becomes the client; "Paid? YES" in the file marks it paid
+    // on its date (the file gives no separate payment date).
+    const payee = typeof parsed.payee === "string" ? parsed.payee.trim() : "";
+    const client = payee ? await storage.findOrCreateClientByName(freelancerId, payee) : null;
+    const paid = parsed.paid === true && !dateAssumed;
+
     const [entry] = await tx
       .insert(earnings_entries)
       .values({
         freelancer_id: freelancerId,
         source: "imported",
         import_batch_id: row.batch_id,
+        client_id: client?.id ?? null,
         description,
         work_date: workDate,
         gross_amount_pence: grossPence,
-        status: "expected",
+        status: paid ? "paid" : "expected",
+        paid_date: paid ? workDate : null,
+        paid_amount_pence: paid ? grossPence : null,
         needs_review: reviewReason !== null,
         review_reason: reviewReason,
         rate_raw: rateRaw,
-        notes: typeof parsed.notes === "string" ? parsed.notes : null,
+        notes: notesWithRef(parsed),
       })
       .returning({ id: earnings_entries.id });
 
@@ -101,7 +116,11 @@ async function writeRecord(
   if (row.target === "expense") {
     const description = String(parsed.description ?? "Imported expense");
     const expenseDate = String(parsed.date ?? new Date().toISOString().slice(0, 10));
-    const netPence = typeof parsed.amount_pence === "number" ? Math.abs(parsed.amount_pence) : 0;
+    // Amounts are what was paid (VAT included); split out VAT when the file gives it.
+    const grossPence = typeof parsed.amount_pence === "number" ? Math.abs(parsed.amount_pence) : 0;
+    const vatPence =
+      typeof parsed.vat_pence === "number" ? Math.min(Math.abs(parsed.vat_pence), grossPence) : 0;
+    const netPence = grossPence - vatPence;
 
     // Resolve category from parsed.category_name if present
     const categoryName = typeof parsed.category_name === "string" ? parsed.category_name : null;
@@ -115,10 +134,11 @@ async function writeRecord(
         import_batch_id: row.batch_id,
         description,
         expense_date: expenseDate,
+        supplier: typeof parsed.payee === "string" && parsed.payee ? parsed.payee : null,
         net_amount_pence: netPence,
-        vat_amount_pence: 0,
+        vat_amount_pence: vatPence,
         category_id: categoryId,
-        notes: typeof parsed.notes === "string" ? parsed.notes : null,
+        notes: notesWithRef(parsed),
       })
       .returning({ id: expenses.id });
 

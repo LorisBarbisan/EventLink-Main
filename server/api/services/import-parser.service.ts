@@ -10,205 +10,174 @@ import {
   detectBySheetNames,
   detectByHeaders,
   detectHeaderless,
-  detectProfitAndLoss,
-  headerlessColumnMap,
 } from "./import-source-detect.service";
 import { extractRowsFromPdf } from "./import-pdf-ai.service";
 import {
-  parseDate,
-  parseAmountPence,
   parseCsvText,
-  inferColumnMap,
   looksDelimited,
   rowsFromText,
   largestHtmlTable,
   legacyDocText,
-  type ColumnMap,
 } from "./import-parse-utils";
+import {
+  findHeaderRow,
+  inferColumnMap,
+  inferHeaderlessMap,
+  pnlReportRows,
+  isContactList,
+  invoiceFromText,
+  sheetDirection,
+  type ColumnMap,
+  type PnlLine,
+} from "./import-table";
+import { classifyRow } from "./import-classify";
 
-// pdf-parse is CJS-only; use createRequire so the function is always callable
-// regardless of the project's ESM/CJS module resolution.
+// pdf-parse v2 is CJS and exports a class; load it with require so it resolves
+// the same way under tsx and the esbuild bundle.
 const _require = createRequire(import.meta.url);
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = _require("pdf-parse");
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type TargetType = "earnings" | "expense" | "invoice" | "mileage" | "kit" | "skip" | "summary";
-
-interface ReadResult {
-  rows: RawRow[];
-  headerless: boolean;
-  detectedSource?: string;
-  detectedSheetName?: string;
-  aiExtracted?: boolean; // true when rows came from OpenAI PDF extraction
-}
+const { PDFParse } = _require("pdf-parse") as {
+  PDFParse: new (opts: { data: Uint8Array }) => {
+    getText(): Promise<{ text: string }>;
+    destroy(): Promise<void>;
+  };
+};
 
 interface RawRow {
   [header: string]: string;
 }
 
-interface ParsedRow {
-  date?: string; // ISO YYYY-MM-DD
-  description?: string;
-  amount_pence?: number;
-  rate_raw?: string;
-  notes?: string;
-  reference?: string;
-  category_name?: string; // resolved from category_map (for expenses)
+// ── Segments ──────────────────────────────────────────────────────────────────
+// A file becomes one or more segments: each sheet of a workbook, or the one
+// table in a CSV / document. Each segment has its own header row and column
+// map, so a workbook with a "Gigs" sheet and an "expenses" sheet reads both.
+
+interface Segment {
+  rows: RawRow[];
+  headers: string[];
+  headerless: boolean;
+  sheet?: string;
+  direction?: "expense" | "earnings" | null;
+  /** Column map forced by the reader (single invoices, text extraction). */
+  fixedMap?: ColumnMap;
+  aiExtracted?: boolean;
 }
 
-interface ClassifiedRow {
-  raw: RawRow;
-  parsed: ParsedRow;
-  target: TargetType | null;
-  confidence: number; // 0-100
-  issues: string[];
+interface FileRead {
+  segments: Segment[];
+  /** A P&L report: category totals instead of transactions. */
+  pnl?: { period: string | null; lines: PnlLine[] };
+  /** Set when the file is a list of contacts, not transactions. */
+  notTransactions?: string;
+  detectedSource?: string;
 }
 
-// ── Column mapping application ────────────────────────────────────────────────
-// column_map keys are canonical field names; values are source header names.
-// e.g. { "date": "Transaction Date", "amount": "Amount (GBP)", ... }
+const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `C${i + 1}`); // A…Z, then C27…
 
-function applyMapping(
-  raw: RawRow,
-  columnMap: ColumnMap,
-  dateHint?: string | null,
-  categoryMap?: Record<string, string> | null
-): ClassifiedRow {
-  const issues: string[] = [];
-  const parsed: ParsedRow = {};
+/** A table of cells → a segment, after finding the header row. */
+function tableToSegment(table: string[][], sheet?: string): Segment | null {
+  const clean = table.map((r) => r.map((c) => (c ?? "").trim()));
+  const nonEmpty = clean.filter((r) => r.some((c) => c !== ""));
+  if (nonEmpty.length === 0) return null;
+  const headerIdx = findHeaderRow(clean);
+  const headerless = headerIdx === 0 && detectHeaderless(clean[0]);
+  const width = Math.max(...clean.map((r) => r.length));
+  const headers = headerless
+    ? Array.from({ length: width }, (_, i) => letter(i))
+    : Array.from({ length: width }, (_, i) => clean[headerIdx][i] || letter(i));
+  const rows: RawRow[] = [];
+  for (const cells of clean.slice(headerless ? 0 : headerIdx + 1)) {
+    if (!cells.some((c) => c !== "")) continue;
+    const obj: RawRow = {};
+    headers.forEach((h, i) => {
+      obj[h] = cells[i] ?? "";
+    });
+    rows.push(obj);
+  }
+  if (rows.length === 0) return null;
+  return { rows, headers, headerless, sheet, direction: sheet ? sheetDirection(sheet) : null };
+}
 
-  // Helper: get a value by canonical name via the map, or fall back to
-  // case-insensitive header search if the map doesn't have that key.
-  const get = (canonical: string): string => {
-    const mapped = columnMap[canonical];
-    if (mapped && raw[mapped] !== undefined) return raw[mapped].trim();
-    // Fuzzy fallback: look for a header containing the canonical name
-    const fallback = Object.keys(raw).find((k) =>
-      k.toLowerCase().includes(canonical.toLowerCase())
-    );
-    return fallback ? raw[fallback].trim() : "";
+/** Rows from free text: a single invoice, AI extraction, or date…amount lines. */
+async function readTextDocument(text: string): Promise<FileRead> {
+  const invoice = invoiceFromText(text);
+  if (invoice) {
+    return {
+      segments: [
+        {
+          rows: [{ ...invoice }],
+          headers: Object.keys(invoice),
+          headerless: false,
+          direction: "earnings",
+          fixedMap: {
+            date: "Date",
+            description: "Description",
+            amount: "Amount",
+            reference: "Reference",
+            payee: "Payee",
+          },
+        },
+      ],
+    };
+  }
+  const textMap: ColumnMap = { date: "Date", description: "Description", amount: "Amount" };
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const aiRows = await extractRowsFromPdf(text);
+      if (aiRows.length > 0) {
+        return {
+          segments: [
+            {
+              rows: aiRows.map((r) => ({
+                Date: r.date ?? "",
+                Description: r.description ?? "",
+                Amount: r.amount ?? "",
+                Reference: r.reference ?? "",
+              })),
+              headers: ["Date", "Description", "Amount", "Reference"],
+              headerless: false,
+              fixedMap: { ...textMap, reference: "Reference" },
+              aiExtracted: true,
+            },
+          ],
+        };
+      }
+    } catch (err) {
+      console.warn("[import] AI extraction failed, falling back to text rules:", String(err));
+    }
+  }
+  const rows = rowsFromText(text);
+  return {
+    segments: rows.length
+      ? [
+          {
+            rows,
+            headers: ["Date", "Description", "Amount"],
+            headerless: false,
+            fixedMap: textMap,
+            aiExtracted: true,
+          },
+        ]
+      : [],
   };
+}
 
-  // Date
-  const rawDate = get("date");
-  if (!rawDate) {
-    issues.push("Missing date");
-  } else {
-    const isoDate = parseDate(rawDate, dateHint);
-    if (!isoDate) {
-      issues.push(`Could not parse date: "${rawDate}"`);
-    } else {
-      parsed.date = isoDate;
-    }
+/** Whole-table checks that come before reading rows: P&L, contact list. */
+function inspectTable(table: string[][], sheet?: string): FileRead {
+  const pnl = pnlReportRows(table);
+  if (pnl && pnl.lines.length) return { segments: [], pnl };
+  const seg = tableToSegment(table, sheet);
+  if (!seg) return { segments: [] };
+  if (!seg.headerless && isContactList(seg.headers)) {
+    return {
+      segments: [],
+      notTransactions:
+        "This file is a list of contacts (names, emails, addresses) with no dates or amounts, so there are no transactions to import. Add customers under Books › Clients.",
+    };
   }
-
-  // Description
-  const desc = get("description") || get("details") || get("narrative") || get("memo");
-  if (!desc) {
-    issues.push("Missing description");
-  } else {
-    parsed.description = desc;
-  }
-
-  // Category — a saved category map wins; otherwise pass the source name through
-  // and commit matches it to an EventLink category by name (unmatched → none).
-  const rawCategory = columnMap["category"] ? get("category") : "";
-  if (rawCategory) {
-    if (categoryMap) {
-      const mapped = categoryMap[rawCategory] ?? categoryMap[rawCategory.toLowerCase()];
-      if (mapped) parsed.category_name = mapped;
-      else issues.push(`unmapped_category:${rawCategory}`);
-    } else {
-      parsed.category_name = rawCategory;
-    }
-  }
-
-  // Amount — try combined amount first, then separate credit/debit
-  let amountPence: number | null = null;
-  const rawAmount = get("amount");
-  if (rawAmount) {
-    amountPence = parseAmountPence(rawAmount);
-    if (amountPence === null) issues.push(`Could not parse amount: "${rawAmount}"`);
-    else parsed.rate_raw = rawAmount;
-  } else {
-    const rawCredit = get("credit");
-    const rawDebit = get("debit");
-    if (rawCredit) {
-      const c = parseAmountPence(rawCredit);
-      if (c !== null && c !== 0) {
-        amountPence = Math.abs(c);
-        parsed.rate_raw = rawCredit;
-      }
-    }
-    if (rawDebit) {
-      const d = parseAmountPence(rawDebit);
-      if (d !== null && d !== 0) {
-        amountPence = -Math.abs(d);
-        parsed.rate_raw = rawDebit;
-      }
-    }
-    if (amountPence === null) issues.push("Missing amount");
-  }
-
-  if (amountPence !== null) {
-    if (amountPence === 0) issues.push("Amount is zero");
-    parsed.amount_pence = amountPence;
-  }
-
-  // Reference / notes
-  const ref = get("reference") || get("ref") || get("transaction id");
-  if (ref) parsed.reference = ref;
-  const notes = get("notes") || get("comments") || get("memo");
-  if (notes && notes !== parsed.description) parsed.notes = notes;
-
-  // ── Target classification ───────────────────────────────────────────────────
-  let target: TargetType | null = null;
-  let confidence = 100;
-
-  // Explicit skip signals
-  const descLower = (parsed.description ?? "").toLowerCase();
-  const skipKeywords = [
-    "transfer",
-    "balance brought forward",
-    "opening balance",
-    "closing balance",
-  ];
-  if (skipKeywords.some((kw) => descLower.includes(kw)) || amountPence === 0) {
-    target = "skip";
-    confidence = 90;
-  } else if (columnMap["target"]) {
-    // Column map explicitly designates a target column
-    const rawTarget = get("target").toLowerCase();
-    if (rawTarget.includes("earn") || rawTarget.includes("income")) target = "earnings";
-    else if (rawTarget.includes("expense") || rawTarget.includes("spend")) target = "expense";
-    else if (rawTarget.includes("invoice")) target = "invoice";
-    else if (rawTarget.includes("mile") || rawTarget.includes("km")) target = "mileage";
-    else if (
-      rawTarget.includes("kit") ||
-      rawTarget.includes("asset") ||
-      rawTarget.includes("equip")
-    )
-      target = "kit";
-  } else if (amountPence !== null) {
-    target = amountPence > 0 ? "earnings" : "expense";
-    confidence = 75; // heuristic — lower confidence than an explicit mapping
-  }
-
-  // Deduct confidence for each issue
-  confidence -= issues.length * 15;
-  if (confidence < 0) confidence = 0;
-
-  return { raw, parsed, target, confidence, issues };
+  return { segments: [seg] };
 }
 
 // ── File readers ──────────────────────────────────────────────────────────────
-
-async function readCsv(buffer: Buffer): Promise<ReadResult> {
-  // Our own reader rather than ExcelJS's, which converts date-like strings to
-  // Date objects by guessing (08/05/2026 can come back as 5 August).
-  return tableToRead(parseCsvText(buffer.toString("utf8")));
-}
 
 function cellToString(cell: ExcelJS.Cell): string {
   let v = cell.value as unknown;
@@ -224,132 +193,103 @@ function cellToString(cell: ExcelJS.Cell): string {
   return String(v ?? "").trim();
 }
 
-async function readXlsx(buffer: Buffer): Promise<ReadResult> {
+function sheetToTable(sheet: ExcelJS.Worksheet): string[][] {
+  const table: string[][] = [];
+  sheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    const cells: string[] = [];
+    row.eachCell({ includeEmpty: true }, (cell, col) => {
+      cells[col - 1] = cellToString(cell);
+    });
+    table[rowNumber - 1] = Array.from(cells, (c) => c ?? "");
+  });
+  return Array.from(table, (r) => r ?? []);
+}
+
+async function readXlsx(buffer: Buffer): Promise<FileRead> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
+  const sheets = workbook.worksheets.filter((ws) => ws.state !== "hidden" && ws.rowCount > 0);
 
-  if (workbook.worksheets.length === 0) return { rows: [], headerless: false };
+  // FreeAgent: read its transactions sheet only
+  const sheetDetect = detectBySheetNames(sheets.map((ws) => ws.name));
+  const chosen = sheetDetect ? sheets.filter((ws) => ws.name === sheetDetect.sheetName) : sheets;
 
-  // Step 1: sheet-name detection (FreeAgent)
-  const sheetNames = workbook.worksheets.map((ws) => ws.name);
-  const sheetDetect = detectBySheetNames(sheetNames);
-
-  let sheet: ExcelJS.Worksheet | undefined;
-  let detectedSource: string | undefined;
-  let detectedSheetName: string | undefined;
-
-  if (sheetDetect) {
-    sheet = workbook.worksheets.find((ws) => ws.name === sheetDetect.sheetName);
-    detectedSource = sheetDetect.source;
-    detectedSheetName = sheetDetect.sheetName;
+  const out: FileRead = { segments: [], detectedSource: sheetDetect?.source };
+  for (const ws of chosen) {
+    const part = inspectTable(sheetToTable(ws), ws.name);
+    out.segments.push(...part.segments);
+    if (part.pnl && !out.pnl) out.pnl = part.pnl;
+    if (part.notTransactions && !out.notTransactions) out.notTransactions = part.notTransactions;
   }
-
-  if (!sheet) {
-    sheet = workbook.worksheets.find((ws) => ws.rowCount > 0);
-  }
-  if (!sheet) return { rows: [], headerless: false };
-
-  // Read first row
-  const firstRowValues: string[] = [];
-  sheet
-    .getRow(1)
-    .eachCell({ includeEmpty: false }, (cell) => firstRowValues.push(cellToString(cell)));
-
-  const isHeaderless = !sheetDetect && detectHeaderless(firstRowValues);
-  const headers: string[] = isHeaderless
-    ? firstRowValues.map((_, i) => String.fromCharCode(65 + i))
-    : firstRowValues;
-
-  const rows: RawRow[] = [];
-  const startRow = isHeaderless ? 1 : 2;
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber < startRow) return;
-    const obj: RawRow = {};
-    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const header = headers[colNumber - 1];
-      if (!header) return;
-      obj[header] = cellToString(cell);
-    });
-    if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
-  });
-
-  return { rows, headerless: isHeaderless, detectedSource, detectedSheetName };
+  return out;
 }
 
-// AI-powered PDF extraction — falls back to regex heuristic if OPENAI_API_KEY is absent.
-// All rows are tagged with low_confidence_extraction to prevent bulk-approve.
-async function readPdf(buffer: Buffer): Promise<ReadResult> {
-  const data = await pdfParse(buffer);
-  return readTextDocument(data.text);
-}
-
-/**
- * Rows from a document's text (PDF, Word, free-form .txt): AI extraction when
- * configured, otherwise any line that starts with a date and ends with an
- * amount. All rows from here are low-confidence and cannot be bulk-approved.
- */
-async function readTextDocument(text: string): Promise<ReadResult> {
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const aiRows = await extractRowsFromPdf(text);
-      if (aiRows.length > 0) {
-        return {
-          rows: aiRows.map((r) => ({
-            Date: r.date ?? "",
-            Description: r.description ?? "",
-            Amount: r.amount ?? "",
-            ...(r.reference ? { Reference: r.reference } : {}),
-          })),
-          headerless: false,
-          aiExtracted: true,
-        };
-      }
-    } catch (err) {
-      console.warn(
-        "[import-pdf-ai] AI extraction failed, falling back to text rules:",
-        String(err)
-      );
+async function readPdf(buffer: Buffer): Promise<FileRead> {
+  // pdf-parse v2 is a class: new PDFParse({ data }).getText()
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const { text } = await parser.getText();
+    if (!text.trim()) {
+      return {
+        segments: [],
+        notTransactions:
+          "This PDF has no readable text (it may be a scanned image). Export the statement as CSV or Excel, or as a PDF with selectable text.",
+      };
     }
+    return await readTextDocument(text);
+  } finally {
+    await parser.destroy().catch(() => undefined);
   }
-  return { rows: rowsFromText(text), headerless: false, aiExtracted: true };
 }
 
-/** A table of cells (first row headers, unless it is data) → raw rows. */
-function tableToRead(table: string[][]): ReadResult {
-  if (table.length === 0) return { rows: [], headerless: false };
-  const isHeaderless = detectHeaderless(table[0]);
-  const headers = isHeaderless ? table[0].map((_, i) => String.fromCharCode(65 + i)) : table[0];
-  const rows: RawRow[] = [];
-  for (const cells of table.slice(isHeaderless ? 0 : 1)) {
-    const obj: RawRow = {};
-    headers.forEach((h, i) => {
-      if (h) obj[h] = cells[i] ?? "";
-    });
-    if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
-  }
-  return { rows, headerless: isHeaderless };
-}
-
-/** Word .docx: its largest table if it has one, otherwise its text. */
-async function readDocx(buffer: Buffer): Promise<ReadResult> {
+/** Word .docx: a single invoice, else its largest table, else its text. */
+async function readDocx(buffer: Buffer): Promise<FileRead> {
   const mammoth = await import("mammoth");
+  const { value: text } = await mammoth.extractRawText({ buffer });
+  if (invoiceFromText(text)) return readTextDocument(text);
   const { value: html } = await mammoth.convertToHtml({ buffer });
   const table = largestHtmlTable(html);
-  if (table.length >= 2 && table[0].length >= 2) return tableToRead(table);
-  const { value: text } = await mammoth.extractRawText({ buffer });
+  if (table.length >= 2 && table[0].length >= 2) return inspectTable(table);
   return readTextDocument(text);
 }
 
-/** Plain text: a CSV-style table if it is laid out as one, otherwise free text. */
-async function readTxt(buffer: Buffer): Promise<ReadResult> {
+/** Plain text: a CSV-style table if laid out as one, otherwise free text. */
+async function readTxt(buffer: Buffer): Promise<FileRead> {
   const text = buffer.toString("utf8");
-  if (looksDelimited(text)) return tableToRead(parseCsvText(text));
+  if (looksDelimited(text)) return inspectTable(parseCsvText(text));
   return readTextDocument(text);
+}
+
+async function readFile(buffer: Buffer, fileName: string, mimeType: string): Promise<FileRead> {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const isZip =
+    buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  const isOle2 =
+    buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0;
+
+  if (mimeType === "application/pdf" || ext === "pdf") return readPdf(buffer);
+  if (
+    ext === "docx" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  )
+    return readDocx(buffer);
+  if (ext === "doc" || mimeType === "application/msword") {
+    return readTextDocument(
+      isOle2 ? legacyDocText(buffer) : buffer.toString("utf8").replace(/\\[a-z]+-?\d* ?|[{}]/g, " ")
+    );
+  }
+  if (ext === "txt" || mimeType === "text/plain") return readTxt(buffer);
+  if (isOle2) {
+    throw new Error(
+      "This is an older Excel file (.xls). Open it in Excel and use Save As → Excel Workbook (.xlsx), then upload again."
+    );
+  }
+  if (isZip) return readXlsx(buffer);
+  // CSV: our own reader, so dates are never guessed (08/05 is not 5 August)
+  return inspectTable(parseCsvText(buffer.toString("utf8")));
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
-// Called by the parse worker in place of the stub.
 
 export async function parseImportFile(batchId: number, jobId: string): Promise<void> {
   const [batch] = await db
@@ -360,211 +300,136 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
 
   if (!batch || batch.status !== "parsing") return; // stale or already handled
 
+  const fail = (error: string) =>
+    db
+      .update(import_batches)
+      .set({ status: "failed", error, updated_at: new Date() })
+      .where(eq(import_batches.id, batchId));
+
   try {
-    // 1. Download file
     const buffer = await ObjectStorageService.downloadObjectBuffer(batch.file_key);
+    const file = await readFile(buffer, batch.file_name, batch.mime_type);
 
-    // 2. Read raw rows — sniff magic bytes rather than trusting MIME type.
-    //    Windows with Excel installed reports .csv files as application/vnd.ms-excel,
-    //    so MIME type alone is not reliable.
-    let readResult: ReadResult;
-    const ext = batch.file_name.split(".").pop()?.toLowerCase() ?? "";
-    const isOle2Magic =
-      buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0;
-    if (batch.mime_type === "application/pdf" || ext === "pdf") {
-      readResult = await readPdf(buffer);
-    } else if (
-      ext === "docx" ||
-      batch.mime_type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      readResult = await readDocx(buffer);
-    } else if (ext === "doc" || batch.mime_type === "application/msword") {
-      if (!isOle2Magic) {
-        // Some ".doc" files are really RTF, HTML or text saved with that name
-        readResult = await readTextDocument(
-          buffer.toString("utf8").replace(/\\[a-z]+-?\d* ?|[{}]/g, " ")
-        );
-      } else {
-        readResult = await readTextDocument(legacyDocText(buffer));
-      }
-    } else if (ext === "txt" || batch.mime_type === "text/plain") {
-      readResult = await readTxt(buffer);
-    } else {
-      const magic4 = buffer.slice(0, 4);
-      const isZip =
-        magic4[0] === 0x50 && magic4[1] === 0x4b && magic4[2] === 0x03 && magic4[3] === 0x04;
-      const isOle2 =
-        magic4[0] === 0xd0 && magic4[1] === 0xcf && magic4[2] === 0x11 && magic4[3] === 0xe0;
-
-      if (isOle2) {
-        // Legacy .xls (BIFF) — ExcelJS cannot read it; ask the user to convert
-        throw new Error(
-          "This is an older Excel file (.xls). Open it in Excel and use Save As → Excel Workbook (.xlsx), then upload again."
-        );
-      } else if (isZip) {
-        readResult = await readXlsx(buffer);
-      } else {
-        readResult = await readCsv(buffer); // CSV or any text-based fallback
-      }
-    }
-
-    const rawRows = readResult.rows;
-
-    if (rawRows.length === 0) {
+    if (file.detectedSource) {
       await db
         .update(import_batches)
-        .set({
-          status: "failed",
-          error:
-            "No transactions found in the file. A spreadsheet or table needs a header row and at least one data row; a document needs lines that start with a date and end with an amount.",
-          updated_at: new Date(),
-        })
-        .where(eq(import_batches.id, batchId));
-      return;
-    }
-
-    // 3. Find or infer column mapping
-    // Priority: (a) saved mapping, (b) header fingerprint, (c) heuristic inference
-    const headers = Object.keys(rawRows[0]);
-    const signature = readResult.headerless ? "" : computeSignature(headers);
-    const savedMapping = signature ? await lookupMapping(batch.freelancer_id, signature) : null;
-
-    let columnMap: ColumnMap;
-    if (savedMapping?.column_map) {
-      columnMap = savedMapping.column_map as ColumnMap;
-    } else if (readResult.headerless) {
-      columnMap = headerlessColumnMap(headers.length);
-    } else {
-      const fp = detectByHeaders(headers);
-      columnMap = fp ? (fp.columnMap as ColumnMap) : inferColumnMap(headers);
-    }
-
-    const categoryMap =
-      (savedMapping?.category_map as Record<string, string> | null | undefined) ?? null;
-
-    // Persist detected source on the batch if we found one
-    if (readResult.detectedSource) {
-      await db
-        .update(import_batches)
-        .set({ source: readResult.detectedSource as typeof batch.source, updated_at: new Date() })
+        .set({ source: file.detectedSource as typeof batch.source, updated_at: new Date() })
         .where(eq(import_batches.id, batchId));
     }
 
-    // 4. Detect P&L report (summary-only path) or classify transaction rows
-    const isPnL = detectProfitAndLoss(rawRows);
-    const fidelityFrom = batch.full_fidelity_from ?? null; // ISO date string or null
-    const aiExtracted = readResult.aiExtracted ?? false;
     const toInsert: (typeof import_rows.$inferInsert)[] = [];
+    let rowNumber = 0;
 
-    if (isPnL) {
-      // P&L path: each row becomes one "summary" import_row.
-      // The first column is the category name; remaining columns are period totals.
-      const cols = Object.keys(rawRows[0]);
-      const categoryCol = cols[0];
-      const periodCols = cols.slice(1);
-
-      for (let i = 0; i < rawRows.length; i++) {
-        const row = rawRows[i];
-        const categoryLabel = (row[categoryCol] ?? "").trim();
-        if (!categoryLabel || categoryLabel.match(/^(total|subtotal|grand total)/i)) continue;
-
-        for (const periodCol of periodCols) {
-          const rawAmount = (row[periodCol] ?? "").trim();
-          if (!rawAmount) continue;
-          const amountPence = parseAmountPence(rawAmount);
-          if (amountPence === null || amountPence === 0) continue;
-
-          toInsert.push({
-            batch_id: batchId,
-            row_number: i * 100 + periodCols.indexOf(periodCol) + 1,
-            raw: row,
-            parsed: {
-              description: categoryLabel,
-              period: periodCol,
-              amount_pence: amountPence,
-              category_name: categoryLabel,
-            },
-            target: "summary",
-            confidence: 70,
-            issues: null,
-            decision: "pending",
-          });
-        }
+    // P&L report: one summary line per category (totals, not transactions)
+    if (file.pnl) {
+      for (const line of file.pnl.lines) {
+        toInsert.push({
+          batch_id: batchId,
+          row_number: ++rowNumber,
+          raw: { Category: line.label, Section: line.section, Period: file.pnl.period ?? "" },
+          parsed: {
+            description: line.label,
+            period: file.pnl.period,
+            amount_pence: line.section === "expenses" ? -line.amount_pence : line.amount_pence,
+            category_name: line.label,
+          },
+          target: "summary",
+          confidence: 70,
+          issues: ["summary_total"],
+          decision: "pending",
+        });
       }
-    } else {
-      for (let i = 0; i < rawRows.length; i++) {
-        const classified = applyMapping(rawRows[i], columnMap, batch.date_format, categoryMap);
+    }
 
-        // Fidelity downgrade: rows before full_fidelity_from become "summary"
-        let target = classified.target;
-        const rowDate = classified.parsed.date ?? null;
-        if (
-          target !== "skip" &&
-          target !== null &&
-          fidelityFrom &&
-          rowDate &&
-          rowDate < fidelityFrom
-        ) {
+    const fidelityFrom = batch.full_fidelity_from ?? null;
+    const totalRows = file.segments.reduce((s, seg) => s + seg.rows.length, 0);
+
+    for (const seg of file.segments) {
+      // Column map: saved mapping > known source fingerprint > inference
+      let columnMap: ColumnMap;
+      let categoryMap: Record<string, string> | null = null;
+      if (seg.fixedMap) {
+        columnMap = seg.fixedMap;
+      } else if (seg.headerless) {
+        columnMap = inferHeaderlessMap(seg.rows);
+      } else {
+        const signature = computeSignature(seg.headers);
+        const saved = await lookupMapping(batch.freelancer_id, signature);
+        const inferred = inferColumnMap(seg.headers, seg.rows);
+        const fp = detectByHeaders(seg.headers);
+        columnMap = saved?.column_map
+          ? (saved.column_map as ColumnMap)
+          : { ...inferred, ...((fp?.columnMap as ColumnMap) ?? {}) };
+        categoryMap = (saved?.category_map as Record<string, string> | null | undefined) ?? null;
+      }
+
+      for (const raw of seg.rows) {
+        const c = classifyRow(raw, columnMap, {
+          dateHint: batch.date_format,
+          categoryMap,
+          direction: seg.direction,
+          headerless: seg.headerless,
+        });
+        let target = c.target;
+        const rowDate = c.parsed.date ?? null;
+        if (target && target !== "skip" && fidelityFrom && rowDate && rowDate < fidelityFrom) {
           target = "summary";
         }
-
-        const rowIssues = [...classified.issues];
-        if (aiExtracted) rowIssues.push("low_confidence_extraction");
+        const issues = [...c.issues];
+        if (seg.aiExtracted) issues.push("low_confidence_extraction");
+        if (seg.sheet && file.segments.length > 1) issues.push(`sheet:${seg.sheet}`);
 
         toInsert.push({
           batch_id: batchId,
-          row_number: i + 1,
-          raw: rawRows[i],
-          parsed: classified.parsed,
+          row_number: ++rowNumber,
+          raw,
+          parsed: c.parsed,
           target,
-          confidence: aiExtracted ? Math.min(classified.confidence, 50) : classified.confidence,
-          issues: rowIssues.length > 0 ? rowIssues : null,
-          decision: "pending",
+          confidence: seg.aiExtracted ? Math.min(c.confidence, 50) : c.confidence,
+          issues: issues.length ? issues : null,
+          decision: target === "skip" && issues.includes("total_row") ? "skipped" : "pending",
         });
 
-        // Update progress every 100 rows
-        if ((i + 1) % 100 === 0) {
-          const progress = Math.round(((i + 1) / rawRows.length) * 100);
+        if (rowNumber % 100 === 0) {
           await db
             .update(import_batches)
-            .set({ parse_progress: progress, updated_at: new Date() })
+            .set({
+              parse_progress: Math.round((rowNumber / Math.max(totalRows, 1)) * 100),
+              updated_at: new Date(),
+            })
             .where(eq(import_batches.id, batchId));
         }
       }
-    } // end else (non-P&L path)
+    }
 
-    // 5. Delete any rows from a previous parse attempt, then bulk-insert
+    if (toInsert.length === 0) {
+      await fail(
+        file.notTransactions ??
+          "No transactions found in the file. A spreadsheet or table needs a header row and at least one data row; a document needs lines that start with a date and end with an amount."
+      );
+      return;
+    }
+
     await db.delete(import_rows).where(eq(import_rows.batch_id, batchId));
-
-    // Insert in chunks of 500 to avoid parameter limit
     const CHUNK = 500;
     for (let i = 0; i < toInsert.length; i += CHUNK) {
       await db.insert(import_rows).values(toInsert.slice(i, i + CHUNK));
     }
 
-    // 6. Dedup check against live records and prior committed batches
     await markDuplicates(batchId, batch.freelancer_id);
 
-    // 7. Mark done
     await db
       .update(import_batches)
       .set({
         status: "review",
         parse_completed_at: new Date(),
         parse_progress: 100,
-        row_count: rawRows.length,
+        row_count: toInsert.length,
         updated_at: new Date(),
       })
       .where(eq(import_batches.id, batchId));
   } catch (err) {
-    await db
-      .update(import_batches)
-      .set({
-        status: "failed",
-        error: `Parse failed: ${String(err)}`,
-        updated_at: new Date(),
-      })
-      .where(eq(import_batches.id, batchId));
+    await fail(`Parse failed: ${String(err)}`);
     throw err;
   }
 }

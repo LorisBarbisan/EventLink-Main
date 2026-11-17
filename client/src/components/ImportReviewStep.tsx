@@ -51,6 +51,15 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Parser issue codes in words. Free-text issues pass through unchanged. */
+function issueText(code: string): string {
+  if (code === "total_row") return "Total or balance line — skipped";
+  if (code === "summary_total") return "Category total from a P&L report, not a transaction";
+  if (code === "low_confidence_extraction") return "Read from document text — check it";
+  if (code.startsWith("unmapped_category:")) return `Category not recognised: ${code.slice(18)}`;
+  return code;
+}
+
 function fmtPence(p: number | undefined): string {
   if (p === undefined || p === null) return "—";
   return `£${(Math.abs(p) / 100).toFixed(2)}`;
@@ -388,12 +397,25 @@ function ReviewTable({
                       <span className="line-clamp-1">
                         {p.description ?? Object.values(row.raw)[0] ?? "—"}
                       </span>
-                      {row.issues?.length > 0 && (
-                        <div className="mt-0.5 flex items-center gap-1 text-xs text-amber-600">
-                          <AlertTriangle className="h-3 w-3" />
-                          {row.issues[0]}
-                        </div>
-                      )}
+                      {(() => {
+                        const sheet = row.issues?.find((i) => i.startsWith("sheet:"));
+                        const issue = row.issues?.find((i) => !i.startsWith("sheet:"));
+                        return (
+                          <>
+                            {sheet && (
+                              <div className="text-xs text-muted-foreground">
+                                Sheet: {sheet.slice(6)}
+                              </div>
+                            )}
+                            {issue && (
+                              <div className="mt-0.5 flex items-center gap-1 text-xs text-amber-600">
+                                <AlertTriangle className="h-3 w-3" />
+                                {issueText(issue)}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-right font-mono">
                       <span
