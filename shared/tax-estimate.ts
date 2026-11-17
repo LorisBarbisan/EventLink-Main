@@ -1,8 +1,11 @@
 /**
  * UK self-assessment tax estimate for sole traders / freelancers.
  *
- * Covers Income Tax and Class 4 National Insurance only.
- * Class 2 NI was abolished for 2024/25 onwards.
+ * Covers Income Tax and Class 4 National Insurance.
+ * Class 2 NI: from 2024/25 nobody has to pay it. Above the Small Profits
+ * Threshold the year counts towards the State Pension automatically; below it,
+ * paying voluntary Class 2 buys that qualifying year. The estimate never adds
+ * it to the tax due, but reports what it would cost so the screen can say so.
  * Figures are for 2024/25 and later years; update `BANDS` for future years.
  *
  * All monetary values are integer pence.
@@ -24,6 +27,10 @@ export interface TaxBands {
   niUpperPence: number;
   niLowerRatePct: number; // 6% 2024/25
   niUpperRatePct: number; // 2%
+  /** Small Profits Threshold: below it, Class 2 NI is voluntary */
+  smallProfitsThresholdPence: number;
+  /** Voluntary Class 2 NI, pence per week */
+  class2WeeklyPence: number;
 }
 
 /** 2024/25 rates — update each April */
@@ -40,18 +47,25 @@ export const BANDS_2024_25: TaxBands = {
   niUpperPence: 5_027_000, // £50,270
   niLowerRatePct: 6,
   niUpperRatePct: 2,
+  smallProfitsThresholdPence: 672_500, // £6,725
+  class2WeeklyPence: 345, // £3.45
 };
 
 /** 2025/26 — same rates as 2024/25 (thresholds frozen) */
 export const BANDS_2025_26: TaxBands = {
   ...BANDS_2024_25,
   taxYear: "2025/26",
+  smallProfitsThresholdPence: 684_500, // £6,845
+  class2WeeklyPence: 350, // £3.50
 };
 
 /** 2026/27 — same rates (thresholds still frozen per current policy) */
 export const BANDS_2026_27: TaxBands = {
   ...BANDS_2024_25,
   taxYear: "2026/27",
+  // VERIFY against HMRC's published 2026/27 rates before relying on these
+  smallProfitsThresholdPence: 710_500, // £7,105
+  class2WeeklyPence: 365, // £3.65
 };
 
 const ALL_BANDS: TaxBands[] = [BANDS_2024_25, BANDS_2025_26, BANDS_2026_27];
@@ -218,6 +232,12 @@ export interface TaxEstimate {
   marriageAllowancePenceDelta: number;
   /** totalTaxPence + studentLoanTotalPence + hicbcPence */
   totalDeductionsPence: number;
+  /**
+   * Voluntary Class 2 NI. Set only when profit is below the Small Profits
+   * Threshold: what a year of voluntary contributions would cost. Never part
+   * of totalTaxPence — it is a choice, not a liability.
+   */
+  class2Voluntary: { annualPence: number; weeklyPence: number; thresholdPence: number } | null;
 }
 
 function bandTax(profit: number, lower: number, upper: number, ratePct: number): TaxBand | null {
@@ -491,5 +511,13 @@ export function estimateTax(
     hicbcPence,
     marriageAllowancePenceDelta,
     totalDeductionsPence: totalTaxPence + studentLoanTotalPence + hicbcPence,
+    class2Voluntary:
+      profit < bands.smallProfitsThresholdPence
+        ? {
+            annualPence: bands.class2WeeklyPence * 52,
+            weeklyPence: bands.class2WeeklyPence,
+            thresholdPence: bands.smallProfitsThresholdPence,
+          }
+        : null,
   };
 }

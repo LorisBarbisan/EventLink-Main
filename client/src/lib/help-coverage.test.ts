@@ -44,9 +44,8 @@ const NOT_YET: Record<string, string> = {
   "books.job.detail": "Job Record epic: the detail panel it describes is not built",
   "books.job.linkExpense": "Job Record epic, PR 2",
   "books.job.overtime": "Job Record epic",
-  "tax.class2": "decision pending: split the NI line in the estimate, or retire",
-  "tax.class4": "decision pending: split the NI line in the estimate, or retire",
-  "tax.tradingAllowance": "decision pending: show it in the estimate, or retire",
+  "tax.tradingAllowance":
+    "the estimate never applies the £1,000 allowance; showing it needs it offered as an option",
   "form.profile.day_rate": "decision pending: the profile form has no day rate field",
   "jobs.filter.radius": "decision pending: job search has no distance filter",
 };

@@ -2555,6 +2555,7 @@ interface TaxEstimateData {
   niBands: TaxBand[];
   niTotalPence: number;
   totalTaxPence: number;
+  class2Voluntary?: { annualPence: number; weeklyPence: number; thresholdPence: number } | null;
   effectiveRatePct: number;
   paymentSchedule: PaymentSchedule;
   studentLoanRepayments: Array<{
@@ -3230,6 +3231,38 @@ function OverviewSection({
                     −{formatPence(taxData.totalTaxPence)}
                   </span>
                 </div>
+                {/* What the estimate is made of: Income Tax and Class 4 NI */}
+                <div className="flex items-baseline justify-between bg-slate-50/60 py-1.5 pl-9 pr-5 dark:bg-slate-900/20">
+                  <p className="text-xs text-muted-foreground">Income Tax</p>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {formatPence(taxData.incomeTaxTotalPence)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between bg-slate-50/60 py-1.5 pl-9 pr-5 dark:bg-slate-900/20">
+                  <p data-help="tax.class4" className="text-xs text-muted-foreground">
+                    Class 4 National Insurance
+                  </p>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {formatPence(taxData.niTotalPence)}
+                  </span>
+                </div>
+                {taxData.class2Voluntary && (
+                  <div className="bg-sky-50 px-5 py-2.5 dark:bg-sky-950/30">
+                    <p
+                      data-help="tax.class2"
+                      className="text-sm font-medium text-sky-900 dark:text-sky-200"
+                    >
+                      Class 2 National Insurance — optional this year
+                    </p>
+                    <p className="text-xs text-sky-800 dark:text-sky-300">
+                      Your profit is below {formatPence(taxData.class2Voluntary.thresholdPence)}, so
+                      this year won&apos;t count towards your State Pension unless you pay voluntary
+                      Class 2: about {formatPence(taxData.class2Voluntary.annualPence)} for the year
+                      ({formatPence(taxData.class2Voluntary.weeklyPence)} a week). It is not
+                      included in the estimate above.
+                    </p>
+                  </div>
+                )}
                 {taxData.studentLoanRepayments.map((r) => (
                   <div
                     key={r.plan}
