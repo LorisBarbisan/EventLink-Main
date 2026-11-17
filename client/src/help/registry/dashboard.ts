@@ -86,13 +86,6 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
-    key: "dashboard.tab.myJobs",
-    scope: "feature",
-    body: "The jobs you have applied to, with their status and any messages.",
-    audience: ["freelancer"],
-    version: 1,
-  },
-  {
     key: "dashboard.tab.freelancerApplications",
     scope: "feature",
     body: "The jobs you've applied to, with their status and any messages.",

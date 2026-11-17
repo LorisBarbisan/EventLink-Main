@@ -438,9 +438,10 @@ const entries: HelpEntry[] = [
   {
     key: "books.import.columnMapping",
     scope: "feature",
-    body: "Tell us which column holds what and we'll remember it for the next file from the same source.",
+    title: "Columns are read for you",
+    body: "We read your file's column headers automatically — date, description, amount, who it was with — so there is nothing to map. Check the rows on the next screen.",
     audience: ["freelancer"],
-    version: 1,
+    version: 2,
     detail: {
       manualOrder: 20,
     },

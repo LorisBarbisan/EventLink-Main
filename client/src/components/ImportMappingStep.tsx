@@ -63,7 +63,9 @@ export function ImportMappingStep({ batch, onDone }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold">Configure import</h3>
+        <h3 className="text-lg font-semibold" data-help="books.import.columnMapping">
+          Configure import
+        </h3>
         <p className="text-sm text-muted-foreground">
           Tell the parser how dates are formatted in your file. Column headers are detected
           automatically.

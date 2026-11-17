@@ -48,8 +48,6 @@ const NOT_YET: Record<string, string> = {
   "tax.class4": "decision pending: split the NI line in the estimate, or retire",
   "tax.tradingAllowance": "decision pending: show it in the estimate, or retire",
   "form.profile.day_rate": "decision pending: the profile form has no day rate field",
-  "books.import.columnMapping": "decision pending: import has no column-mapping step",
-  "dashboard.tab.myJobs": "decision pending: duplicates dashboard.tab.freelancerApplications",
   "jobs.filter.radius": "decision pending: job search has no distance filter",
 };
 
