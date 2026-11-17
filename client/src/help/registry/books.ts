@@ -74,12 +74,7 @@ const entries: HelpEntry[] = [
     detail: {
       manualOrder: 20,
       paragraphs: [
-        "Sync looks at every EventLink booking you've been hired for and makes sure each one has an earnings line. Bookings that are missing one get it, lines whose job has finished move on to the right status, and anything already in order is left alone.",
-        "It runs by itself when you open Books and a past booking has no line, so most of the time you won't need it. Press it if something you know you worked isn't showing.",
-      ],
-      canDo: ["Run it as often as you like — it never creates a second line for the same booking"],
-      cannotDo: [
-        "Bring in work booked outside EventLink — add that yourself, or use Import for a batch",
+        "Sync looks at every EventLink booking you've been hired for and makes sure each one is accounted for.",
       ],
       seeAlso: ["books.earnings.addJob"],
     },
