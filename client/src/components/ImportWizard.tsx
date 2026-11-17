@@ -289,6 +289,37 @@ function mimeFor(file: File): string {
   return file.type;
 }
 
+/**
+ * Read a picked file as base64. Uses file.arrayBuffer() (one attempt, then one
+ * retry) rather than FileReader.readAsDataURL, and reports the browser's own
+ * reason if both fail, so a failure can be diagnosed.
+ */
+async function readAsBase64(file: File): Promise<string> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
+      }
+      return btoa(binary);
+    } catch (err) {
+      lastError = err;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+  const reason =
+    lastError instanceof DOMException || lastError instanceof Error
+      ? `${lastError.name}: ${lastError.message}`
+      : String(lastError);
+  console.error("[import] could not read the picked file:", lastError);
+  throw new Error(
+    `Your browser couldn't read "${file.name}" (${reason}). Pick the file again; if it keeps happening, copy it to your Desktop and upload the copy.`
+  );
+}
+
 function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }) {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -296,20 +327,7 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
 
   const { mutate: upload, isPending } = useMutation<ImportBatch, Error, File>({
     mutationFn: async (file: File) => {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
-        // The browser gives no message of its own here. The usual causes are the
-        // file being open in Excel, saved again after it was picked, or a
-        // OneDrive file that is online-only.
-        reader.onerror = () =>
-          reject(
-            new Error(
-              "Your browser couldn't read the file. If it's open in Excel, close it and try again; if it's in OneDrive, make sure it's downloaded to this computer."
-            )
-          );
-        reader.readAsDataURL(file);
-      });
+      const base64 = await readAsBase64(file);
       if (!base64) throw new Error("The file is empty.");
       return apiRequest("/api/imports", {
         method: "POST",
