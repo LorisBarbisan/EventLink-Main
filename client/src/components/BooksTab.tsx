@@ -3742,6 +3742,11 @@ export function BooksTab() {
     } catch {
       /* sessionStorage unavailable */
     }
+    // Keep the section in the address so a refresh (F5) or bookmark returns here.
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "books");
+    url.searchParams.set("section", s);
+    window.history.replaceState(window.history.state, "", url.toString());
     setSectionRaw(s);
   };
   useEffect(() => {

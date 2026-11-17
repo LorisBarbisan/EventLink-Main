@@ -507,6 +507,8 @@ export default function SimplifiedFreelancerDashboard() {
       url.searchParams.delete("conversationId");
       url.searchParams.delete("recipientId");
     }
+    // A Books section only means something on the Books tab.
+    if (tab !== "books") url.searchParams.delete("section");
     window.history.pushState({}, "", url.toString());
 
     // Mark category notifications as read when tab is opened
