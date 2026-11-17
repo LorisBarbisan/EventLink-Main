@@ -3,6 +3,8 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { HelpCtx } from "./HelpProvider";
 import { manualStore, useManual } from "./manualStore";
 import type { HelpEntry } from "./types";
+import { useHelpSettings } from "./useHelp";
+import { Switch } from "@/components/ui/switch";
 
 const OVERVIEW_LABEL = "What this section is for";
 
@@ -12,8 +14,37 @@ function humanise(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** Opens and closes the manual pane. Desktop only, like the pane itself. */
+/**
+ * Turns the hover tips ("talking clouds") on and off from where they are used.
+ * Same setting as Notification Settings › Tips and explanations; turning it
+ * back on restores the full mode.
+ */
+function TipsSwitch() {
+  const { available, mode, setMode } = useHelpSettings();
+  if (!available) return null;
+  const on = mode !== "off";
+  return (
+    <label
+      className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-muted-foreground"
+      title={on ? "Hide the tips that appear when you hover" : "Show tips when you hover"}
+    >
+      <Switch checked={on} onCheckedChange={(v) => setMode(v ? "full" : "off")} aria-label="Tips" />
+      Tips
+    </label>
+  );
+}
+
+/** Opens and closes the manual pane (desktop only, like the pane), with the tips switch beside it. */
 export function ManualToggle() {
+  return (
+    <div className="flex shrink-0 items-center gap-3">
+      <TipsSwitch />
+      <ManualButton />
+    </div>
+  );
+}
+
+function ManualButton() {
   const { open } = useManual();
   return (
     <button
