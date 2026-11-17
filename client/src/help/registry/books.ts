@@ -158,20 +158,31 @@ const entries: HelpEntry[] = [
     key: "books.section.kit",
     scope: "feature",
     title: "Kit register",
-    body: "A list of your owned equipment with purchase value, so you can claim depreciation and prove ownership.",
+    body: "Your equipment, for insurance and proof of ownership. A purchase counts towards your tax through its linked expense.",
     audience: ["freelancer"],
     priority: 5,
     oncePerUser: true,
     minVisits: 4,
     maxVisits: 12,
-    version: 1,
+    version: 2,
+    detail: {
+      paragraphs: [
+        "The kit register is a list of what you own, not a tax calculation. It exists so you can prove a piece of equipment is yours and business kit — for an insurance claim, for a hire company, or for HMRC asking what a payment was for.",
+        "Equipment does not depreciate for tax in the UK. Under cash basis you deduct what you paid in the year you paid it, as an ordinary expense, so the deduction comes from the expense record rather than from this list. That is why an item here shows whether it has an expense linked to it.",
+        "Vehicles are the exception and are handled separately.",
+      ],
+      seeAlso: ["books.kit.addItem", "books.kit.recordExpense"],
+    },
   },
   {
     key: "books.kit.addItem",
     scope: "action",
-    body: "Add a piece of kit with its purchase price — used to calculate your annual depreciation allowance.",
+    body: "Add a piece of kit with what you paid for it, so you can prove it is yours and link it to the expense.",
     audience: ["freelancer"],
-    version: 1,
+    version: 2,
+    detail: {
+      manualOrder: 10,
+    },
   },
 
   // ── Invoices ───────────────────────────────────────────────────────────────
@@ -426,6 +437,9 @@ const entries: HelpEntry[] = [
     body: "03/04/2026 could be March or April depending on where the file came from, so we'd rather you told us than guessed wrong.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 10,
+    },
   },
   {
     key: "books.import.columnMapping",
@@ -433,6 +447,9 @@ const entries: HelpEntry[] = [
     body: "Tell us which column holds what and we'll remember it for the next file from the same source.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 20,
+    },
   },
   {
     key: "books.import.review",
@@ -441,6 +458,9 @@ const entries: HelpEntry[] = [
     body: "Nothing is saved until you confirm, and anything we weren't sure about is flagged for you to look at.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 30,
+    },
   },
 
   // ── Exports ────────────────────────────────────────────────────────────────
@@ -449,9 +469,16 @@ const entries: HelpEntry[] = [
     key: "books.export.workbook",
     scope: "action",
     title: "Year-end pack",
-    body: "An Excel workbook with a sheet for each of your records — the thing to send your accountant.",
+    body: "An Excel workbook with a summary, your HMRC quarters and a sheet per record type — the thing to send your accountant.",
     audience: ["freelancer"],
-    version: 1,
+    version: 2,
+    detail: {
+      paragraphs: [
+        "The pack opens on a summary of the tax year, followed by a sheet showing each MTD quarter and the year to date, then one sheet for each kind of record you keep: earnings, expenses, mileage, invoices and kit.",
+        "The quarters sheet counts income by the date you were paid, not the date you worked. A quarter can therefore show less than the earnings sheet suggests for the same months, and work still waiting to be paid does not appear in it at all.",
+        "There are no formulas anywhere in the file, so it opens the same way in Excel, Numbers, LibreOffice or Google Sheets, and you or your accountant can edit it without breaking anything.",
+      ],
+    },
   },
 
   // ── Invoices: correction ───────────────────────────────────────────────────
@@ -463,6 +490,124 @@ const entries: HelpEntry[] = [
     body: "Cancels the original and opens a copy you can fix, so your client's records and yours stay in step.",
     audience: ["freelancer"],
     version: 1,
+  },
+
+  // ── Kit linkage and undoing things (help registry update 2) ──────────────] = [
+  // ── Kit ────────────────────────────────────────────────────────────────────
+
+  {
+    key: "books.kit.recordExpense",
+    scope: "action",
+    title: "Recording it as an expense",
+    body: "Adds the purchase to your expenses so it counts towards your tax — the kit list alone does not.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 20,
+      paragraphs: [
+        "Adding something to your kit register records that you own it. It does not record that you paid for it, and the two are separate on purpose: plenty of kit was a gift, came with a van, or was bought years before you went freelance.",
+        'So when you add an item you bought, with a purchase price and a date, you are offered the matching expense in one click. Accept it and the expense is created and linked, and the item shows it has been recorded. Choose "No, already recorded" and you are not asked again — the right answer if you already entered the expense from the receipt, and the reason you are asked rather than told.',
+        "Vehicles are deliberately left out of this. A car is not an ordinary expense: it usually goes through capital allowances, spread over several years at a rate that depends on its emissions, and claiming the full price in one year would normally overstate your deduction. Vans are treated differently and are often deductible outright. Because it depends on the vehicle, EventLink does not offer either as an expense — check with your accountant how to record it.",
+      ],
+      canDo: [
+        "Mark a purchase as already recorded, so it is not entered twice",
+        "See at a glance which kit has an expense behind it and which does not",
+      ],
+      cannotDo: [
+        "Create the expense twice — once an item is linked or you have said no, you are not asked again",
+        "Record a car or van this way",
+      ],
+      seeAlso: ["books.section.kit", "books.kit.sold"],
+    },
+  },
+  {
+    key: "books.kit.sold",
+    scope: "action",
+    body: "Records what you sold it for, which counts as income if you claimed the purchase.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 30,
+    },
+  },
+
+  // ── Earnings ───────────────────────────────────────────────────────────────
+
+  {
+    key: "books.earnings.filterOrigin",
+    scope: "field",
+    body: "Narrows the list to EventLink jobs, records you imported, or ones you added yourself.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 60,
+    },
+  },
+
+  // ── Import ─────────────────────────────────────────────────────────────────
+
+  {
+    key: "books.import.rollback",
+    scope: "action",
+    title: "Rolling an import back",
+    body: "Removes everything that import created and nothing else — recoverable for 30 days.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 40,
+      paragraphs: [
+        "Every record an import creates is remembered against the file that created it, so rolling back takes out exactly those records and leaves everything else standing. Work you added by hand, EventLink bookings and anything from a different import are untouched.",
+        "Before it happens you are told how many records will go, and — the part worth reading — how many of them you have edited since the import. Those are the ones carrying work the file never had: an amount you corrected, a receipt you attached, a job you linked. Rolling back takes that with them, which is usually a reason to fix the records rather than remove them.",
+        "Nothing is destroyed straight away. Rolled-back records move to Recently removed and stay there for 30 days, so anything you took back by mistake can be restored rather than re-imported. After 30 days they are deleted for good.",
+        "You can also download the affected records as a spreadsheet first, which is worth doing if you are not certain.",
+      ],
+      canDo: [
+        "Roll back an import weeks later — the file stays in your import history",
+        "Restore its records within 30 days if you change your mind",
+        "Download the records before they go",
+      ],
+      cannotDo: [
+        "Roll back part of an import — it is all of that file or none of it",
+        "Recover a rolled-back import after 30 days",
+      ],
+      seeAlso: ["books.import.removed", "books.import.startAgain"],
+    },
+  },
+  {
+    key: "books.import.removed",
+    scope: "feature",
+    body: "Records taken out in the last 30 days, with what removed them — restore any of them from here.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 50,
+    },
+  },
+  {
+    key: "books.import.startAgain",
+    scope: "action",
+    title: "Starting your books again",
+    body: "Clears your records so you can begin from scratch — your EventLink work can be kept.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 60,
+      paragraphs: [
+        "For when the problem is not one bad import but the state of everything. You choose how much of your earnings and expenses goes: everything; everything except your EventLink work; or only records that came from imports. Mileage, invoices and kit are not touched.",
+        "The middle option is the usual one. Work booked through EventLink is the only part of your books the platform can rebuild for you, so keeping it costs you nothing and losing it means re-entering jobs that are still sitting in your bookings. Everything else was typed or imported, and only you have the original.",
+        "As with a rollback, nothing is destroyed straight away — records move to Recently removed for 30 days. You are offered a workbook of everything first, and the confirmation asks you to type the word rather than click, because this is the one action in Books that touches records you have not looked at.",
+      ],
+      canDo: [
+        "Keep your EventLink jobs and clear everything else",
+        "Clear only what you imported and keep what you typed",
+        "Download a full workbook before anything is cleared",
+      ],
+      cannotDo: [
+        "Clear a single tab in isolation — remove those records from the tab itself",
+        "Undo it after 30 days",
+      ],
+      seeAlso: ["books.import.rollback", "books.import.removed"],
+    },
   },
 ];
 

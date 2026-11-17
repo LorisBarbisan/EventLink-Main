@@ -1250,7 +1250,10 @@ function ExpensesSection() {
                   value={originFilter}
                   onValueChange={(v) => setOriginFilter(v as OriginFilter)}
                 >
-                  <SelectTrigger className="h-6 w-32 border-amber-200 bg-white/90 text-xs text-amber-900">
+                  <SelectTrigger
+                    data-help="books.earnings.filterOrigin"
+                    className="h-6 w-32 border-amber-200 bg-white/90 text-xs text-amber-900"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -5061,6 +5064,7 @@ export function BooksTab() {
                     onValueChange={(v) => setEarningsOrigin(v as OriginFilter)}
                   >
                     <SelectTrigger
+                      data-help="books.earnings.filterOrigin"
                       className="h-6 w-32 text-xs"
                       onClick={(e) => e.stopPropagation()}
                     >

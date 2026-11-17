@@ -17,7 +17,8 @@ export interface HelpContext {
 
 /** Long-form guidance for the manual pane. Plain text only — never rendered as HTML. */
 export interface HelpDetail {
-  paragraphs: string[];
+  /** Long-form manual text. Omit when the entry only needs a place in the order. */
+  paragraphs?: string[];
   canDo?: string[];
   cannotDo?: string[];
   /** Other help keys. */

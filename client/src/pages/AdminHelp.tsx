@@ -56,7 +56,7 @@ function DetailText({ detail }: { detail?: HelpDetail | null }) {
   if (!detail) return null;
   return (
     <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-      {detail.paragraphs.map((p, i) => (
+      {(detail.paragraphs ?? []).map((p, i) => (
         <p key={i}>{p}</p>
       ))}
       {!!detail.canDo?.length && <p>You can: {detail.canDo.join(" · ")}</p>}

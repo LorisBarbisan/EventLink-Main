@@ -225,6 +225,7 @@ function HistoryList({
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs"
+                        data-help="books.import.rollback"
                         onClick={(e) => {
                           e.stopPropagation();
                           setRollingBack(b);

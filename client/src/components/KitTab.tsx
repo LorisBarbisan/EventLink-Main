@@ -534,7 +534,12 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
             expense on {longDate(item.purchase_date!)} so it counts towards your tax?
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => addExpense.mutate()} disabled={addExpense.isPending}>
+            <Button
+              size="sm"
+              data-help="books.kit.recordExpense"
+              onClick={() => addExpense.mutate()}
+              disabled={addExpense.isPending}
+            >
               Yes, add it
             </Button>
             <Button
@@ -611,6 +616,7 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
+            data-help="books.kit.sold"
             onClick={() => setSelling(true)}
           >
             Sold it?
@@ -843,7 +849,9 @@ export function KitTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">Kit register</h3>
+          <h3 className="text-sm font-medium" data-help="books.section.kit">
+            Kit register
+          </h3>
           {items.length > 0 && (
             <Badge variant="outline" className="text-xs">
               {items.length} item{items.length !== 1 ? "s" : ""}
@@ -860,7 +868,7 @@ export function KitTab() {
             />
             Show disposed
           </label>
-          <Button size="sm" onClick={() => setShowAdd(true)}>
+          <Button size="sm" data-help="books.kit.addItem" onClick={() => setShowAdd(true)}>
             <Plus className="mr-1 h-3 w-3" />
             Add item
           </Button>

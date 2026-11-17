@@ -53,6 +53,7 @@ export function RecentlyRemoved({ table }: { table: "earnings" | "expenses" }) {
     <div className="rounded-lg border">
       <button
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm"
+        data-help="books.import.removed"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >

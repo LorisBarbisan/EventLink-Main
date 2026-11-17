@@ -120,7 +120,11 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
         <SummaryCard batch={batch} />
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button variant="outline" onClick={() => setConfirmRollback(true)}>
+          <Button
+            variant="outline"
+            data-help="books.import.rollback"
+            onClick={() => setConfirmRollback(true)}
+          >
             <Undo2 className="mr-2 h-4 w-4" />
             Roll back import
           </Button>

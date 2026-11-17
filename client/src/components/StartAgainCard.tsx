@@ -107,6 +107,7 @@ export function StartAgainCard() {
     <Card>
       <button
         className="flex w-full items-center gap-2 px-5 py-3 text-left"
+        data-help="books.import.startAgain"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >

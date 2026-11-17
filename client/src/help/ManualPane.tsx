@@ -203,7 +203,7 @@ export function ManualPane() {
                   <h3 className="mb-1.5 text-sm font-semibold">{titleOf(c)}</h3>
                   <div className="space-y-2 text-sm leading-relaxed text-foreground/90">
                     <p>{c.body}</p>
-                    {c.detail?.paragraphs.map((p, i) => (
+                    {c.detail?.paragraphs?.map((p, i) => (
                       <p key={i}>{p}</p>
                     ))}
                   </div>
