@@ -1,3 +1,4 @@
+import { normaliseRecordWrite } from "@shared/record-writes";
 import {
   contact_messages,
   conversations,
@@ -7118,7 +7119,7 @@ export class DatabaseStorage implements IStorage {
         // Column not yet migrated — insert without job_ref
       }
     }
-    const [row] = await db.insert(earnings_entries).values(data).returning();
+    const [row] = await db.insert(earnings_entries).values(normaliseRecordWrite(data)).returning();
     return row;
   }
 
@@ -7128,7 +7129,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<EarningsEntry | undefined> {
     const [row] = await db
       .update(earnings_entries)
-      .set({ ...data, updated_at: new Date() })
+      .set({ ...normaliseRecordWrite(data), updated_at: new Date() })
       .where(eq(earnings_entries.id, id))
       .returning();
     return row;
@@ -7425,7 +7426,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createExpense(data: InsertExpense): Promise<Expense> {
-    const [row] = await db.insert(expenses).values(data).returning();
+    const [row] = await db.insert(expenses).values(normaliseRecordWrite(data)).returning();
     return row;
   }
 
@@ -7436,7 +7437,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<Expense | undefined> {
     const [row] = await db
       .update(expenses)
-      .set({ ...data, updated_at: new Date() })
+      .set({ ...normaliseRecordWrite(data), updated_at: new Date() })
       .where(and(eq(expenses.id, id), eq(expenses.freelancer_id, freelancerId)))
       .returning();
     return row;

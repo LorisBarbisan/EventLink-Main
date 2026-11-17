@@ -20,7 +20,7 @@ export interface ExpenseLike {
 }
 
 export function isBooksCurrency(currency: string | null | undefined): boolean {
-  return (currency ?? BOOKS_CURRENCY).toUpperCase() === BOOKS_CURRENCY;
+  return ((currency ?? "").trim() || BOOKS_CURRENCY).toUpperCase() === BOOKS_CURRENCY;
 }
 
 /** Pence this expense contributes to the books' totals (0 if not counted). */
