@@ -276,6 +276,19 @@ const ACCEPTED_TYPES = [
   "application/pdf",
 ];
 
+/**
+ * The browser's MIME type, falling back to the extension: Windows often
+ * reports none for .csv (or application/vnd.ms-excel when Excel is installed).
+ */
+function mimeFor(file: File): string {
+  if (file.type && ACCEPTED_TYPES.includes(file.type)) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (ext === "csv") return "text/csv";
+  if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (ext === "pdf") return "application/pdf";
+  return file.type;
+}
+
 function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }) {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -285,13 +298,26 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
     mutationFn: async (file: File) => {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
+        reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+        // The browser gives no message of its own here. The usual causes are the
+        // file being open in Excel, saved again after it was picked, or a
+        // OneDrive file that is online-only.
+        reader.onerror = () =>
+          reject(
+            new Error(
+              "Your browser couldn't read the file. If it's open in Excel, close it and try again; if it's in OneDrive, make sure it's downloaded to this computer."
+            )
+          );
         reader.readAsDataURL(file);
       });
+      if (!base64) throw new Error("The file is empty.");
       return apiRequest("/api/imports", {
         method: "POST",
-        body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileData: base64 }),
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: mimeFor(file),
+          fileData: base64,
+        }),
       });
     },
     onSuccess: (batch) => onUploaded(batch),
@@ -302,7 +328,7 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
   const handleFiles = (files: FileList | null) => {
     if (!files?.length) return;
     const file = files[0];
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    if (!ACCEPTED_TYPES.includes(mimeFor(file))) {
       toast({
         title: "Unsupported file type",
         description: "Please upload a CSV, Excel (.xlsx) or PDF file.",
@@ -365,7 +391,12 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
         type="file"
         accept={ACCEPTED}
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          // Clear it, or picking the same file again (e.g. after closing it in
+          // Excel) fires no change event.
+          e.target.value = "";
+        }}
       />
     </div>
   );
