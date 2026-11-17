@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -323,6 +323,12 @@ async function readAsBase64(file: File): Promise<string> {
 function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }) {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // New import opens the file picker straight away; the drop zone stays as
+  // the fallback if the picker is cancelled or for drag and drop.
+  useEffect(() => {
+    fileRef.current?.click();
+  }, []);
   const { toast } = useToast();
 
   const { mutate: upload, isPending } = useMutation<ImportBatch, Error, File>({
