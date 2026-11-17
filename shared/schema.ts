@@ -1623,6 +1623,8 @@ export const kit_items = pgTable(
     // values never feed totals directly. Migration 0037.
     expense_id: integer("expense_id").references(() => expenses.id, { onDelete: "set null" }),
     expense_prompt_dismissed: boolean("expense_prompt_dismissed").notNull().default(false),
+    // "No, already recorded" on the sale offer (migration 0039)
+    disposal_prompt_dismissed: boolean("disposal_prompt_dismissed").notNull().default(false),
     disposal_entry_id: integer("disposal_entry_id").references(() => earnings_entries.id, {
       onDelete: "set null",
     }),

@@ -22,6 +22,8 @@ export interface KitTaxFields {
   disposal_date: string | null;
   disposal_proceeds_pence: number | null;
   disposal_entry_id: number | null;
+  /** Optional so older callers compile; treated as false when absent. */
+  disposal_prompt_dismissed?: boolean;
 }
 
 /**
@@ -52,5 +54,6 @@ export function kitDisposalOffer(item: KitTaxFields): KitDisposalOffer {
     return "none";
   }
   if (item.category === "vehicle") return "vehicle";
+  if (item.disposal_prompt_dismissed) return "none";
   return "offer";
 }

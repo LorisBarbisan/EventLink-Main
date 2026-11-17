@@ -77,6 +77,7 @@ interface KitItem {
   expense_id: number | null;
   expense_prompt_dismissed: boolean;
   disposal_entry_id: number | null;
+  disposal_prompt_dismissed?: boolean;
   archived: boolean;
   files?: KitItemFile[];
 }
@@ -495,6 +496,10 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
     mutationFn: () => post("dismiss-expense-prompt"),
     onSuccess: refresh,
   });
+  const dismissSale = useMutation({
+    mutationFn: () => post("dismiss-disposal-prompt"),
+    onSuccess: refresh,
+  });
   const addIncome = useMutation({
     mutationFn: () => post("record-disposal"),
     onSuccess: () => {
@@ -570,9 +575,19 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
             income on {longDate(item.disposal_date!)}? Selling kit you claimed as an expense is
             taxable.
           </p>
-          <Button size="sm" onClick={() => addIncome.mutate()} disabled={addIncome.isPending}>
-            Yes, add it
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => addIncome.mutate()} disabled={addIncome.isPending}>
+              Yes, add it
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => dismissSale.mutate()}
+              disabled={dismissSale.isPending}
+            >
+              No, already recorded
+            </Button>
+          </div>
         </div>
       )}
       {disposal === "linked" && (

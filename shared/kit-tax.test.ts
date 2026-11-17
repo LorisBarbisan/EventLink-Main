@@ -47,6 +47,10 @@ describe("kitDisposalOffer", () => {
     disposal_proceeds_pence: 15000,
   };
 
+  it("stops offering once answered 'already recorded'", () => {
+    expect(kitDisposalOffer({ ...sold, disposal_prompt_dismissed: true })).toBe("none");
+  });
+
   it("offers proceeds from a sale as income", () => {
     expect(kitDisposalOffer(sold)).toBe("offer");
     expect(kitDisposalOffer({ ...sold, disposal_entry_id: 9 })).toBe("linked");

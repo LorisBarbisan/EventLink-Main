@@ -201,7 +201,8 @@ export async function recordKitDisposal(req: Request, res: Response) {
   try {
     const item = await ownedItem(req, res);
     if (!item) return;
-    const offer = kitDisposalOffer(item);
+    // Ignore an earlier "No, already recorded": recording it later is still allowed.
+    const offer = kitDisposalOffer({ ...item, disposal_prompt_dismissed: false });
     if (offer === "vehicle") {
       return res.status(422).json({
         error: "Vehicle sales go through capital allowances, not ordinary income.",
@@ -234,6 +235,18 @@ export async function recordKitDisposal(req: Request, res: Response) {
     return res.status(201).json({ item: updated, entry });
   } catch (err) {
     console.error("recordKitDisposal error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function dismissKitDisposalPrompt(req: Request, res: Response) {
+  try {
+    const item = await ownedItem(req, res);
+    if (!item) return;
+    const updated = await storage.updateKitItem(item.id, { disposal_prompt_dismissed: true });
+    return res.json(updated);
+  } catch (err) {
+    console.error("dismissKitDisposalPrompt error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
