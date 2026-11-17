@@ -2489,6 +2489,8 @@ interface BooksSummary {
   mileage_trip_count: number;
   overdue_count: number;
   overdue_pence: number;
+  other_currency_earnings?: number;
+  other_currency_expenses?: number;
 }
 
 interface MonthlyRow {
@@ -3021,6 +3023,36 @@ function OverviewSection() {
           </div>
         </div>
       )}
+
+      {/* ── Other currencies: left out of every total, and said so ── */}
+      {data &&
+        (data.other_currency_earnings ?? 0) + (data.other_currency_expenses ?? 0) > 0 &&
+        (() => {
+          const n = (data.other_currency_earnings ?? 0) + (data.other_currency_expenses ?? 0);
+          const parts = [
+            data.other_currency_earnings
+              ? `${data.other_currency_earnings} ${data.other_currency_earnings === 1 ? "earning" : "earnings"}`
+              : null,
+            data.other_currency_expenses
+              ? `${data.other_currency_expenses} ${data.other_currency_expenses === 1 ? "expense" : "expenses"}`
+              : null,
+          ].filter(Boolean);
+          return (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  {n} {n === 1 ? "record" : "records"} in other currencies {n === 1 ? "is" : "are"}{" "}
+                  not included ({parts.join(", ")})
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Totals and the tax estimate are in pounds. Record the sterling amount that reached
+                  or left your bank, so these count.
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* ── P&L bar chart ── */}
       {chartMonths.length > 0 && (

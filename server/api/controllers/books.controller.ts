@@ -10,6 +10,11 @@ import {
   STUDENT_LOAN_PLANS,
 } from "@shared/tax-estimate";
 import {
+  sumAllowableExpenses,
+  allowableExpensePence,
+  isBooksCurrency,
+} from "@shared/expense-totals";
+import {
   createWorkbook,
   addTypedSheet,
   addSummarySheet,
@@ -81,11 +86,8 @@ export async function booksSummary(req: Request, res: Response) {
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
 
-    const expenseAllowablePence = expensesData.reduce((sum, e) => {
-      if (!e.allowable) return sum;
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      return sum + Math.round((total * e.business_use_percent) / 100);
-    }, 0);
+    const expenseTotals = sumAllowableExpenses(expensesData);
+    const expenseAllowablePence = expenseTotals.pence;
 
     const expenseCount = expensesData.length;
     const mileageTripCount = (await storage.listMileageTrips(freelancerId, from, to)).length;
@@ -104,6 +106,9 @@ export async function booksSummary(req: Request, res: Response) {
       mileage_trip_count: mileageTripCount,
       overdue_count: overdueData.count,
       overdue_pence: overdueData.total_pence,
+      // Records left out of every total because they are not in sterling
+      other_currency_earnings: earnings.excluded.other_currency,
+      other_currency_expenses: expenseTotals.otherCurrency,
     });
   } catch (err) {
     console.error("booksSummary error:", err);
@@ -125,8 +130,7 @@ export async function booksExport(req: Request, res: Response) {
 
     // Section 1: Expenses
     const expenseRows = expenses.map((e) => {
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = Math.round((total * e.business_use_percent) / 100);
+      const allowable = allowableExpensePence(e);
       return [
         "expense",
         dateToCsvDate(e.expense_date),
@@ -239,9 +243,7 @@ export async function booksMonthly(req: Request, res: Response) {
     const expensesMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const m = e.expense_date.slice(0, 7);
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = Math.round((total * e.business_use_percent) / 100);
-      expensesMap[m] = (expensesMap[m] ?? 0) + allowable;
+      expensesMap[m] = (expensesMap[m] ?? 0) + allowableExpensePence(e);
     }
 
     // Mileage per month
@@ -281,9 +283,7 @@ export async function booksExpenseCategories(req: Request, res: Response) {
     const catMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const cat = e.category_name ?? "Other";
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = Math.round((total * e.business_use_percent) / 100);
-      catMap[cat] = (catMap[cat] ?? 0) + allowable;
+      catMap[cat] = (catMap[cat] ?? 0) + allowableExpensePence(e);
     }
 
     const categories = Object.entries(catMap)
@@ -317,11 +317,7 @@ export async function taxEstimate(req: Request, res: Response) {
     ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence;
-    const expenseAllowablePence = expensesData.reduce((sum, e) => {
-      if (!e.allowable) return sum;
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      return sum + Math.round((total * e.business_use_percent) / 100);
-    }, 0);
+    const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
 
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
 
@@ -403,11 +399,7 @@ export async function booksQuarterly(req: Request, res: Response) {
           storage.sumMileagePence(freelancerId, q.from, q.to),
         ]);
         const earningsPence = earnings.total_pence - earnings.deductions_pence;
-        const expenseAllowablePence = expensesData.reduce((sum, e) => {
-          if (!e.allowable) return sum;
-          const total = e.net_amount_pence + e.vat_amount_pence;
-          return sum + Math.round((total * e.business_use_percent) / 100);
-        }, 0);
+        const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
         return {
           quarter: q.quarter,
           label: q.label,
@@ -528,9 +520,13 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       const paidInRange = e.paid_date && e.paid_date >= from && e.paid_date <= to;
       return workInRange || paidInRange;
     });
-    const cashEntries = filteredEntries.filter(
+    const cashAllCurrencies = filteredEntries.filter(
       (e) => e.status === "paid" && e.paid_date && e.paid_date >= from && e.paid_date <= to
     );
+    // Totals are sterling only, as on screen: no exchange rate is held, so a
+    // €3,000 job is listed on the Earnings sheet but not added to any total.
+    const cashEntries = cashAllCurrencies.filter((e) => isBooksCurrency(e.currency));
+    const otherCurrencyEarnings = cashAllCurrencies.length - cashEntries.length;
     // Filter invoices to period
     const filteredInvoices = invoices.filter(
       (inv) => inv.issue_date && inv.issue_date >= from && inv.issue_date <= to
@@ -553,9 +549,9 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const netPence = (arr: typeof filteredEntries) =>
       arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
     const receivedPence = netPence(cashEntries);
-    const allowablePence = (e: (typeof expenses)[number]) =>
-      Math.round(((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100);
-    const totalExpensesPence = expenses.reduce((s, e) => s + allowablePence(e), 0);
+    const allowablePence = allowableExpensePence;
+    const expenseTotals = sumAllowableExpenses(expenses);
+    const totalExpensesPence = expenseTotals.pence;
     const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
     const generated = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -607,6 +603,15 @@ export async function booksExportWorkbook(req: Request, res: Response) {
             { label: "Mileage trips", value: String(trips.length), text: true },
             { label: "Invoices", value: String(filteredInvoices.length), text: true },
             { label: "Kit items", value: String(kit.length), text: true },
+            ...(otherCurrencyEarnings + expenseTotals.otherCurrency > 0
+              ? [
+                  {
+                    label: "Not in totals: other currencies",
+                    value: `${otherCurrencyEarnings} earnings, ${expenseTotals.otherCurrency} expenses`,
+                    text: true,
+                  },
+                ]
+              : []),
           ],
         },
       ],
@@ -766,7 +771,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ];
     const expensesRows = expenses.map((e) => {
       const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = Math.round((total * e.business_use_percent) / 100);
+      const allowable = allowableExpensePence(e);
       return [
         e.expense_date ? new Date(e.expense_date + "T00:00:00Z") : null,
         e.supplier ?? "",
