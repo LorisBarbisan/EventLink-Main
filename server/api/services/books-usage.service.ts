@@ -1,4 +1,5 @@
-import { sql } from "drizzle-orm";
+import { lt, sql } from "drizzle-orm";
+import { books_usage_events } from "@shared/schema";
 import { db } from "../config/db";
 import {
   BOOKS_AREAS,
@@ -107,9 +108,9 @@ export async function booksUsage(now: Date = new Date()): Promise<BooksUsageResp
 /** Record one usage event: the day only, a fixed event name, nothing else. */
 export async function logBooksEvent(userId: number, event: BooksUsageEvent): Promise<void> {
   try {
-    await db.execute(
-      sql`INSERT INTO books_usage_events (user_id, event, occurred_on) VALUES (${userId}, ${event}, CURRENT_DATE)`
-    );
+    await db
+      .insert(books_usage_events)
+      .values({ user_id: userId, event, occurred_on: sql`CURRENT_DATE` as unknown as string });
   } catch (err) {
     console.error("[books-usage] log failed (non-fatal):", err);
   }
@@ -117,7 +118,7 @@ export async function logBooksEvent(userId: number, event: BooksUsageEvent): Pro
 
 /** Retention: events older than 24 months are deleted. */
 export async function pruneBooksEvents(): Promise<void> {
-  await db.execute(
-    sql`DELETE FROM books_usage_events WHERE occurred_on < CURRENT_DATE - INTERVAL '24 months'`
-  );
+  await db
+    .delete(books_usage_events)
+    .where(lt(books_usage_events.occurred_on, sql`CURRENT_DATE - INTERVAL '24 months'`));
 }

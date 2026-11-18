@@ -6,6 +6,11 @@ import { db } from "../config/db";
 // DB doesn't have yet, every read/write on that table errors (rows look like
 // they've "disappeared" and inserts fail) — this guard closes that gap.
 //
+// Schema lives in shared/schema.ts and the numbered files in migrations/ (run
+// on Neon before the deploy). This list only REPEATS them as a safety net —
+// never the only place a table or column exists (ensure-additive-schema.test.ts
+// enforces that for tables).
+//
 // ONLY `ADD COLUMN` / `CREATE TABLE` / `CREATE INDEX ... IF NOT EXISTS`. Never a
 // drop or a destructive change. Keep this list in step with new columns/tables
 // added to shared/schema.ts; anything already applied is a cheap no-op.

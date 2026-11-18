@@ -1,42 +1,59 @@
-import { sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { bookings, user_blocks, user_reports, users } from "@shared/schema";
 import { db } from "../config/db";
 import { ACTIVE_BOOKING_STATUSES, type ReportCategory, type ReportStatus } from "@shared/safety";
 
-const ACTIVE = sql.raw(ACTIVE_BOOKING_STATUSES.map((s) => `'${s}'`).join(","));
+const pair = (a: number, b: number) =>
+  or(
+    and(eq(user_blocks.blocker_id, a), eq(user_blocks.blocked_id, b)),
+    and(eq(user_blocks.blocker_id, b), eq(user_blocks.blocked_id, a))
+  );
 
 export async function isBlockedEitherWay(a: number, b: number): Promise<boolean> {
-  const rows = (await db.execute(sql`
-    SELECT 1 FROM user_blocks
-    WHERE (blocker_id = ${a} AND blocked_id = ${b}) OR (blocker_id = ${b} AND blocked_id = ${a})
-    LIMIT 1`)) as unknown as unknown[];
+  const rows = await db
+    .select({ x: user_blocks.blocker_id })
+    .from(user_blocks)
+    .where(pair(a, b))
+    .limit(1);
   return rows.length > 0;
 }
 
 export async function activeBookingsBetween(a: number, b: number): Promise<number> {
-  const rows = (await db.execute(sql`
-    SELECT COUNT(*)::int AS n FROM bookings
-    WHERE status IN (${ACTIVE})
-      AND ((employer_id = ${a} AND freelancer_id = ${b}) OR (employer_id = ${b} AND freelancer_id = ${a}))`)) as unknown as Array<{
-    n: number;
-  }>;
-  return Number(rows[0]?.n ?? 0);
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(bookings)
+    .where(
+      and(
+        inArray(bookings.status, [...ACTIVE_BOOKING_STATUSES]),
+        or(
+          and(eq(bookings.employerId, a), eq(bookings.freelancerId, b)),
+          and(eq(bookings.employerId, b), eq(bookings.freelancerId, a))
+        )
+      )
+    );
+  return Number(row?.n ?? 0);
 }
 
 export async function blockUser(blockerId: number, blockedId: number): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blockerId}, ${blockedId})
-    ON CONFLICT DO NOTHING`);
+  await db
+    .insert(user_blocks)
+    .values({ blocker_id: blockerId, blocked_id: blockedId })
+    .onConflictDoNothing();
 }
 
 export async function unblockUser(blockerId: number, blockedId: number): Promise<void> {
-  await db.execute(
-    sql`DELETE FROM user_blocks WHERE blocker_id = ${blockerId} AND blocked_id = ${blockedId}`
-  );
+  await db
+    .delete(user_blocks)
+    .where(and(eq(user_blocks.blocker_id, blockerId), eq(user_blocks.blocked_id, blockedId)));
 }
 
 export async function hasBlocked(blockerId: number, blockedId: number): Promise<boolean> {
-  const rows = (await db.execute(sql`
-    SELECT 1 FROM user_blocks WHERE blocker_id = ${blockerId} AND blocked_id = ${blockedId}`)) as unknown as unknown[];
+  const rows = await db
+    .select({ x: user_blocks.blocker_id })
+    .from(user_blocks)
+    .where(and(eq(user_blocks.blocker_id, blockerId), eq(user_blocks.blocked_id, blockedId)))
+    .limit(1);
   return rows.length > 0;
 }
 
@@ -49,11 +66,19 @@ export async function createUserReport(r: {
   conversationId: number | null;
   bookingId: number | null;
 }): Promise<{ id: number }> {
-  const rows = (await db.execute(sql`
-    INSERT INTO user_reports (reporter_id, subject_id, subject_name, category, details, conversation_id, booking_id)
-    VALUES (${r.reporterId}, ${r.subjectId}, ${r.subjectName}, ${r.category}, ${r.details}, ${r.conversationId}, ${r.bookingId})
-    RETURNING id`)) as unknown as Array<{ id: number }>;
-  return rows[0];
+  const [row] = await db
+    .insert(user_reports)
+    .values({
+      reporter_id: r.reporterId,
+      subject_id: r.subjectId,
+      subject_name: r.subjectName,
+      category: r.category,
+      details: r.details,
+      conversation_id: r.conversationId,
+      booking_id: r.bookingId,
+    })
+    .returning({ id: user_reports.id });
+  return row;
 }
 
 export interface AdminReportRow {
@@ -69,35 +94,56 @@ export interface AdminReportRow {
   booking_id: number | null;
   status: ReportStatus;
   admin_notes: string | null;
-  created_at: string;
+  created_at: Date;
   /** How many reports this subject has in total — the pattern signal */
   subject_report_count: number;
 }
 
+const fullName = (u: typeof users) =>
+  sql<
+    string | null
+  >`NULLIF(TRIM(COALESCE(${u.first_name},'') || ' ' || COALESCE(${u.last_name},'')), '')`;
+
 export async function listUserReports(): Promise<AdminReportRow[]> {
-  return (await db.execute(sql`
-    SELECT r.id, r.reporter_id,
-           NULLIF(TRIM(COALESCE(rep.first_name,'') || ' ' || COALESCE(rep.last_name,'')), '') AS reporter_name,
-           r.subject_id,
-           COALESCE(NULLIF(TRIM(COALESCE(sub.first_name,'') || ' ' || COALESCE(sub.last_name,'')), ''), r.subject_name) AS subject_name,
-           (sub.id IS NULL) AS subject_deleted,
-           r.category, r.details, r.conversation_id, r.booking_id, r.status, r.admin_notes, r.created_at,
-           (SELECT COUNT(*)::int FROM user_reports x WHERE x.subject_id = r.subject_id) AS subject_report_count
-    FROM user_reports r
-    LEFT JOIN users rep ON rep.id = r.reporter_id
-    LEFT JOIN users sub ON sub.id = r.subject_id
-    ORDER BY (r.status = 'open') DESC, r.created_at DESC
-    LIMIT 500`)) as unknown as AdminReportRow[];
+  const rep = alias(users, "rep");
+  const sub = alias(users, "sub");
+  const rows = await db
+    .select({
+      id: user_reports.id,
+      reporter_id: user_reports.reporter_id,
+      reporter_name: fullName(rep as unknown as typeof users),
+      subject_id: user_reports.subject_id,
+      live_subject_name: fullName(sub as unknown as typeof users),
+      stored_subject_name: user_reports.subject_name,
+      subject_live_id: sub.id,
+      category: user_reports.category,
+      details: user_reports.details,
+      conversation_id: user_reports.conversation_id,
+      booking_id: user_reports.booking_id,
+      status: user_reports.status,
+      admin_notes: user_reports.admin_notes,
+      created_at: user_reports.created_at,
+      subject_report_count: sql<number>`(SELECT count(*)::int FROM user_reports x WHERE x.subject_id = ${user_reports.subject_id})`,
+    })
+    .from(user_reports)
+    .leftJoin(rep, eq(rep.id, user_reports.reporter_id))
+    .leftJoin(sub, eq(sub.id, user_reports.subject_id))
+    .orderBy(desc(sql`${user_reports.status} = 'open'`), desc(user_reports.created_at))
+    .limit(500);
+  return rows.map(({ live_subject_name, stored_subject_name, subject_live_id, ...r }) => ({
+    ...r,
+    subject_name: live_subject_name ?? stored_subject_name,
+    subject_deleted: subject_live_id == null,
+    subject_report_count: Number(r.subject_report_count),
+  }));
 }
 
 export async function updateUserReport(
   id: number,
   patch: { status?: ReportStatus; admin_notes?: string | null }
 ): Promise<void> {
-  await db.execute(sql`
-    UPDATE user_reports SET
-      status = COALESCE(${patch.status ?? null}, status),
-      admin_notes = CASE WHEN ${patch.admin_notes !== undefined} THEN ${patch.admin_notes ?? null} ELSE admin_notes END,
-      updated_at = now()
-    WHERE id = ${id}`);
+  const set: Partial<typeof user_reports.$inferInsert> = { updated_at: new Date() };
+  if (patch.status !== undefined) set.status = patch.status;
+  if (patch.admin_notes !== undefined) set.admin_notes = patch.admin_notes;
+  await db.update(user_reports).set(set).where(eq(user_reports.id, id));
 }

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  bigserial,
   boolean,
   check,
   date,
@@ -2167,3 +2168,75 @@ export const books_audit_log = pgTable("books_audit_log", {
 
 export type BooksAuditLog = typeof books_audit_log.$inferSelect;
 export type InsertBooksAuditLog = typeof books_audit_log.$inferInsert;
+
+// ── Books usage log (migration 0041) ─────────────────────────────────────────
+// Deliberately thin: fixed event name, the day only, the user. Pruned at 24 months.
+export const books_usage_events = pgTable(
+  "books_usage_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    event: text("event").notNull().$type<"workbook.downloaded">(),
+    occurred_on: date("occurred_on").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("books_usage_events_user_idx").on(t.user_id, t.event),
+    eventCheck: check("books_usage_events_event_check", sql`${t.event} IN ('workbook.downloaded')`),
+  })
+);
+
+// ── Reporting and blocking a person (migration 0043) ─────────────────────────
+// subject_id has NO foreign key on purpose: a report must survive the subject
+// deleting their account (legitimate interest: safety records).
+export const user_reports = pgTable(
+  "user_reports",
+  {
+    id: serial("id").primaryKey(),
+    reporter_id: integer("reporter_id").references(() => users.id, { onDelete: "set null" }),
+    subject_id: integer("subject_id").notNull(),
+    subject_name: text("subject_name"),
+    category: text("category")
+      .notNull()
+      .$type<
+        "unsafe_site" | "unpaid" | "no_show" | "abusive_messages" | "credentials_mismatch" | "other"
+      >(),
+    details: text("details"),
+    conversation_id: integer("conversation_id"),
+    booking_id: integer("booking_id"),
+    status: text("status")
+      .notNull()
+      .default("open")
+      .$type<"open" | "reviewing" | "actioned" | "dismissed">(),
+    admin_notes: text("admin_notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    subjectIdx: index("user_reports_subject_idx").on(t.subject_id),
+    statusIdx: index("user_reports_status_idx").on(t.status, t.created_at),
+  })
+);
+
+export const user_blocks = pgTable(
+  "user_blocks",
+  {
+    blocker_id: integer("blocker_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blocked_id: integer("blocked_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.blocker_id, t.blocked_id] }),
+    blockedIdx: index("user_blocks_blocked_idx").on(t.blocked_id),
+  })
+);
+
+export type UserReport = typeof user_reports.$inferSelect;
+export type UserBlock = typeof user_blocks.$inferSelect;
+export type BooksUsageEventRow = typeof books_usage_events.$inferSelect;
