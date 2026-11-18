@@ -1,4 +1,5 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
+import { messagingAllowed } from "@shared/safety";
 import {
   contact_messages,
   conversations,
@@ -4291,6 +4292,18 @@ export class DatabaseStorage implements IStorage {
         canSend: false,
         error: "You cannot send messages from a deleted account.",
       };
+    }
+
+    // A block (either way) stops messages — except while the two have an
+    // active booking, so call times and site details still get through.
+    const { isBlockedEitherWay, activeBookingsBetween } = await import(
+      "./api/services/safety.service"
+    );
+    if (await isBlockedEitherWay(senderId, recipientId)) {
+      const active = await activeBookingsBetween(senderId, recipientId);
+      if (!messagingAllowed({ blocked: true, activeBooking: active > 0 })) {
+        return { canSend: false, error: "You can't message this person." };
+      }
     }
 
     return { canSend: true };

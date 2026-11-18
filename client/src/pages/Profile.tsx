@@ -1,4 +1,5 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
+import { SafetyMenu } from "@/components/SafetyMenu";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -1575,6 +1576,15 @@ export default function Profile() {
                     <ReferenceBadges freelancerId={freelancerProfile?.user_id || 0} />
 
                     <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                      {!isOwnProfile && user && freelancerProfile && (
+                        <SafetyMenu
+                          userId={freelancerProfile.user_id}
+                          name={
+                            `${freelancerProfile.first_name ?? ""} ${freelancerProfile.last_name ?? ""}`.trim() ||
+                            "this freelancer"
+                          }
+                        />
+                      )}
                       {!isOwnProfile && (
                         <Button
                           onClick={handleContactClick}
@@ -1676,6 +1686,12 @@ export default function Profile() {
                           Send Message
                         </Button>
                       )}{" "}
+                      {!isOwnProfile && user && profile?.id && (
+                        <SafetyMenu
+                          userId={Number(profile.id)}
+                          name={recruiterProfile?.company_name || "this employer"}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>

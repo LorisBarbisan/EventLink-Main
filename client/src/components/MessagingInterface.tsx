@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { SafetyMenu } from "@/components/SafetyMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -383,6 +384,14 @@ export function MessagingInterface({ initialConversationId }: Props) {
                       </p>
                     </div>
                   </a>
+                )}
+                {!isUserDeleted(activeConv.otherUser) && (
+                  <SafetyMenu
+                    userId={activeConv.otherUser.id}
+                    name={getDisplayName(activeConv.otherUser)}
+                    conversationId={activeConv.id}
+                    className="ml-auto h-8 w-8 shrink-0"
+                  />
                 )}
               </>
             ) : (

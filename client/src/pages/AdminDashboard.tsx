@@ -86,7 +86,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Flag } from "lucide-react";
+import { UserReportsPanel } from "@/components/admin/UserReportsPanel";
 import { BooksUsagePanel } from "@/components/admin/BooksUsagePanel";
 import { useLocation } from "wouter";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -1349,6 +1350,13 @@ function AdminDashboardContent() {
           >
             <UserCheck className="h-4 w-4" />
             Admin
+          </TabsTrigger>
+          <TabsTrigger
+            value="user-reports"
+            className="flex items-center justify-center gap-2 text-sm"
+          >
+            <Flag className="h-4 w-4" />
+            Reports
           </TabsTrigger>
           <TabsTrigger
             value="books-usage"
@@ -4047,6 +4055,10 @@ function AdminDashboardContent() {
         </TabsContent>
 
         {/* Tax Rates Tab */}
+        <TabsContent value="user-reports" className="space-y-6">
+          <UserReportsPanel />
+        </TabsContent>
+
         <TabsContent value="books-usage" className="space-y-6">
           <BooksUsagePanel />
         </TabsContent>

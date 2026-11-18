@@ -18,6 +18,7 @@ import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
 import { registerAuthRoutes } from "./api/routes/auth.route.js";
 import { registerContactRoutes } from "./api/routes/contact.route.js";
+import { registerSafetyRoutes } from "./api/routes/safety.route.js";
 import { registerCVParserRoutes } from "./api/routes/cv-parser.route.js";
 import { registerFileRoutes } from "./api/routes/file.route.js";
 import { registerJobRoutes } from "./api/routes/job.route.js";
@@ -217,6 +218,7 @@ export async function registerRoutes(
   app.use("/api/job", jobDocumentRouter);
   app.use("/api/help", helpRouter);
   registerContactRoutes(app);
+  registerSafetyRoutes(app);
   registerStripeRoutes(app);
   registerExpenseRoutes(app);
   registerReceiptRoutes(app);
