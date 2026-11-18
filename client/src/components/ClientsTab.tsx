@@ -302,6 +302,43 @@ function ClientFormDialog({
   );
 }
 
+/**
+ * The Add client form on its own, for opening from elsewhere (the Add job
+ * dialog). Saves the client and hands back its name.
+ */
+export function NewClientDialog({
+  onCreated,
+  onClose,
+}: {
+  onCreated: (client: { id: number; name: string }) => void;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const createMut = useMutation({
+    mutationFn: (body: ReturnType<typeof formToPayload>) =>
+      apiRequest("/api/earnings/clients", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }) as Promise<{ id: number; name: string }>,
+    onSuccess: (client) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/clients"] });
+      toast({ title: "Client added" });
+      onCreated(client);
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to add client", description: e.message, variant: "destructive" }),
+  });
+  return (
+    <ClientFormDialog
+      initial={EMPTY_FORM}
+      onSave={(f) => createMut.mutate(formToPayload(f))}
+      onClose={onClose}
+      saving={createMut.isPending}
+    />
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function ClientsTab() {

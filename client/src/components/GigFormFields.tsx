@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NewClientDialog } from "./ClientsTab";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -52,6 +55,12 @@ export function GigFormBody({
   onChange: (k: keyof GigForm, v: string) => void;
   clients: Array<{ id: number; name: string }>;
 }) {
+  const [addingClient, setAddingClient] = useState(false);
+  const NEW = "__new__";
+  const NONE = "__none__";
+  const names = Array.from(new Set(clients.map((c) => c.name)));
+  // A name typed or imported before it was saved as a client still shows
+  const extra = form.client_name && !names.includes(form.client_name) ? [form.client_name] : [];
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -65,19 +74,40 @@ export function GigFormBody({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="gig-client">Client name</Label>
-        <Input
-          id="gig-client"
-          list="gig-clients-list"
-          placeholder="Type or pick an existing client"
-          value={form.client_name}
-          onChange={(e) => onChange("client_name", e.target.value)}
-        />
-        <datalist id="gig-clients-list">
-          {clients.map((c) => (
-            <option key={c.id} value={c.name} />
-          ))}
-        </datalist>
+        <Label htmlFor="gig-client">Client</Label>
+        <Select
+          value={form.client_name || NONE}
+          onValueChange={(v) => {
+            if (v === NEW) setAddingClient(true);
+            else onChange("client_name", v === NONE ? "" : v);
+          }}
+        >
+          <SelectTrigger id="gig-client">
+            <SelectValue placeholder="Pick a saved client" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NEW}>
+              <span className="flex items-center gap-1.5 font-medium text-primary">
+                <Plus className="h-3.5 w-3.5" /> New client…
+              </span>
+            </SelectItem>
+            <SelectItem value={NONE}>No client</SelectItem>
+            {[...extra, ...names].map((n) => (
+              <SelectItem key={n} value={n}>
+                {n}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {addingClient && (
+          <NewClientDialog
+            onClose={() => setAddingClient(false)}
+            onCreated={(c) => {
+              onChange("client_name", c.name);
+              setAddingClient(false);
+            }}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
