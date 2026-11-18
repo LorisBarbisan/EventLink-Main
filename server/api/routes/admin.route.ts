@@ -34,8 +34,23 @@ import {
   updateUserSubscription,
 } from "../controllers/admin.controller";
 import { requireAdminAuth } from "../middleware/admin.middleware";
+import { booksUsage } from "../services/books-usage.service";
 
 export function registerAdminRoutes(app: Express) {
+  // Books usage: counts and dates only, never content (admin only)
+  app.get("/api/admin/books-usage", requireAdminAuth, async (req, res) => {
+    try {
+      // Record who looked, so access to this view is itself accountable
+      console.log(
+        `[books-usage] viewed by admin user ${(req as any).user?.id} at ${new Date().toISOString()}`
+      );
+      res.json(await booksUsage());
+    } catch (err) {
+      console.error("[books-usage] failed:", err);
+      res.status(500).json({ error: "Failed to load Books usage" });
+    }
+  });
+
   // Get all feedback (admin only)
   app.get("/api/admin/feedback", requireAdminAuth, getAllFeedback);
 

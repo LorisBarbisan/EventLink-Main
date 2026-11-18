@@ -16,6 +16,7 @@ import { registerCalendarScheduler } from "./api/services/calendarScheduler.serv
 import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service";
 import { sweepStuckCommits } from "./api/services/import-commit.service";
 import { sweepArchived } from "./api/services/undo.service";
+import { pruneBooksEvents } from "./api/services/books-usage.service";
 import cron from "node-cron";
 import { seedSystemMappings } from "./api/services/import-seed.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
@@ -224,6 +225,15 @@ app.use((req, res, next) => {
     "30 3 * * *",
     () => {
       sweepArchived().catch((err) => console.error("[undo-sweep] failed:", err));
+    },
+    { timezone: "Europe/London" }
+  );
+
+  // Books usage log retention: 24 months, nightly 03:45 UK
+  cron.schedule(
+    "45 3 * * *",
+    () => {
+      pruneBooksEvents().catch((err) => console.error("[books-usage] prune failed:", err));
     },
     { timezone: "Europe/London" }
   );

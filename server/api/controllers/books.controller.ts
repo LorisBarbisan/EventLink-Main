@@ -22,6 +22,7 @@ import {
   type ColSpec,
 } from "../utils/xlsx";
 import { addQuartersSheet } from "../utils/hmrc-quarters-sheet";
+import { logBooksEvent } from "../services/books-usage.service";
 
 /** "2026-04-06" → "6 April 2026". */
 function fmtLongDate(iso: string): string {
@@ -881,6 +882,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     // ── Stream response ───────────────────────────────────────────────────────────
     const filename = `eventlink-books-${from}-to-${to}.xlsx`;
     await streamWorkbook(wb, res, filename);
+    void logBooksEvent(freelancerId, "workbook.downloaded");
   } catch (err) {
     console.error("booksExportWorkbook error:", err);
     if (!res.headersSent) return res.status(500).json({ error: "Failed to generate workbook" });

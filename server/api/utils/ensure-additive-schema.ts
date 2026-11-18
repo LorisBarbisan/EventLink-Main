@@ -90,6 +90,15 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // Migration 0041 — Books usage log (thin: fixed event, day only)
+  `CREATE TABLE IF NOT EXISTS books_usage_events (
+     id bigserial PRIMARY KEY,
+     user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     event text NOT NULL CHECK (event IN ('workbook.downloaded')),
+     occurred_on date NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS books_usage_events_user_idx ON books_usage_events (user_id, event)`,
   // Migration 0040 — VAT rate on invoices
   `ALTER TABLE freelancer_billing_profiles ADD COLUMN IF NOT EXISTS vat_rate_pct integer NOT NULL DEFAULT 20`,
   // PR 2 — job selector on mileage
