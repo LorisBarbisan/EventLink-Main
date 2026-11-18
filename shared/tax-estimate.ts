@@ -274,6 +274,98 @@ function formatBandLabel(lower: number, upper: number): string {
   return `${lo}–${hi}`;
 }
 
+interface ItInterval {
+  lo: number;
+  hi: number;
+  rate: number;
+  scottish: boolean;
+}
+
+/**
+ * Income Tax bands as intervals of TOTAL income. Every boundary below the
+ * additional/top rate threshold (£125,140, which HMRC fixes) sits a fixed
+ * width above the personal allowance actually available, so when the
+ * allowance tapers or is transferred the bands move down with it. Gift Aid
+ * widens the basic band (rUK) or the bands up to intermediate (Scotland).
+ */
+function itIntervals(
+  adjustedPA: number,
+  giftAidGross: number,
+  bands: TaxBands,
+  scotland: boolean
+): ItInterval[] {
+  const topFixed = bands.higherRatePence; // £125,140 — fixed in both systems
+  const cap = (v: number) => Math.min(v, topFixed);
+  if (scotland) {
+    const basePA = SCOTLAND_IT_THRESHOLDS[0][0];
+    return SCOTLAND_IT_THRESHOLDS.map(([lo, hi, rate], i) => {
+      if (lo >= topFixed) return { lo: topFixed, hi, rate, scottish: true };
+      // Gift Aid extends everything from the intermediate ceiling upwards.
+      const shift = (v: number, idx: number) =>
+        adjustedPA + (v - basePA) + (idx >= 2 ? giftAidGross : 0);
+      const l = i === 0 ? adjustedPA : cap(shift(lo, i - 1));
+      const h = hi >= topFixed ? topFixed : cap(shift(hi, i));
+      return { lo: l, hi: h, rate, scottish: true };
+    });
+  }
+  const basicTop = cap(
+    adjustedPA + (bands.basicRatePence - bands.personalAllowancePence) + giftAidGross
+  );
+  return [
+    { lo: adjustedPA, hi: basicTop, rate: bands.basicRatePct, scottish: false },
+    { lo: basicTop, hi: topFixed, rate: bands.higherRatePct, scottish: false },
+    { lo: topFixed, hi: Infinity, rate: bands.additionalRatePct, scottish: false },
+  ];
+}
+
+function onInterval(income: number, iv: ItInterval): number {
+  return Math.max(0, Math.min(income, iv.hi) - iv.lo);
+}
+
+function adjustedPersonalAllowance(ani: number, bands: TaxBands, maGiving: boolean): number {
+  const reduction = Math.max(0, Math.floor((ani - bands.taperThresholdPence) / 2));
+  return Math.max(0, bands.personalAllowancePence - reduction - (maGiving ? 126_000 : 0));
+}
+
+/**
+ * Income Tax attributable to the freelance profit: tax on (other income +
+ * profit) minus tax on other income alone, band by band. The profit sits on
+ * top of any salary, so it is taxed at the rates the salary leaves free.
+ */
+function freelanceIncomeTax(
+  profitIT: number,
+  otherIncome: number,
+  giftAidGross: number,
+  bands: TaxBands,
+  scotland: boolean,
+  maGiving: boolean
+): { bands: TaxBand[]; totalPence: number; adjustedPA: number } {
+  const total = profitIT + otherIncome;
+  const paTotal = adjustedPersonalAllowance(Math.max(0, total - giftAidGross), bands, maGiving);
+  const paOther = adjustedPersonalAllowance(
+    Math.max(0, otherIncome - giftAidGross),
+    bands,
+    maGiving
+  );
+  const withProfit = itIntervals(paTotal, giftAidGross, bands, scotland);
+  const without = itIntervals(paOther, giftAidGross, bands, scotland);
+  const out: TaxBand[] = [];
+  let totalPence = 0;
+  withProfit.forEach((iv, i) => {
+    const on = onInterval(total, iv) - onInterval(otherIncome, without[i]);
+    if (on === 0) return;
+    const taxPence = Math.round((on * iv.rate) / 100);
+    totalPence += taxPence;
+    out.push({
+      label: `${iv.rate}%${iv.scottish ? " Scottish IT" : ""} on ${formatBandLabel(iv.lo, iv.hi)}`,
+      ratePct: iv.rate,
+      onPence: on,
+      taxPence,
+    });
+  });
+  return { bands: out, totalPence, adjustedPA: paTotal };
+}
+
 export function estimateTax(
   netProfitPence: number,
   bands: TaxBands,
@@ -308,59 +400,25 @@ export function estimateTax(
   // Used for: PA taper, HICBC, Marriage Allowance eligibility.
   const adjustedNetIncomePence = Math.max(0, itProfit + otherIncome - giftAidGrossPence);
 
-  // ── Personal allowance taper ────────────────────────────────────────────────
-  // For every £2 of adjusted net income above £100,000, the PA reduces by £1.
-  const paReduction = Math.max(
-    0,
-    Math.floor((adjustedNetIncomePence - bands.taperThresholdPence) / 2)
-  );
   const MA_ALLOWANCE_TRANSFER = 126_000; // £1,260 in pence
   const maGiving = options?.marriageAllowance === "giving";
   const maReceiving = options?.marriageAllowance === "receiving";
-  // Marriage Allowance (giver): reduce PA by £1,260 before applying it
-  const adjustedPA = Math.max(
-    0,
-    bands.personalAllowancePence - paReduction - (maGiving ? MA_ALLOWANCE_TRANSFER : 0)
-  );
-  // Gift Aid extends the basic rate band
-  const extendedBasicRateLimit = bands.basicRatePence + giftAidGrossPence;
 
   // ── Income Tax ──────────────────────────────────────────────────────────────
-  const itBands: TaxBand[] = [];
+  // Personal allowance taper (£1 per £2 of ANI over £100,000) and Marriage
+  // Allowance (giver) are applied inside, on total income.
+  const it = freelanceIncomeTax(
+    itProfit,
+    otherIncome,
+    giftAidGrossPence,
+    bands,
+    scotland,
+    maGiving
+  );
+  const adjustedPA = it.adjustedPA;
+  const itBands: TaxBand[] = it.bands;
 
-  if (scotland) {
-    // Scottish Income Tax — absolute gross income thresholds.
-    // The first band's lower is replaced with adjustedPA so the starter rate
-    // covers income from [adjustedPA] up to the starter ceiling (£14,876).
-    // Subsequent bands use max(adjustedPA, bandLo) to avoid taxing below PA.
-    for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
-      const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
-      const effectiveLo = i === 0 ? adjustedPA : Math.max(adjustedPA, lo);
-      const b = bandTax(itProfit, effectiveLo, hi, rate);
-      if (b)
-        itBands.push({
-          ...b,
-          label: `${rate}% Scottish IT on ${formatBandLabel(effectiveLo, hi)}`,
-        });
-    }
-  } else {
-    // England / Wales / NI — Gift Aid extends the basic rate limit
-    const basic = bandTax(itProfit, adjustedPA, extendedBasicRateLimit, bands.basicRatePct);
-    if (basic) itBands.push(basic);
-
-    const higher = bandTax(
-      itProfit,
-      extendedBasicRateLimit,
-      bands.higherRatePence,
-      bands.higherRatePct
-    );
-    if (higher) itBands.push(higher);
-
-    const additional = bandTax(itProfit, bands.higherRatePence, Infinity, bands.additionalRatePct);
-    if (additional) itBands.push(additional);
-  }
-
-  let incomeTaxTotalPence = itBands.reduce((s, b) => s + b.taxPence, 0);
+  let incomeTaxTotalPence = it.totalPence;
 
   // ── Marriage Allowance (receiver) ────────────────────────────────────────────
   // Tax reducer of 20% × £1,260 = £252. Applied after band calculation.
@@ -395,41 +453,19 @@ export function estimateTax(
 
   // ── Pension tax saving ───────────────────────────────────────────────────────
   // Saving = IT that would have been due on the pension contribution amount.
-  // Computed as the difference between IT at full profit vs IT at itProfit.
+  // Computed as the difference between IT with and without the contribution.
   let pensionTaxSavingPence = 0;
   if (pensionGross > 0) {
     // Baseline IT without the pension deduction (profitForIT, not itProfit)
-    const baselineIT = (() => {
-      const baseANI = Math.max(0, profitForIT + otherIncome - giftAidGrossPence);
-      const basePaReduction = Math.max(0, Math.floor((baseANI - bands.taperThresholdPence) / 2));
-      const baseAdjPA = Math.max(
-        0,
-        bands.personalAllowancePence - basePaReduction - (maGiving ? MA_ALLOWANCE_TRANSFER : 0)
-      );
-      let baseTax = 0;
-      if (scotland) {
-        for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
-          const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
-          const eLo = i === 0 ? baseAdjPA : Math.max(baseAdjPA, lo);
-          const b = bandTax(profitForIT, eLo, hi, rate);
-          if (b) baseTax += b.taxPence;
-        }
-      } else {
-        const b = bandTax(profitForIT, baseAdjPA, extendedBasicRateLimit, bands.basicRatePct);
-        if (b) baseTax += b.taxPence;
-        const h = bandTax(
-          profitForIT,
-          extendedBasicRateLimit,
-          bands.higherRatePence,
-          bands.higherRatePct
-        );
-        if (h) baseTax += h.taxPence;
-        const a = bandTax(profitForIT, bands.higherRatePence, Infinity, bands.additionalRatePct);
-        if (a) baseTax += a.taxPence;
-      }
-      if (maReceiving) baseTax = Math.max(0, baseTax - MA_TAX_REDUCER);
-      return baseTax;
-    })();
+    let baselineIT = freelanceIncomeTax(
+      profitForIT,
+      otherIncome,
+      giftAidGrossPence,
+      bands,
+      scotland,
+      maGiving
+    ).totalPence;
+    if (maReceiving) baselineIT = Math.max(0, baselineIT - MA_TAX_REDUCER);
     pensionTaxSavingPence = Math.max(0, baselineIT - incomeTaxTotalPence);
   }
 
