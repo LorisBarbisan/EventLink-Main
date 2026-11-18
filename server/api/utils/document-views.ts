@@ -31,8 +31,9 @@ export type DocumentViewer =
 
 /**
  * Who may list a freelancer's credentials — the download endpoint's rule:
- * signed-in employers and admins may; a freelancer only their own; someone
- * signed out only when the profile is public or they hold its share token.
+ * signed-in employers and admins may; the owner may; anyone else (signed out,
+ * or another freelancer) only when the profile is public or they hold its
+ * share token.
  */
 export function documentViewer(opts: {
   requester: { id: number; role: string } | null | undefined;
@@ -46,7 +47,7 @@ export function documentViewer(opts: {
     if (requester.id === freelancerId) return { kind: "owner" };
     if (requester.role === "admin") return { kind: "admin" };
     if (requester.role === "recruiter") return { kind: "public" };
-    return { kind: "denied" };
+    // Another freelancer is treated like a signed-out visitor
   }
   if (opts.profileIsPublic) return { kind: "public" };
   if (opts.presentedToken && opts.shareToken && opts.presentedToken === opts.shareToken) {

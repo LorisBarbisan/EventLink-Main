@@ -16,7 +16,11 @@ describe("documentViewer", () => {
       "public"
     );
   });
-  it("another freelancer is refused", () => {
+  it("another freelancer is treated like a signed-out visitor", () => {
+    expect(
+      documentViewer({ ...base, requester: { id: 8, role: "freelancer" }, profileIsPublic: true })
+        .kind
+    ).toBe("public");
     expect(documentViewer({ ...base, requester: { id: 8, role: "freelancer" } }).kind).toBe(
       "denied"
     );
