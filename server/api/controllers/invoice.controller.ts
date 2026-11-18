@@ -1,4 +1,5 @@
 import { fmtDate } from "@shared/dates";
+import { invoiceTotals, isVatRate } from "@shared/invoice-vat";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
@@ -49,8 +50,13 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     invoice_footer_note,
     vat_registered,
     vat_number,
+    vat_rate_pct,
     logo_url,
   } = req.body;
+
+  if (vat_rate_pct !== undefined && !isVatRate(Number(vat_rate_pct))) {
+    return res.status(400).json({ error: "vat_rate_pct must be 20, 5 or 0" });
+  }
 
   // Validate payment_terms_days if present
   if (payment_terms_days !== undefined) {
@@ -82,6 +88,7 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (invoice_prefix !== undefined) data.invoice_prefix = String(invoice_prefix).slice(0, 10);
   if (vat_registered !== undefined) data.vat_registered = Boolean(vat_registered);
   if (vat_number !== undefined) data.vat_number = vat_number ?? null;
+  if (vat_rate_pct !== undefined) data.vat_rate_pct = Number(vat_rate_pct);
   if (logo_url !== undefined) data.logo_url = logo_url ?? null;
 
   const saved = await storage.upsertBillingProfile(user.id, data);
@@ -317,8 +324,9 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       line_items: [lineItem] as any,
       currency: booking.currency ?? job?.currency ?? "GBP",
       subtotal_pence: totalPence ?? 0,
-      vat_pence: 0,
-      total_pence: totalPence ?? 0,
+      ...(({ vat_pence, total_pence }) => ({ vat_pence, total_pence }))(
+        invoiceTotals(totalPence ?? 0, billingProfile)
+      ),
       issue_date: today,
       due_date: dueDate,
     });
@@ -433,9 +441,17 @@ export async function updateInvoice(req: Request, res: Response) {
     if (to_details !== undefined) updates.to_details = to_details;
     if (line_items !== undefined) updates.line_items = line_items;
     if (currency !== undefined) updates.currency = currency;
-    if (subtotal_pence !== undefined) updates.subtotal_pence = subtotal_pence;
-    if (vat_pence !== undefined) updates.vat_pence = 0; // v1: always 0
-    if (total_pence !== undefined) updates.total_pence = total_pence;
+    // VAT and total are always worked out here from the net subtotal and the
+    // rate in invoice settings — never taken from the client.
+    void vat_pence;
+    void total_pence;
+    if (subtotal_pence !== undefined) {
+      const net = Math.max(0, Math.round(Number(subtotal_pence) || 0));
+      const t = invoiceTotals(net, await storage.getBillingProfile(user.id));
+      updates.subtotal_pence = net;
+      updates.vat_pence = t.vat_pence;
+      updates.total_pence = t.total_pence;
+    }
     if (issue_date !== undefined) updates.issue_date = issue_date;
     if (due_date !== undefined) updates.due_date = due_date;
     if (po_number !== undefined) updates.po_number = po_number || null;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { invoiceTotals } from "@shared/invoice-vat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -141,6 +142,7 @@ interface ClientOption {
   country: string | null;
   payment_terms_days: number | null;
   requires_po: boolean;
+  vat_number?: string | null;
   last_invoiced?: string | null;
 }
 
@@ -167,6 +169,7 @@ interface BillingProfile {
   company_number: string | null;
   vat_registered: boolean;
   vat_number: string | null;
+  vat_rate_pct: number;
   logo_url: string | null;
   bank_account_name: string | null;
   bank_sort_code: string | null;
@@ -254,6 +257,7 @@ const EMPTY_BILLING_FORM = {
   company_number: "",
   vat_registered: "false",
   vat_number: "",
+  vat_rate_pct: "20",
   logo_url: "",
   bank_account_name: "",
   bank_sort_code: "",
@@ -298,6 +302,7 @@ function BillingProfileModal({
         company_number: existing.company_number ?? "",
         vat_registered: existing.vat_registered ? "true" : "false",
         vat_number: existing.vat_number ?? "",
+        vat_rate_pct: String(existing.vat_rate_pct ?? 20),
         logo_url: existing.logo_url ?? "",
         bank_account_name: existing.bank_account_name ?? "",
         bank_sort_code: existing.bank_sort_code ?? "",
@@ -322,6 +327,7 @@ function BillingProfileModal({
           payment_terms_days: parseInt(form.payment_terms_days) || 30,
           vat_registered: form.vat_registered === "true",
           vat_number: form.vat_number || null,
+          vat_rate_pct: parseInt(form.vat_rate_pct, 10),
           logo_url: form.logo_url || null,
           invoice_footer_note: form.invoice_footer_note || null,
         }),
@@ -440,6 +446,25 @@ function BillingProfileModal({
                   onChange={(e) => set("vat_number", e.target.value)}
                   placeholder="GB123456789"
                 />
+              </div>
+            )}
+            {isVat && (
+              <div className="col-span-2">
+                <Label>VAT on invoices</Label>
+                <Select value={form.vat_rate_pct} onValueChange={(v) => set("vat_rate_pct", v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">20% — standard rate</SelectItem>
+                    <SelectItem value="5">5% — reduced rate</SelectItem>
+                    <SelectItem value="0">0% — zero-rated</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Added to every invoice, with your VAT number on the PDF. Enter line amounts net of
+                  VAT; your earnings record the net amount.
+                </p>
               </div>
             )}
           </div>
@@ -721,6 +746,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
       city: c.city ?? d.city,
       postcode: c.postcode ?? d.postcode,
       country: c.country ?? d.country,
+      vat_number: c.vat_number ?? "",
     }));
     if (c.payment_terms_days && issueDate) {
       const d = new Date(issueDate);
@@ -740,6 +766,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     city: invoice.to_details?.city ?? "",
     postcode: invoice.to_details?.postcode ?? "",
     country: invoice.to_details?.country ?? "",
+    vat_number: (invoice.to_details as { vat_number?: string } | null)?.vat_number ?? "",
   });
   const [lineItems, setLineItems] = useState<LineItem[]>(
     invoice.line_items?.length ? invoice.line_items : [emptyLine()]
@@ -831,6 +858,10 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     (s, li) => s + Math.round(li.quantity * li.unit_price_pence),
     0
   );
+  const { data: editorBillingProfile } = useQuery<BillingProfile | null>({
+    queryKey: ["/api/billing-profile"],
+  });
+  const vat = invoiceTotals(subtotalPence, editorBillingProfile);
 
   const [currentStatus, setCurrentStatus] = useState(invoice.status);
 
@@ -857,7 +888,6 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           to_details: toDetails,
           line_items: lineItems,
           subtotal_pence: subtotalPence,
-          total_pence: subtotalPence,
           issue_date: issueDate || undefined,
           due_date: dueDate || undefined,
           po_number: poNumber || undefined,
@@ -1256,8 +1286,18 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           </div>
 
           {/* Total */}
-          <div className="flex justify-end">
-            <p className="text-lg font-semibold">Total: {penceToGBP(subtotalPence)}</p>
+          <div className="flex flex-col items-end gap-0.5">
+            {vat.rate !== null && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Subtotal: {penceToGBP(subtotalPence)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  VAT ({vat.rate}%): {penceToGBP(vat.vat_pence)}
+                </p>
+              </>
+            )}
+            <p className="text-lg font-semibold">Total: {penceToGBP(vat.total_pence)}</p>
           </div>
 
           {/* Notes */}

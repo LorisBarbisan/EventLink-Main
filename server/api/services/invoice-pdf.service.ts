@@ -200,6 +200,23 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
       });
     y += 14;
 
+    if (billingProfile.vat_registered || (invoice.vat_pence ?? 0) > 0) {
+      const ratePct =
+        invoice.subtotal_pence > 0
+          ? Math.round(((invoice.vat_pence ?? 0) / invoice.subtotal_pence) * 100)
+          : (billingProfile.vat_rate_pct ?? 20);
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .fillColor(MUTED)
+        .text(`VAT (${ratePct}%)`, tLabelX, y)
+        .text(formatMoney(invoice.vat_pence ?? 0, currency), tLabelX, y, {
+          width: tValueW,
+          align: "right",
+        });
+      y += 14;
+    }
+
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
@@ -959,6 +976,7 @@ function buildFromLines(profile: FreelancerBillingProfile): string[] {
   if (profile.phone) lines.push(profile.phone);
   if (profile.utr) lines.push(`UTR: ${profile.utr}`);
   if (profile.company_number) lines.push(`Co. No: ${profile.company_number}`);
+  if (profile.vat_registered && profile.vat_number) lines.push(`VAT no: ${profile.vat_number}`);
   return lines.length ? lines : ["(no billing address set)"];
 }
 
@@ -995,6 +1013,7 @@ function buildAddressLines(from: any, profile: FreelancerBillingProfile): string
   if (profile.phone) lines.push(profile.phone);
   if (profile.utr) lines.push(`UTR: ${profile.utr}`);
   if (profile.company_number) lines.push(`Co. No: ${profile.company_number}`);
+  if (profile.vat_registered && profile.vat_number) lines.push(`VAT no: ${profile.vat_number}`);
   return lines.length ? lines : ["(no billing address set)"];
 }
 
@@ -1008,5 +1027,6 @@ function buildToLines(to: any): string[] {
   if (cityPost) lines.push(cityPost);
   if (to.country) lines.push(to.country);
   if (to.email) lines.push(to.email);
+  if (to.vat_number) lines.push(`VAT no: ${to.vat_number}`);
   return lines.length ? lines : ["(client details not set)"];
 }

@@ -1,4 +1,5 @@
 import { db } from "../config/db";
+import { netOfInvoice } from "@shared/invoice-vat";
 import { bookings, jobs, job_applications } from "@shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { storage } from "../../storage";
@@ -173,7 +174,8 @@ export async function linkInvoiceToEntry(invoice: Invoice): Promise<void> {
         work_date: invoicedDate,
         quantity: "1",
         unit: "job",
-        gross_amount_pence: invoice.total_pence,
+        // Net of VAT: the VAT is collected for HMRC, not income
+        gross_amount_pence: invoice.subtotal_pence,
         currency: invoice.currency ?? "GBP",
         status: "expected",
         invoiced_date: invoicedDate,
@@ -205,7 +207,7 @@ export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
       await storage.updateEarningsEntry(entry.id, {
         status: "paid",
         paid_date: paidDate,
-        paid_amount_pence: invoice.paid_amount_pence ?? invoice.total_pence,
+        paid_amount_pence: netOfInvoice(invoice, invoice.paid_amount_pence),
       });
       return;
     }
@@ -229,11 +231,11 @@ export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
       work_date: workDate,
       quantity: "1",
       unit: "job",
-      gross_amount_pence: invoice.total_pence,
+      gross_amount_pence: invoice.subtotal_pence,
       currency: invoice.currency ?? "GBP",
       status: "paid",
       paid_date: paidDate,
-      paid_amount_pence: invoice.paid_amount_pence ?? invoice.total_pence,
+      paid_amount_pence: netOfInvoice(invoice, invoice.paid_amount_pence),
       archived: false,
     });
   } catch (err) {
