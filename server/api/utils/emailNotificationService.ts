@@ -11,7 +11,7 @@ export class EmailNotificationService {
   /**
    * Check if a user has email notifications enabled for a specific type
    */
-  private async canSendEmail(userId: number, notificationType: string): Promise<boolean> {
+  async canSendEmail(userId: number, notificationType: string): Promise<boolean> {
     try {
       const preferences = await storage.getNotificationPreferences(userId);
 

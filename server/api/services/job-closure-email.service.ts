@@ -2,6 +2,7 @@ import { db } from "../config/db";
 import { jobs, job_applications, users } from "@shared/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
+import { emailService } from "../utils/emailNotificationService";
 
 export async function sendJobClosureEmails(jobId: number): Promise<void> {
   // Guard: skip if closure emails already sent for this job
@@ -73,6 +74,9 @@ export async function sendJobClosureEmails(jobId: number): Promise<void> {
 
     const freelancer = freelancerResult[0];
     if (!freelancer?.email) continue;
+
+    // "You weren't selected" is an application update: honour the switch
+    if (!(await emailService.canSendEmail(freelancer.id, "application_update"))) continue;
 
     const firstName = freelancer.first_name || "there";
     const reputationLink = `https://eventlink.one/dashboard`;
