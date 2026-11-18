@@ -13,7 +13,7 @@ import {
   updateFreelancerProfile,
   updateRecruiterProfile,
 } from "../controllers/profile.controller";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerProfileRoutes(app: Express) {
@@ -27,7 +27,7 @@ export function registerProfileRoutes(app: Express) {
   app.get("/api/freelancer/card-token", authenticateJWT, getCardToken);
 
   // Get freelancer profile
-  app.get("/api/freelancer/:userId", getFreelancerProfile);
+  app.get("/api/freelancer/:userId", authenticateOptionalJWT, getFreelancerProfile);
 
   // Create freelancer profile
   app.post("/api/freelancer", authenticateJWT, createFreelancerProfile);

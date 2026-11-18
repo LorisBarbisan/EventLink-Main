@@ -110,19 +110,3 @@ export async function submitContactForm(req: Request, res: Response) {
     res.status(500).json({ error: "Failed to submit contact form. Please try again later." });
   }
 }
-
-// Get all contact messages (admin only)
-export async function getContactMessages(req: Request, res: Response) {
-  try {
-    // Check if user is admin
-    if (!(req as any).user || (req as any).user.role !== "admin") {
-      return res.status(403).json({ error: "Only administrators can view contact messages" });
-    }
-
-    const messages = await storage.getAllContactMessages();
-    res.json(messages);
-  } catch (error) {
-    console.error("Get contact messages error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-}

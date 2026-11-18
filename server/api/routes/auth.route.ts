@@ -42,6 +42,43 @@ export function registerAuthRoutes(app: Express) {
   app.use("/api/auth/forgot-password", passwordRateLimit);
   app.use("/api/auth/reset-password", passwordRateLimit);
 
+  // Signup and verification-email limits. Every signup sends an email from our
+  // domain, so an unlimited endpoint is an unlimited way to send mail as us.
+  // Per address: generous, because a crew signing up together on a venue's
+  // wifi share one IP — a short burst allowance plus an hourly cap. Globally:
+  // a ceiling that no single network can reach alone.
+  const signupBurst = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { error: "Too many sign-ups from this network. Please wait a minute and try again." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const signupHourly = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 40,
+    message: { error: "Too many sign-ups from this network. Please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const signupGlobal = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 500,
+    keyGenerator: () => "global",
+    message: { error: "Sign-ups are busy right now. Please try again shortly." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const resendLimit = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { error: "Too many verification emails requested. Please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use("/api/auth/signup", signupBurst, signupHourly, signupGlobal);
+  app.use("/api/auth/resend-verification", resendLimit);
+
   // Apply input sanitization
   app.use("/api/auth", sanitizeAuthInput);
 
@@ -140,7 +177,7 @@ export function registerAuthRoutes(app: Express) {
   app.delete("/api/auth/delete-account", authenticateJWT, deleteAccount);
 
   // Admin diagnostics endpoint
-  app.get("/api/admin/diagnostics", getAdminDiagnostics);
+  app.get("/api/admin/diagnostics", authenticateJWT, getAdminDiagnostics);
 
   // Unsubscribe from marketing emails via token link (PECR compliance)
   app.get("/api/auth/unsubscribe", async (req: Request, res: Response) => {

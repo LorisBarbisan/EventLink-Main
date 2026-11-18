@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import rateLimit from "express-rate-limit";
-import { getContactMessages, submitContactForm } from "../controllers/contact.controller";
+import { submitContactForm } from "../controllers/contact.controller";
 
 // Rate limiter for contact form - max 3 submissions per 15 minutes per IP
 const contactLimiter = rateLimit({
@@ -15,7 +15,4 @@ const contactLimiter = rateLimit({
 export function registerContactRoutes(app: Express) {
   // Submit contact form
   app.post("/api/contact", contactLimiter, submitContactForm);
-
-  // Get all contact messages (admin only)
-  app.get("/api/contact/messages", getContactMessages);
 }
