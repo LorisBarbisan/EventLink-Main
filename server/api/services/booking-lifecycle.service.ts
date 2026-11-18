@@ -5,7 +5,7 @@
 // Mapping (see product decision):
 //   invite sent / conversation started  -> enquired
 //   freelancer hired                     -> confirmed (or completed if the
-//                                           job's event date has passed)
+//                                           job's last day has passed)
 //   briefed / completed                  -> manual (handled in booking UI)
 //   rejected / declined / invite withdrawn -> removed from the pipeline
 //
@@ -17,6 +17,7 @@
 import { db } from "../config/db";
 import { bookings, bookingStatusHistory, jobs } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
+import { jobHasFinished } from "@shared/job-dates";
 
 type PipelineStatus = "enquired" | "confirmed" | "briefed" | "completed";
 
@@ -28,15 +29,6 @@ const STATUS_RANK: Record<string, number> = {
   briefed: 2,
   completed: 3,
 };
-
-function isEventInPast(eventDate: string | null): boolean {
-  if (!eventDate) return false;
-  const d = new Date(eventDate);
-  if (Number.isNaN(d.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return d < today;
-}
 
 /**
  * Create the booking for a (job, freelancer) pair, or advance it forward to at
@@ -64,6 +56,9 @@ export async function syncBookingForApplication(params: {
       .select({
         recruiterId: jobs.recruiter_id,
         eventDate: jobs.event_date,
+        endDate: jobs.end_date,
+        durationType: jobs.duration_type,
+        days: jobs.days,
         currency: jobs.currency,
       })
       .from(jobs)
@@ -73,7 +68,16 @@ export async function syncBookingForApplication(params: {
     if (!job || job.recruiterId == null) return;
 
     let targetStatus: PipelineStatus = params.targetStatus;
-    if (targetStatus === "confirmed" && isEventInPast(job.eventDate)) {
+    // Completed only once the job's LAST day is over, not its first
+    if (
+      targetStatus === "confirmed" &&
+      jobHasFinished({
+        event_date: job.eventDate,
+        end_date: job.endDate,
+        duration_type: job.durationType,
+        days: job.days,
+      })
+    ) {
       targetStatus = "completed";
     }
 
