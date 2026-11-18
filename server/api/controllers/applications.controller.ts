@@ -1,6 +1,9 @@
 import { insertJobApplicationSchema, type JobApplication } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { hireApplication } from "../services/hire.service";
+import { sendJobClosureEmails } from "../services/job-closure-email.service";
+import { cache } from "../utils/cache.util";
 import {
   notifyJobPosterInApp,
   notifyJobPosterOfNewApplication,
@@ -233,17 +236,47 @@ export async function acceptApplication(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized to accept this application" });
     }
 
-    // Mark application as hired (this also automatically closes the job)
-    await storage.updateApplicationStatus(applicationId, "hired");
-
-    // Advance the employer booking to Confirmed (or Completed if the event has passed)
-    await syncBookingForApplication({
+    // One atomic hire: guard, mark hired, confirm the booking, close the job
+    // when the last position fills — all or nothing. Nothing is sent until
+    // it has committed.
+    const result = await hireApplication({
+      applicationId,
       jobId: application.job_id,
       freelancerId: application.freelancer_id,
-      targetStatus: "confirmed",
       changedById: (req as any).user.id,
-      note: "Freelancer hired",
     });
+    cache.clearPattern("freelancer-applications-");
+    cache.clearPattern("recruiter-applications-");
+    cache.clearPattern("job");
+
+    if (result.kind === "not_found") {
+      return res.status(404).json({ error: "Application not found" });
+    }
+    if (result.kind === "refused") {
+      return res.status(409).json({
+        error:
+          result.reason === "fully_crewed"
+            ? "This job is already fully crewed."
+            : "This job is closed, so no one else can be hired.",
+        code: result.reason,
+      });
+    }
+    if (result.kind === "already_hired") {
+      // Idempotent: already done, and nothing is sent again
+      return res.json({
+        message: "Already hired",
+        filled: result.filled,
+        positions: result.positions,
+        jobClosed: false,
+      });
+    }
+
+    // The last position just filled and the job closed: tell everyone else
+    if (result.jobClosed) {
+      sendJobClosureEmails(application.job_id).catch((err) =>
+        console.error(`Job closure email error for job ${application.job_id}:`, err)
+      );
+    }
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -321,7 +354,12 @@ export async function acceptApplication(req: Request, res: Response) {
       });
     }
 
-    res.json({ message: "Application accepted successfully" });
+    res.json({
+      message: "Application accepted successfully",
+      filled: result.filled,
+      positions: result.positions,
+      jobClosed: result.jobClosed,
+    });
   } catch (error) {
     console.error("Accept application error:", error);
     res.status(500).json({ error: "Internal server error" });

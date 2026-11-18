@@ -1,4 +1,5 @@
 import { insertJobSchema, insertFreelancerJobSchema } from "@shared/schema";
+import { filledPositions } from "../services/hire.service";
 import { bookings, jobs as jobsTable } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
@@ -257,6 +258,16 @@ export async function updateJob(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 
+    // Can't need fewer people than are already hired
+    if (result.data.positions !== undefined) {
+      const filled = await filledPositions(jobId);
+      if (result.data.positions < filled) {
+        return res.status(400).json({
+          error: `${filled} ${filled === 1 ? "person is" : "people are"} already hired, so the job needs at least ${filled}.`,
+        });
+      }
+    }
+
     const updatedJob = await storage.updateJob(jobId, result.data);
     if (!updatedJob) {
       return res.status(404).json({ error: "Job not found" });
@@ -437,6 +448,31 @@ export async function closeJob(req: Request, res: Response) {
   } catch (error) {
     console.error("Close job error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Crew count for a job: how many it needs, how many are hired (derived)
+export async function getJobCrew(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.jobId);
+    if (Number.isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+    const job = await storage.getJobById(jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    const user = (req as any).user;
+    const effectiveId = (req as any).companyId ?? user.id;
+    const isFreelancerOwner = job.is_freelancer_posted && job.posted_by_user_id === user.id;
+    if (user.role !== "admin" && job.recruiter_id !== effectiveId && !isFreelancerOwner) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+    const filled = await filledPositions(jobId);
+    return res.json({
+      positions: Math.max(1, Number((job as any).positions ?? 1)),
+      filled,
+      status: job.status,
+    });
+  } catch (err) {
+    console.error("getJobCrew error:", err);
+    return res.status(500).json({ error: "Failed to load crew count" });
   }
 }
 

@@ -15,6 +15,7 @@
 // ============================================================
 
 import { db } from "../config/db";
+const rootDb = db;
 import { bookings, bookingStatusHistory, jobs } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import { jobHasFinished } from "@shared/job-dates";
@@ -49,8 +50,13 @@ export async function syncBookingForApplication(params: {
   targetStatus: "enquired" | "confirmed";
   changedById: number;
   note?: string;
+  /** Run inside the caller's transaction */
+  tx?: typeof rootDb;
+  /** Throw instead of swallowing, so the caller's transaction rolls back */
+  strict?: boolean;
 }): Promise<void> {
   const { jobId, freelancerId, changedById } = params;
+  const db: typeof rootDb = params.tx ?? rootDb;
   try {
     const [job] = await db
       .select({
@@ -137,6 +143,7 @@ export async function syncBookingForApplication(params: {
       note: params.note ?? "Booking advanced from application activity",
     });
   } catch (err) {
+    if (params.strict) throw err;
     console.error("syncBookingForApplication failed (non-fatal):", err);
   }
 }

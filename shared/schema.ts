@@ -208,6 +208,11 @@ export const jobs = pgTable("jobs", {
   days: integer("days"), // Number of days if duration_type = 'days'
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
+  // How many people the job needs. Filled is derived (hired applications), never stored.
+  positions: integer("positions").notNull().default(1),
+  // Job-level completion — the posting, not the bookings (those complete by date)
+  completed_at: timestamp("completed_at", { withTimezone: true }),
+  completion_snoozed_on: date("completion_snoozed_on"),
   deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = live; timestamp = soft-deleted by employer/admin (applications are preserved)
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<
@@ -478,6 +483,12 @@ export const insertJobSchema = createInsertSchema(jobs)
     rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
+    positions: z.coerce
+      .number()
+      .int("Enter a whole number of people")
+      .min(1, "At least one person")
+      .max(50, "Up to 50 people per job")
+      .optional(),
   });
 
 export const insertFreelancerJobSchema = createInsertSchema(jobs)
