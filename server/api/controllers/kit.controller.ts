@@ -225,7 +225,9 @@ export async function recordKitDisposal(req: Request, res: Response) {
       unit_amount_pence: proceeds,
       gross_amount_pence: proceeds,
       deductions_pence: 0,
-      currency: item.currency,
+      // Sale proceeds are always entered in pounds (the sale form asks for £),
+      // whatever currency the item was bought in, so the income counts.
+      currency: "GBP",
       status: "paid",
       paid_date: date,
       paid_amount_pence: proceeds,

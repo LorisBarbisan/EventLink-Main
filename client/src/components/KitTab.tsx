@@ -571,9 +571,8 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
       {disposal === "offer" && (
         <div className={box}>
           <p className="mb-2">
-            Record the {formatPence(item.disposal_proceeds_pence, item.currency)} from selling it as
-            income on {longDate(item.disposal_date!)}? Selling kit you claimed as an expense is
-            taxable.
+            Record the {formatPence(item.disposal_proceeds_pence)} from selling it as income on{" "}
+            {longDate(item.disposal_date!)}? Selling kit you claimed as an expense is taxable.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => addIncome.mutate()} disabled={addIncome.isPending}>
@@ -602,7 +601,7 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
                 <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">Sold for</Label>
+                <Label className="text-xs">Sold for (£)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -613,6 +612,12 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
                 />
               </div>
             </div>
+            {item.currency !== "GBP" && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                Bought in {item.currency}, but enter the sale in pounds — the amount that reached
+                your bank. Your books count sterling only.
+              </p>
+            )}
             <div className="flex gap-2">
               <Button
                 size="sm"
