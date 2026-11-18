@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { autoCompleteFinishedJobs } from "./job-completion.service";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
 import * as emailTemplates from "../utils/emailTemplates";
@@ -349,6 +350,21 @@ export function registerJobNotificationScheduler(): void {
         }
       } catch (err) {
         console.error("❌ Daily auto-close scheduler error:", err);
+      }
+    },
+    { timezone: "Europe/London" }
+  );
+
+  // Daily at 10:30 UK time — complete jobs nobody marked completed, 7 days
+  // after their last day (bookings already complete by date; this is the posting)
+  cron.schedule(
+    "30 10 * * *",
+    async () => {
+      try {
+        const n = await autoCompleteFinishedJobs();
+        if (n > 0) console.log(`Daily scheduler: auto-completed ${n} finished jobs`);
+      } catch (err) {
+        console.error("❌ Auto-complete scheduler error:", err);
       }
     },
     { timezone: "Europe/London" }

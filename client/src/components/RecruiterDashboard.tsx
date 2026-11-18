@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { JobCompletionPrompt } from "./JobCompletionPrompt";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -779,6 +780,10 @@ export default function SimplifiedRecruiterDashboard() {
         <p className="text-sm text-muted-foreground sm:text-base">
           Manage your company profile, job postings, and applications
         </p>
+      </div>
+
+      <div className="mb-4 px-3 sm:px-0">
+        <JobCompletionPrompt />
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">

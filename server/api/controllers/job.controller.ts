@@ -1,13 +1,14 @@
 import { insertJobSchema, insertFreelancerJobSchema } from "@shared/schema";
+import {
+  completeJobRecords,
+  jobsDueForCompletion,
+  snoozeJobCompletion,
+} from "../services/job-completion.service";
 import { filledPositions } from "../services/hire.service";
-import { bookings, jobs as jobsTable } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { db } from "../config/db";
-import { and, eq, inArray } from "drizzle-orm";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
-import { seedEntryFromBooking } from "../services/earnings.service";
 import { ownsEmployerCompany } from "../utils/team.util";
 import { assignBatchWindow } from "../utils/batch-window.util";
 
@@ -476,6 +477,35 @@ export async function getJobCrew(req: Request, res: Response) {
   }
 }
 
+// The day-after prompt: the employer's finished jobs not yet marked completed
+export async function getJobsDueForCompletion(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const effectiveId = (req as any).companyId ?? user.id;
+    return res.json(await jobsDueForCompletion(effectiveId));
+  } catch (err) {
+    console.error("getJobsDueForCompletion error:", err);
+    return res.status(500).json({ error: "Failed to load finished jobs" });
+  }
+}
+
+// "Not yet": don't ask again today (it completes on its own after 7 days)
+export async function snoozeCompletion(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.jobId);
+    if (Number.isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+    const job = await storage.getJobById(jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    const effectiveId = (req as any).companyId ?? (req as any).user.id;
+    if (job.recruiter_id !== effectiveId) return res.status(403).json({ error: "Not authorized" });
+    await snoozeJobCompletion(jobId);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("snoozeCompletion error:", err);
+    return res.status(500).json({ error: "Failed" });
+  }
+}
+
 // Mark a job as completed (event happened successfully)
 export async function completeJob(req: Request, res: Response) {
   try {
@@ -508,64 +538,8 @@ export async function completeJob(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    // Idempotent: advance job status only if not already completed
-    if ((job.status as string) !== "completed") {
-      await storage.updateJob(jobId, { status: "completed" as any });
-    }
+    await completeJobRecords(jobId);
     const updatedJob = await storage.getJobById(jobId);
-
-    // Mark all hired applications on this job as completed
-    const allApps = await storage.getJobApplications(jobId);
-    const hiredApps = allApps.filter((a) => a.status === "hired");
-    await Promise.all(
-      hiredApps.map((a) => storage.updateApplicationStatus(a.id, "completed" as any))
-    );
-
-    // Reconcile ALL non-cancelled bookings for this job — including ones already
-    // at "completed" that may have been stranded without an earnings entry.
-    const jobBookings = await db
-      .select()
-      .from(bookings)
-      .where(
-        and(
-          eq(bookings.jobId, jobId),
-          inArray(bookings.status, ["confirmed", "briefed", "completed"])
-        )
-      );
-
-    if (jobBookings.length > 0) {
-      const [jobRow] = await db
-        .select({
-          id: jobsTable.id,
-          title: jobsTable.title,
-          company: jobsTable.company,
-          recruiter_id: jobsTable.recruiter_id,
-          currency: jobsTable.currency,
-          event_date: jobsTable.event_date,
-          end_date: jobsTable.end_date,
-        })
-        .from(jobsTable)
-        .where(eq(jobsTable.id, jobId));
-
-      await Promise.all(
-        jobBookings.map(async (b) => {
-          if (b.status !== "completed") {
-            await db
-              .update(bookings)
-              .set({ status: "completed", updatedAt: new Date() })
-              .where(eq(bookings.id, b.id));
-          }
-          const entry = await storage.getEarningsEntryByBooking(b.id);
-          if (entry) {
-            if (entry.work_status !== "completed") {
-              await storage.updateEarningsEntry(entry.id, { work_status: "completed" });
-            }
-          } else if (jobRow) {
-            await seedEntryFromBooking({ ...b, status: "completed" } as typeof b, jobRow);
-          }
-        })
-      );
-    }
 
     return res.json(updatedJob);
   } catch (err) {

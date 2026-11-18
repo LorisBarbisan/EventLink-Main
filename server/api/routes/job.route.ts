@@ -4,6 +4,8 @@ import {
   closeJob,
   completeJob,
   getJobCrew,
+  getJobsDueForCompletion,
+  snoozeCompletion,
   createJob,
   createFreelancerJob,
   deleteJob,
@@ -82,6 +84,7 @@ export function registerJobRoutes(app: Express) {
   app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
   // Get job by ID — must come after all specific /api/jobs/* routes
+  app.get("/api/jobs/completion-due", authenticateJWT, resolveCompanyId, getJobsDueForCompletion);
   app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
 
   // Public: active jobs posted by a specific freelancer (profile page)
@@ -93,6 +96,12 @@ export function registerJobRoutes(app: Express) {
   // Close job manually
   app.put("/api/jobs/:jobId/close", authenticateJWT, resolveCompanyId, closeJob);
   app.get("/api/jobs/:jobId/crew", authenticateJWT, resolveCompanyId, getJobCrew);
+  app.post(
+    "/api/jobs/:jobId/completion-snooze",
+    authenticateJWT,
+    resolveCompanyId,
+    snoozeCompletion
+  );
 
   // Mark job as completed (event happened successfully)
   app.put("/api/jobs/:jobId/complete", authenticateJWT, resolveCompanyId, completeJob);
