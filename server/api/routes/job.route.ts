@@ -66,7 +66,13 @@ export function registerJobRoutes(app: Express) {
   app.get("/api/jobs/presets", getJobPresets);
 
   // Get jobs by recruiter
-  app.get("/api/jobs/recruiter/:recruiterId", getJobsByRecruiter);
+  // An employer's own jobs, in every status — so only that company (or an admin)
+  app.get(
+    "/api/jobs/recruiter/:recruiterId",
+    authenticateJWT,
+    resolveCompanyId,
+    getJobsByRecruiter
+  );
 
   // Create new job (recruiter / employer)
   app.post("/api/jobs", authenticateJWT, resolveCompanyId, createJob);

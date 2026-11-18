@@ -9,7 +9,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
-import { ownsEmployerCompany } from "../utils/team.util";
+import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 import { assignBatchWindow } from "../utils/batch-window.util";
 
 // Get job by ID
@@ -92,6 +92,15 @@ export async function getJobPresets(req: Request, res: Response) {
 export async function getJobsByRecruiter(req: Request, res: Response) {
   try {
     const recruiterId = parseInt(req.params.recruiterId);
+    const user = (req as any).user;
+    // Every status, unpublished included: only the company itself or an admin.
+    // 404 rather than 403, so it doesn't confirm which ids exist.
+    if (
+      Number.isNaN(recruiterId) ||
+      (user.role !== "admin" && getEmployerCompanyId(req) !== recruiterId)
+    ) {
+      return res.status(404).json({ error: "Not found" });
+    }
     const jobs = await storage.getJobsByRecruiterId(recruiterId);
     res.set("Cache-Control", "no-store");
     res.json(jobs);

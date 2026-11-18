@@ -2487,19 +2487,8 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // A read only. Expiring jobs is the daily scheduler's job, not a GET's.
   async getJobsByRecruiterId(recruiterId: number): Promise<Job[]> {
-    const today = new Date().toISOString().split("T")[0];
-    await db
-      .update(jobs)
-      .set({ status: "closed", updated_at: new Date() })
-      .where(
-        and(
-          eq(jobs.recruiter_id, recruiterId),
-          or(eq(jobs.status, "active"), isNull(jobs.status)),
-          sql`${jobs.event_date} IS NOT NULL AND ${jobs.event_date}::date <= ${today}::date`
-        )
-      );
-
     return await db
       .select()
       .from(jobs)
