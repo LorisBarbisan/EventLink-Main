@@ -61,6 +61,8 @@ export async function syncBookingForApplication(params: {
     const [job] = await db
       .select({
         recruiterId: jobs.recruiter_id,
+        postedByUserId: jobs.posted_by_user_id,
+        isFreelancerPosted: jobs.is_freelancer_posted,
         eventDate: jobs.event_date,
         endDate: jobs.end_date,
         durationType: jobs.duration_type,
@@ -70,8 +72,17 @@ export async function syncBookingForApplication(params: {
       .from(jobs)
       .where(eq(jobs.id, jobId));
 
-    // No company to attribute the booking to (e.g. external jobs) — skip.
-    if (!job || job.recruiterId == null) return;
+    // Who the booking belongs to on the employer side: the company, or — for a
+    // gig a freelancer posted themselves — that freelancer, who is genuinely
+    // the employer for that engagement.
+    const employerId =
+      job?.recruiterId ?? (job?.isFreelancerPosted ? job.postedByUserId : null) ?? null;
+    if (!job || employerId == null) {
+      // Under strict (a hire), a skip must be loud: it would leave "hired"
+      // with no booking. Otherwise (e.g. external listings) skipping is right.
+      if (params.strict) throw new Error(`No party to attribute the booking to (job ${jobId})`);
+      return;
+    }
 
     let targetStatus: PipelineStatus = params.targetStatus;
     // Completed only once the job's LAST day is over, not its first
@@ -97,7 +108,7 @@ export async function syncBookingForApplication(params: {
         .insert(bookings)
         .values({
           jobId,
-          employerId: job.recruiterId,
+          employerId: employerId,
           freelancerId,
           status: targetStatus,
           currency: job.currency ?? "GBP",
@@ -121,10 +132,10 @@ export async function syncBookingForApplication(params: {
 
     // Keep employerId correct even when we don't advance the status.
     if (targetRank <= currentRank) {
-      if (existing.employerId !== job.recruiterId) {
+      if (existing.employerId !== employerId) {
         await db
           .update(bookings)
-          .set({ employerId: job.recruiterId, updatedAt: new Date() })
+          .set({ employerId: employerId, updatedAt: new Date() })
           .where(eq(bookings.id, existing.id));
       }
       return;
@@ -132,7 +143,7 @@ export async function syncBookingForApplication(params: {
 
     await db
       .update(bookings)
-      .set({ status: targetStatus, employerId: job.recruiterId, updatedAt: new Date() })
+      .set({ status: targetStatus, employerId: employerId, updatedAt: new Date() })
       .where(eq(bookings.id, existing.id));
 
     await db.insert(bookingStatusHistory).values({
