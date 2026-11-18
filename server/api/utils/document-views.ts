@@ -1,4 +1,5 @@
 import type { FreelancerDocument } from "@shared/schema";
+import { tokensMatch } from "./token-compare";
 
 /**
  * The only shapes in which credential rows leave the server.
@@ -50,7 +51,7 @@ export function documentViewer(opts: {
     // Another freelancer is treated like a signed-out visitor
   }
   if (opts.profileIsPublic) return { kind: "public" };
-  if (opts.presentedToken && opts.shareToken && opts.presentedToken === opts.shareToken) {
+  if (tokensMatch(opts.presentedToken, opts.shareToken)) {
     return { kind: "public" };
   }
   return { kind: "denied" };

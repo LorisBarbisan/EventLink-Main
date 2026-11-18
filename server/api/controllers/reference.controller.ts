@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { rotateReferenceToken } from "../services/rating-invite.service";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
 import { getOrigin } from "../utils/auth.util";
@@ -537,7 +538,11 @@ export async function getMyReferenceToken(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
-    const token = await storage.getOrCreateReferenceToken(userId);
+    // POST resets the link: everything shared with the old one stops working
+    const token =
+      req.method === "POST"
+        ? await rotateReferenceToken(userId)
+        : await storage.getOrCreateReferenceToken(userId);
     const protocol = ((req.headers["x-forwarded-proto"] as string) || req.protocol || "https")
       .split(",")[0]
       .trim();

@@ -7,6 +7,8 @@ import {
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { documentViewer, ownerDocumentView, publicDocumentView } from "../utils/document-views";
+import { matchesDeclaredType } from "../utils/file-signature";
+import { tokensMatch } from "../utils/token-compare";
 import { ObjectStorageService } from "../utils/object-storage";
 import {
   isLocalPath,
@@ -133,6 +135,13 @@ export async function uploadDocument(req: Request, res: Response) {
     if (actualSize > MAX_FILE_SIZE) {
       return res.status(400).json({
         error: "File size must be less than 10MB",
+      });
+    }
+
+    if (!matchesDeclaredType(buffer, contentType)) {
+      return res.status(400).json({
+        error:
+          "That file doesn't look like a real PDF, JPG or PNG. Please upload the original file.",
       });
     }
 
@@ -342,7 +351,7 @@ export async function downloadDocument(req: Request, res: Response) {
         if (!publicToken) {
           return res.status(401).json({ error: "Not authenticated" });
         }
-        if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+        if (!tokensMatch(publicToken, ownerProfile?.reference_token)) {
           return res.status(403).json({ error: "Invalid or missing access token" });
         }
       }

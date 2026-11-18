@@ -24,6 +24,7 @@ router.get("/verify-email", verifyRefereeEmail);
 router.get("/linkedin-auth", startLinkedInReferenceAuth);
 router.get("/linkedin-callback", linkedInReferenceCallback);
 router.get("/my-token", authenticateJWT, getMyReferenceToken);
+router.post("/my-token", authenticateJWT, getMyReferenceToken);
 router.get("/freelancer/:freelancerId", getPublicReferences);
 router.post("/requests", authenticateJWT, createReferenceRequest);
 router.get("/requests", authenticateJWT, getReferenceRequests);
@@ -32,7 +33,7 @@ router.post("/requests/:id/remind", authenticateJWT, sendReferenceReminder);
 router.post("/report/:referenceId", authenticateJWT, reportReference);
 router.get("/domain-trust", getDomainTrustInfo);
 
-export function registerReferenceRoutes(app: express.Router) {
+export function registerReferenceRoutes(_app: express.Router) {
   return router;
 }
 

@@ -1,3 +1,4 @@
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Link as LinkIcon, Mail, Share2, Twitter } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const LinkedInIcon = ({ className }: { className?: string }) => (
   <svg
@@ -58,8 +59,9 @@ interface InviteClientsDialogProps {
   userId: number;
 }
 
-export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClientsDialogProps) {
+export function InviteClientsDialog({ open, onOpenChange }: InviteClientsDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: tokenData, isLoading } = useQuery<{ token: string; url: string }>({
     queryKey: ["/api/references/my-token"],
@@ -67,7 +69,8 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
   });
 
   const referenceUrl = tokenData?.url || "";
-  const shareText = "I'd appreciate your honest feedback. Please take 45 seconds to complete my reference on EventLink.";
+  const shareText =
+    "I'd appreciate your honest feedback. Please take 45 seconds to complete my reference on EventLink.";
 
   const handleCopy = async () => {
     if (!referenceUrl) return;
@@ -75,7 +78,11 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
       await navigator.clipboard.writeText(referenceUrl);
       toast({ title: "Link copied!", description: "Reference link copied to clipboard." });
     } catch {
-      toast({ title: "Failed to copy", description: "Could not copy link to clipboard.", variant: "destructive" });
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy link to clipboard.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -95,22 +102,22 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LinkIcon className="w-5 h-5 text-orange-500" />
+            <LinkIcon className="h-5 w-5 text-orange-500" />
             Build My Reputation
           </DialogTitle>
           <DialogDescription>
-            Share your personal reference request link with clients you&apos;ve worked with in
-            the past to build your reputation.
+            Share your personal reference request link with clients you&apos;ve worked with in the
+            past to build your reputation.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center space-x-2 my-4">
+        <div className="my-4 flex items-center space-x-2">
           <div className="grid flex-1 gap-2">
             <Input
               id="link"
               value={isLoading ? "Generating your link…" : referenceUrl}
               readOnly
-              className="bg-muted text-muted-foreground text-sm"
+              className="bg-muted text-sm text-muted-foreground"
             />
           </div>
           <Button
@@ -132,7 +139,7 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
               <Button
                 type="button"
                 variant="outline"
-                className="w-fit flex items-center justify-center gap-2"
+                className="flex w-fit items-center justify-center gap-2"
                 disabled={isLoading || !referenceUrl}
               >
                 <Share2 className="h-4 w-4" />
@@ -140,29 +147,65 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem onClick={() => openShareLink(shareLinks.linkedin)} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => openShareLink(shareLinks.linkedin)}
+                className="cursor-pointer"
+              >
                 <LinkedInIcon className="mr-2 h-4 w-4" />
                 <span>LinkedIn</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openShareLink(shareLinks.whatsapp)} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => openShareLink(shareLinks.whatsapp)}
+                className="cursor-pointer"
+              >
                 <WhatsAppIcon className="mr-2 h-4 w-4" />
                 <span>WhatsApp</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openShareLink(shareLinks.twitter)} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => openShareLink(shareLinks.twitter)}
+                className="cursor-pointer"
+              >
                 <Twitter className="mr-2 h-4 w-4" />
                 <span>X (Twitter)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openShareLink(shareLinks.email)} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => openShareLink(shareLinks.email)}
+                className="cursor-pointer"
+              >
                 <Mail className="mr-2 h-4 w-4" />
                 <span>Email</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="text-xs text-muted-foreground mt-2">
-            Anyone with your link can submit a reference — no sign-in required. References appear
-            on your public profile and contribute to your verified reputation badges.
+          <div className="mt-2 text-xs text-muted-foreground">
+            Anyone with your link can submit a reference — no sign-in required. References appear on
+            your public profile and contribute to your verified reputation badges.
           </div>
+          <button
+            type="button"
+            className="w-fit text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  "Make a new link? Your old reference link, profile share link and QR code will stop working."
+                )
+              )
+                return;
+              try {
+                await apiRequest("/api/references/my-token", { method: "POST" });
+                await queryClient.invalidateQueries({ queryKey: ["/api/references/my-token"] });
+                toast({
+                  title: "New link created",
+                  description: "Links you shared before no longer work.",
+                });
+              } catch {
+                toast({ title: "Couldn't reset your link", variant: "destructive" });
+              }
+            }}
+          >
+            Reset link
+          </button>
         </div>
       </DialogContent>
     </Dialog>
