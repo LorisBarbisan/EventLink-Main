@@ -2,7 +2,6 @@ import connectPgSimple from "connect-pg-simple";
 import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
-import helmet from "helmet";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import { WebSocket, WebSocketServer } from "ws";
@@ -58,44 +57,7 @@ export async function registerRoutes(
 
   // CORS is configured once, in server/index.ts (api/utils/cors-origins.ts).
 
-  // Security headers - disable CSP in development for Vite compatibility
-  if (process.env.NODE_ENV === "production") {
-    app.use(
-      helmet({
-        contentSecurityPolicy: {
-          directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: [
-              "'self'",
-              "'unsafe-inline'",
-              "https://snap.licdn.com",
-              "https://www.googletagmanager.com",
-              "https://www.google-analytics.com",
-            ],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: [
-              "'self'",
-              "https://www.google-analytics.com",
-              "https://analytics.google.com",
-              "https://region1.google-analytics.com",
-              "https://px.ads.linkedin.com",
-              "wss://*.replit.dev",
-              "wss://*.replit.app",
-              "wss://eventlink.one",
-            ],
-          },
-        },
-      })
-    );
-  } else {
-    // Disable CSP entirely in development to allow Vite functionality
-    app.use(
-      helmet({
-        contentSecurityPolicy: false,
-      })
-    );
-  }
+  // Security headers (helmet) are configured once, in server/index.ts.
 
   // General rate limiting
   const generalRateLimit = rateLimit({

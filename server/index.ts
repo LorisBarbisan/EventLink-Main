@@ -42,7 +42,7 @@ if (process.env.NODE_ENV === "production") {
   console.log("✅ Trust proxy enabled for development");
 }
 
-// Security middleware - disable CSP in development
+// Security headers — the ONE helmet configuration (routes-modular.ts has none)
 if (process.env.NODE_ENV === "production") {
   app.use(
     helmet({
@@ -72,7 +72,6 @@ if (process.env.NODE_ENV === "production") {
           ],
           connectSrc: [
             "'self'",
-            "https://api.eventlink.com",
             "https://api.linkedin.com",
             "https://storage.googleapis.com",
             "https://www.google-analytics.com",
@@ -174,8 +173,14 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
 
-      // Add sanitized response info (no PII exposure)
-      if (capturedJsonResponse) {
+      // Add sanitized response info (no PII exposure). Never for financial
+      // routes: their numbers are the sensitive part, and status + duration
+      // are what we debug with.
+      const financial =
+        /^\/api\/(books|earnings|expenses|invoices|billing-profile|mileage|kit|imports?|tax)(\/|$)/.test(
+          path
+        );
+      if (capturedJsonResponse && !financial) {
         const sanitizedResponse = sanitizeLogData(capturedJsonResponse);
         if (Object.keys(sanitizedResponse).length > 0) {
           logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
