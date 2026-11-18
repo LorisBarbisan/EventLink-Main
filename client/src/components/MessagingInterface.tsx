@@ -457,6 +457,10 @@ export function MessagingInterface({ initialConversationId }: Props) {
                                     : "bg-black/5 text-amber-900"
                                 }`}
                                 onClick={async () => {
+                                  // PDFs open in a new browser tab. The tab is opened now,
+                                  // inside the click, so the popup blocker allows it.
+                                  const isPdf = /\.pdf$/i.test(att.original_filename);
+                                  const tab = isPdf ? window.open("", "_blank") : null;
                                   try {
                                     const res = await fetch(`/api/attachments/${att.id}/download`, {
                                       headers: {
@@ -464,14 +468,23 @@ export function MessagingInterface({ initialConversationId }: Props) {
                                       },
                                     });
                                     if (!res.ok) throw new Error(await res.text());
-                                    const blob = await res.blob();
+                                    const raw = await res.blob();
+                                    const blob = isPdf
+                                      ? new Blob([raw], { type: "application/pdf" })
+                                      : raw;
                                     const url = URL.createObjectURL(blob);
-                                    const a = document.createElement("a");
-                                    a.href = url;
-                                    a.download = att.original_filename;
-                                    a.click();
-                                    URL.revokeObjectURL(url);
+                                    if (tab) {
+                                      tab.location.href = url;
+                                    } else {
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = att.original_filename;
+                                      a.click();
+                                    }
+                                    // Revoking at once can cut the open or download short
+                                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
                                   } catch {
+                                    tab?.close();
                                     toast({
                                       title: "Could not download attachment",
                                       variant: "destructive",
