@@ -1,5 +1,4 @@
 import connectPgSimple from "connect-pg-simple";
-import cors from "cors";
 import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
@@ -57,48 +56,7 @@ export async function registerRoutes(
   // Add performance monitoring middleware
   app.use(performanceMonitor.middleware());
 
-  // CORS configuration for cross-domain cookie handling
-  app.use(
-    cors({
-      origin: (
-        origin: string | undefined,
-        callback: (error: Error | null, allow?: boolean) => void
-      ) => {
-        // Allow requests from Replit frontend and development
-        const allowedOrigins = [
-          /\.replit\.dev$/,
-          /\.replit\.app$/,
-          "http://localhost:5173",
-          "http://127.0.0.1:5173",
-          "https://api.eventlink.com",
-          "https://api.linkedin.com",
-          "https://storage.googleapis.com",
-          "ws://localhost:*",
-          "wss://localhost:*",
-          "wss://*.replit.dev", // Replit dev domains
-          "wss://*.replit.app", // Replit production domains
-          "wss://eventlink.one", // Custom production domain
-        ];
-
-        // Allow no origin (for mobile apps, curl, etc.)
-        if (!origin) return callback(null, true);
-
-        // Check if origin matches allowed patterns
-        const isAllowed = allowedOrigins.some((pattern) => {
-          if (typeof pattern === "string") {
-            return origin === pattern;
-          }
-          return pattern.test(origin);
-        });
-
-        callback(null, isAllowed);
-      },
-      credentials: true, // CRITICAL: Allow cookies to be sent cross-domain
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-      exposedHeaders: ["Set-Cookie"],
-    })
-  );
+  // CORS is configured once, in server/index.ts (api/utils/cors-origins.ts).
 
   // Security headers - disable CSP in development for Vite compatibility
   if (process.env.NODE_ENV === "production") {

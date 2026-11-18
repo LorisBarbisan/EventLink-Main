@@ -1,4 +1,5 @@
 import cors from "cors";
+import { allowedOrigins, isAllowedOrigin } from "./api/utils/cors-origins";
 import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
 import helmet from "helmet";
@@ -125,13 +126,20 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handl
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
-// CORS configuration to allow Authorization header
+// CORS — the single allowlist (server/api/utils/cors-origins.ts)
+if (process.env.NODE_ENV === "production" && !process.env.APP_URL) {
+  console.error(
+    "⚠️  APP_URL is not set in production: CORS falls back to eventlink.one and Railway only, and Stripe return links will be wrong."
+  );
+}
+const corsAllowlist = allowedOrigins(process.env);
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? [process.env.APP_URL || "", "https://*.up.railway.app"].filter(Boolean)
-        : true, // Allow all origins in development
+    origin: (origin, callback) => {
+      // Same-origin and non-browser requests send no Origin header
+      if (!origin) return callback(null, true);
+      callback(null, isAllowedOrigin(origin, corsAllowlist));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
