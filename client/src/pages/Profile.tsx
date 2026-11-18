@@ -887,6 +887,19 @@ export default function Profile() {
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showStandaloneRatingDialog, setShowStandaloneRatingDialog] = useState(false);
+  const copyRatingInvite = async () => {
+    try {
+      const { url } = (await apiRequest("/api/ratings/invite-link")) as { url: string };
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Rating link copied",
+        description:
+          "Send it to a past client with an employer account. Their rating shows as invited and isn't counted in your average.",
+      });
+    } catch {
+      toast({ title: "Couldn't create your rating link", variant: "destructive" });
+    }
+  };
 
   // Profile theme
   const profileTheme: { accent?: string; font?: string; section_order?: string[] } =
@@ -964,7 +977,12 @@ export default function Profile() {
         // Redirect to auth if not logged in, preserving the return URL
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         setLocation(`/auth?redirect=${returnUrl}&reason=rate`);
-      } else if (freelancerProfile && user.id !== freelancerProfile.user_id) {
+      } else if (
+        freelancerProfile &&
+        user.id !== freelancerProfile.user_id &&
+        user.role === "recruiter" &&
+        params.get("rt")
+      ) {
         // Remove the query param to prevent reopening on refresh (optional but good UX)
         // window.history.replaceState({}, document.title, window.location.pathname);
         // Actually, keep it for now so if they accidentally close they can refresh to get it back?
@@ -1402,6 +1420,15 @@ export default function Profile() {
                   >
                     <QrCode className="mr-2 h-3.5 w-3.5" />
                     QR Code
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={copyRatingInvite}
+                    title="A link for a past client to rate you. Shown as invited, not counted in your average."
+                    className="border-0 bg-white/20 text-white hover:bg-white/30"
+                  >
+                    <Star className="mr-2 h-3.5 w-3.5" />
+                    Rating link
                   </Button>
                 </div>
               </div>
@@ -2005,6 +2032,7 @@ export default function Profile() {
           freelancerId={freelancerProfile.user_id}
           freelancerName={`${freelancerProfile.first_name} ${freelancerProfile.last_name}`}
           recruiterId={user.id}
+          inviteToken={new URLSearchParams(location.search).get("rt") ?? ""}
         />
       )}
 

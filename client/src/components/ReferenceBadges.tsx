@@ -161,8 +161,9 @@ function useRecommendations(freelancerId: number) {
         key: `review-${r.id}`,
         badge_result: ratingBadge(r.rating) as string,
         source:
-          [r.recruiter?.first_name, r.recruiter?.last_name].filter(Boolean).join(" ") ||
-          "EventLink employer",
+          ([r.recruiter?.first_name, r.recruiter?.last_name].filter(Boolean).join(" ") ||
+            "EventLink employer") +
+          (r.job_application_id ? "" : " · invited, not hired on EventLink"),
         stars: r.rating,
         fromReview: true,
       })),

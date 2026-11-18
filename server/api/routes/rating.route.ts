@@ -6,6 +6,7 @@ import {
   getFreelancerAverageRating,
   getFreelancerRatings,
   getRatingByApplicationId,
+  getRatingInviteLink,
   moderationAction,
   reportRating,
 } from "../controllers/rating.controller";
@@ -15,6 +16,10 @@ import { resolveCompanyId } from "../middleware/team.middleware";
 export function registerRatingsRoutes(app: Express) {
   // Create a rating
   app.post("/api/ratings", authenticateJWT, resolveCompanyId, createRating);
+
+  // Freelancer's direct-rating invite link; POST resets it
+  app.get("/api/ratings/invite-link", authenticateJWT, getRatingInviteLink);
+  app.post("/api/ratings/invite-link", authenticateJWT, getRatingInviteLink);
 
   // Admin: Get all ratings for moderation (Must constitute before /:applicationId to prevent collision)
   app.get("/api/ratings/admin", authenticateJWT, getAdminRatings);

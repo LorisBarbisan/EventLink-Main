@@ -2,6 +2,12 @@ import { insertRatingRequestSchema, insertRatingSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { getEmployerCompanyId } from "../utils/team.util";
+import {
+  getRatingInviteToken,
+  hasDirectRating,
+  storedRatingInviteToken,
+  tokensMatch,
+} from "../services/rating-invite.service";
 
 // Create a rating
 export async function createRating(req: Request, res: Response) {
@@ -71,6 +77,26 @@ export async function createRating(req: Request, res: Response) {
       });
     }
 
+    // Direct rating (no application): only through the freelancer's own invite
+    // link, only from an employer account, and once per employer per freelancer.
+    if (!result.data.job_application_id) {
+      if (user.role !== "recruiter") {
+        return res.status(403).json({ error: "Only employer accounts can leave a rating." });
+      }
+      if (result.data.recruiter_id === result.data.freelancer_id) {
+        return res.status(400).json({ error: "You cannot rate yourself." });
+      }
+      const stored = await storedRatingInviteToken(result.data.freelancer_id);
+      if (!tokensMatch(req.body?.invite_token, stored)) {
+        return res
+          .status(403)
+          .json({ error: "This rating link isn't valid. Ask the freelancer for a new one." });
+      }
+      if (await hasDirectRating(result.data.recruiter_id, result.data.freelancer_id)) {
+        return res.status(409).json({ error: "You have already rated this freelancer." });
+      }
+    }
+
     // Prepare notification data
     let notification: any = null;
     let jobTitle = "a direct engagement";
@@ -122,6 +148,27 @@ export async function createRating(req: Request, res: Response) {
       error: "Internal server error",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+  }
+}
+
+// The freelancer's direct-rating invite link (rotate=1 issues a new one,
+// which stops every link already sent from working)
+export async function getRatingInviteLink(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "freelancer") {
+      return res.status(403).json({ error: "Only freelancers have rating invite links" });
+    }
+    const rotate = req.method === "POST";
+    const token = await getRatingInviteToken(user.id, rotate);
+    const base = (process.env.APP_URL || `${req.protocol}://${req.get("host")}`).replace(
+      /\/+$/,
+      ""
+    );
+    res.json({ url: `${base}/profile/${user.id}?action=rate&rt=${encodeURIComponent(token)}` });
+  } catch (error) {
+    console.error("Rating invite link error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
 

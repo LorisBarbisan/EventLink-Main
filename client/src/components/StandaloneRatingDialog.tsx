@@ -18,6 +18,8 @@ interface StandaloneRatingDialogProps {
   freelancerId: number;
   freelancerName: string;
   recruiterId: number;
+  /** From the freelancer's invite link (?rt=) — required for a direct rating */
+  inviteToken: string;
 }
 
 export function StandaloneRatingDialog({
@@ -26,6 +28,7 @@ export function StandaloneRatingDialog({
   freelancerId,
   freelancerName,
   recruiterId,
+  inviteToken,
 }: StandaloneRatingDialogProps) {
   const [rating, setRating] = useState<number>(0);
   const [review, setReview] = useState("");
@@ -39,6 +42,7 @@ export function StandaloneRatingDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_application_id: null, // Standalone rating
+          invite_token: inviteToken,
           freelancer_id: freelancerId,
           recruiter_id: recruiterId,
           rating: rating,
@@ -100,7 +104,7 @@ export function StandaloneRatingDialog({
 
         <div className="space-y-6">
           <div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="mb-4 text-sm text-muted-foreground">
               How would you rate your experience working with {freelancerName}?
             </p>
           </div>
@@ -114,7 +118,7 @@ export function StandaloneRatingDialog({
             />
 
             {rating > 0 && (
-              <p className="text-sm text-center text-muted-foreground">
+              <p className="text-center text-sm text-muted-foreground">
                 {rating === 1 && "Poor - Did not meet expectations"}
                 {rating === 2 && "Below Average - Met some expectations"}
                 {rating === 3 && "Average - Met expectations"}
@@ -130,20 +134,20 @@ export function StandaloneRatingDialog({
             </label>
             <textarea
               id="review"
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
+              className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Share details about your experience working with this freelancer..."
               value={review}
-              onChange={e => setReview(e.target.value)}
+              onChange={(e) => setReview(e.target.value)}
               maxLength={500}
             />
-            <div className="text-xs text-muted-foreground text-right">
+            <div className="text-right text-xs text-muted-foreground">
               {review.length}/500 characters
             </div>
           </div>
 
-          <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground">
+          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
             <p>
-              This is a direct client review. It will help build the freelancer's reputation on
+              This is a direct client review. It will help build the freelancer&apos;s reputation on
               EventLink.
             </p>
           </div>

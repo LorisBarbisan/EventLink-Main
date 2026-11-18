@@ -134,6 +134,8 @@ export const freelancer_profiles = pgTable(
     cv_file_size: integer("cv_file_size"),
     profile_is_public: boolean("profile_is_public").notNull().default(true),
     reference_token: text("reference_token"), // UUID for public reference request link
+    // Separate token for direct ("invited") rating links — never the reference token
+    rating_invite_token: text("rating_invite_token"),
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
     custom_slug: text("custom_slug"), // User-chosen vanity URL e.g. john-smith
     is_demo: boolean("is_demo").notNull().default(false), // Internal seed/demo/test record — excluded from public search results and the sitemap

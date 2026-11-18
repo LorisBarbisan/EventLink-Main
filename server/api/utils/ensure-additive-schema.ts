@@ -90,6 +90,8 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // Migration 0042 — separate token for direct rating links
+  `ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS rating_invite_token text`,
   // Migration 0041 — Books usage log (thin: fixed event, day only)
   `CREATE TABLE IF NOT EXISTS books_usage_events (
      id bigserial PRIMARY KEY,
