@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
+import { priceTaxYear } from "@shared/mileage-split";
 
 function taxYearParams(req: Request): { from: string; to: string } {
   const ty = currentTaxYear();
@@ -39,6 +40,38 @@ async function calculateTripAmount(
   const belowThreshold = Math.max(0, Math.min(miles, rate.threshold_miles - ytd));
   const aboveThreshold = miles - belowThreshold;
   return Math.round(belowThreshold * rate.rate_pence + aboveThreshold * rate.rate_above_pence);
+}
+
+/**
+ * Re-price every trip of one vehicle type in the tax year containing
+ * tripDate. A trip added, edited or removed out of date order moves the
+ * annual threshold for every later trip, so the year is priced as a whole.
+ * Only trips whose amount changed are written.
+ */
+async function repriceTaxYear(
+  freelancerId: number,
+  vehicleType: string,
+  tripDate: string
+): Promise<void> {
+  const ty = taxYearForDate(tripDate);
+  const trips = (await storage.listMileageTrips(freelancerId, ty.from, ty.to)).filter(
+    (t) => t.vehicle_type === vehicleType
+  );
+  if (trips.length === 0) return;
+  const rate = await storage.getActiveRates(vehicleType, tripDate);
+  const priced = priceTaxYear(trips, rate?.threshold_miles ?? null);
+  for (const t of trips) {
+    const amount = priced.get(t.id);
+    if (amount != null && amount !== t.amount_pence) {
+      await storage.updateMileageTrip(t.id, freelancerId, { amount_pence: amount } as never);
+    }
+  }
+}
+
+async function findTrip(freelancerId: number, id: number) {
+  return (await storage.listMileageTrips(freelancerId, "2000-01-01", "2100-01-01")).find(
+    (t) => t.id === id
+  );
 }
 
 // ── Rate lookup ───────────────────────────────────────────────────────────────
@@ -153,7 +186,9 @@ export async function createTrip(req: Request, res: Response) {
     notes: notes?.trim() || null,
   });
 
-  return res.status(201).json(trip);
+  await repriceTaxYear(freelancerId, vehicle_type, trip_date);
+  const repriced = (await findTrip(freelancerId, trip.id)) ?? trip;
+  return res.status(201).json(repriced);
 }
 
 export async function updateTrip(req: Request, res: Response) {
@@ -177,14 +212,10 @@ export async function updateTrip(req: Request, res: Response) {
   }
 
   // Recalculate if miles or vehicle_type or trip_date changed
-  if (
-    patch.miles !== undefined ||
-    patch.vehicle_type !== undefined ||
-    patch.trip_date !== undefined
-  ) {
-    const existing = (
-      await storage.listMileageTrips(req.user!.id, "2000-01-01", "2100-01-01")
-    ).find((t) => t.id === id);
+  const repricing =
+    patch.miles !== undefined || patch.vehicle_type !== undefined || patch.trip_date !== undefined;
+  const existing = repricing ? await findTrip(req.user!.id, id) : undefined;
+  if (repricing) {
     if (existing) {
       const vehicleType = (patch.vehicle_type as string) ?? existing.vehicle_type;
       const tripDate = (patch.trip_date as string) ?? existing.trip_date;
@@ -207,12 +238,20 @@ export async function updateTrip(req: Request, res: Response) {
 
   const row = await storage.updateMileageTrip(id, req.user!.id, patch as never);
   if (!row) return res.status(404).json({ error: "Not found" });
+  if (existing) {
+    // The year (or vehicle) it left, and the one it is now in
+    await repriceTaxYear(req.user!.id, existing.vehicle_type, existing.trip_date);
+    await repriceTaxYear(req.user!.id, row.vehicle_type, row.trip_date);
+    return res.json((await findTrip(req.user!.id, id)) ?? row);
+  }
   return res.json(row);
 }
 
 export async function archiveTrip(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const existing = await findTrip(req.user!.id, id);
   await storage.archiveMileageTrip(id, req.user!.id);
+  if (existing) await repriceTaxYear(req.user!.id, existing.vehicle_type, existing.trip_date);
   return res.status(204).send();
 }
