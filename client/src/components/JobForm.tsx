@@ -61,6 +61,7 @@ export function JobForm({
       end_date: initialData?.end_date || "",
       start_time: initialData?.start_time || "",
       end_time: initialData?.end_time || "",
+      positions: String(initialData?.positions ?? 1),
     }
   );
 
@@ -84,8 +85,15 @@ export function JobForm({
 
   const currencySymbol = CURRENCIES.find((c) => c.code === formData.currency)?.symbol || "£";
 
+  const positionsNum = Number(formData.positions ?? "1");
+  const positionsValid = Number.isInteger(positionsNum) && positionsNum >= 1 && positionsNum <= 50;
   const isValid =
-    formData.title && formData.location && formData.country && formData.rate && formData.event_date;
+    formData.title &&
+    formData.location &&
+    formData.country &&
+    formData.rate &&
+    formData.event_date &&
+    positionsValid;
 
   return (
     <Card>
@@ -186,6 +194,21 @@ export function JobForm({
               onChange={(e) => handleInputChange("event_date", e.target.value)}
               data-testid="input-start-date"
             />
+          </div>
+          <div>
+            <Label htmlFor="positions">How many people do you need?</Label>
+            <Input
+              id="positions"
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              value={formData.positions ?? "1"}
+              onChange={(e) => handleInputChange("positions", e.target.value)}
+            />
+            {!positionsValid && (
+              <p className="mt-1 text-xs text-destructive">Between 1 and 50 people.</p>
+            )}
           </div>
         </div>
 

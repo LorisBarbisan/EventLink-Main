@@ -193,4 +193,5 @@ export interface JobFormData {
   end_date?: string; // End date (optional)
   start_time?: string; // Start time (optional)
   end_time?: string; // End time (optional)
+  positions?: string; // How many people the job needs (1–50)
 }

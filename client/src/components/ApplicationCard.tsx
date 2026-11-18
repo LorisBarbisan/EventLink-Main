@@ -68,6 +68,15 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const queryClient = useQueryClient();
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [showHireConfirm, setShowHireConfirm] = useState(false);
+  const [closeEarly, setCloseEarly] = useState<{ filled: number; positions: number } | null>(null);
+
+  // Crew count for this job (shared by every card on the same job)
+  const { data: crew } = useQuery<{ positions: number; filled: number; status: string }>({
+    queryKey: ["/api/jobs", application.job_id, "crew"],
+    queryFn: () => apiRequest(`/api/jobs/${application.job_id}/crew`),
+    enabled: userType === "recruiter",
+  });
+  const fullyCrewed = !!crew && (crew.status === "closed" || crew.filled >= crew.positions);
   const [rejectionMessage, setRejectionMessage] = useState("");
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [showRatingRequestDialog, setShowRatingRequestDialog] = useState(false);
@@ -231,7 +240,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         headers: { "Content-Type": "application/json" },
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (r: { filled?: number; positions?: number; jobClosed?: boolean }) => {
       // Invalidate and refetch all related queries
       await queryClient.invalidateQueries({
         queryKey: ["/api/recruiter", currentUserId, "applications"],
@@ -247,18 +256,47 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
 
       setShowHireConfirm(false);
-      toast({
-        title: "Applicant hired!",
-        description: "The applicant has been notified of their successful application.",
-      });
+      if (r?.jobClosed) {
+        toast({
+          title: "Fully crewed — job closed",
+          description:
+            "Everyone you need is hired. The applicants you didn't choose are being told.",
+        });
+      } else {
+        toast({
+          title: "Applicant hired!",
+          description: "The applicant has been notified of their successful application.",
+        });
+        if (r?.positions && r.filled != null && r.filled < r.positions) {
+          setCloseEarly({ filled: r.filled, positions: r.positions });
+        }
+      }
     },
-    onError: () => {
+    onError: (e: Error) => {
+      setShowHireConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", application.job_id, "crew"] });
       toast({
-        title: "Error",
-        description: "Failed to hire applicant.",
+        title: "Couldn't hire",
+        description: e.message || "Failed to hire applicant.",
         variant: "destructive",
       });
     },
+  });
+
+  const closeJobMutation = useMutation({
+    mutationFn: () => apiRequest(`/api/jobs/${application.job_id}/close`, { method: "PUT" }),
+    onSuccess: async () => {
+      setCloseEarly(null);
+      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/recruiter", currentUserId, "applications"],
+      });
+      toast({
+        title: "Job closed",
+        description: "No new applications. The applicants you didn't choose are being told.",
+      });
+    },
+    onError: () => toast({ title: "Couldn't close the job", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -462,133 +500,150 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     Message
                   </Button>
 
-                  {(application.status === "applied" ||
-                    application.status === "pending" ||
-                    application.status === "reviewed") && (
-                    <>
-                      {/* Hire Confirmation Dialog */}
-                      <AlertDialog open={showHireConfirm} onOpenChange={setShowHireConfirm}>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            disabled={hireMutation.isPending}
-                            data-help="action.application.hire"
-                            data-testid={`button-hire-${application.id}`}
-                            className="bg-green-600 text-white hover:bg-green-700"
-                          >
-                            <UserCheck className="mr-1 h-4 w-4" />
-                            Accept
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Accept Application</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to accept this application from{" "}
-                              <strong>
-                                {application.freelancer_profile
-                                  ? `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`
-                                  : "this freelancer"}
-                              </strong>{" "}
-                              for the position <strong>&quot;{application.job_title}&quot;</strong>?
-                              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
-                                <p className="text-sm text-green-700 dark:text-green-300">
-                                  The applicant will be notified immediately and can start
-                                  coordination with you.
-                                </p>
-                              </div>
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={hireMutation.isPending}>
-                              Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleConfirmHire}
+                  {crew && (
+                    <span className="self-center text-xs text-muted-foreground">
+                      {crew.filled} of {crew.positions} filled
+                    </span>
+                  )}
+                  {fullyCrewed &&
+                    (application.status === "applied" ||
+                      application.status === "pending" ||
+                      application.status === "reviewed") && (
+                      <Badge variant="outline" className="self-center">
+                        Fully crewed
+                      </Badge>
+                    )}
+                  {!fullyCrewed &&
+                    (application.status === "applied" ||
+                      application.status === "pending" ||
+                      application.status === "reviewed") && (
+                      <>
+                        {/* Hire Confirmation Dialog */}
+                        <AlertDialog open={showHireConfirm} onOpenChange={setShowHireConfirm}>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="default"
+                              size="sm"
                               disabled={hireMutation.isPending}
+                              data-help="action.application.hire"
+                              data-testid={`button-hire-${application.id}`}
                               className="bg-green-600 text-white hover:bg-green-700"
-                              data-testid={`button-confirm-hire-${application.id}`}
                             >
-                              {hireMutation.isPending ? "Accepting..." : "Yes, Accept Application"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-
-                      {/* Reject Dialog with Message Input */}
-                      <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={rejectMutation.isPending}
-                            data-help="action.application.decline"
-                            data-testid={`button-reject-${application.id}`}
-                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <UserX className="mr-1 h-4 w-4" />
-                            Decline
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Decline Application</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground">
-                                You are about to decline the application from{" "}
+                              <UserCheck className="mr-1 h-4 w-4" />
+                              Accept
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Accept Application</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to accept this application from{" "}
                                 <strong>
                                   {application.freelancer_profile
                                     ? `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`
                                     : "this freelancer"}
                                 </strong>{" "}
-                                for <strong>&quot;{application.job_title}&quot;</strong>.
-                              </p>
-                            </div>
-                            <div>
-                              <Label htmlFor="rejection-message">
-                                Message{" "}
-                                <span className="text-muted-foreground">
-                                  (optional but recommended)
-                                </span>
-                              </Label>
-                              <Textarea
-                                id="rejection-message"
-                                placeholder="Provide constructive feedback to help the applicant improve future applications..."
-                                value={rejectionMessage}
-                                onChange={(e) => setRejectionMessage(e.target.value)}
-                                className="mt-2 min-h-[100px]"
-                                data-testid={`textarea-rejection-message-${application.id}`}
-                              />
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                This message will be sent to the applicant along with the decline
-                                notification.
-                              </p>
-                            </div>
-                          </div>
-                          <DialogFooter className="gap-2">
+                                for the position{" "}
+                                <strong>&quot;{application.job_title}&quot;</strong>?
+                                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
+                                  <p className="text-sm text-green-700 dark:text-green-300">
+                                    The applicant will be notified immediately and can start
+                                    coordination with you.
+                                  </p>
+                                </div>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={hireMutation.isPending}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleConfirmHire}
+                                disabled={hireMutation.isPending}
+                                className="bg-green-600 text-white hover:bg-green-700"
+                                data-testid={`button-confirm-hire-${application.id}`}
+                              >
+                                {hireMutation.isPending
+                                  ? "Accepting..."
+                                  : "Yes, Accept Application"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        {/* Reject Dialog with Message Input */}
+                        <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+                          <DialogTrigger asChild>
                             <Button
                               variant="outline"
-                              onClick={() => setShowRejectionDialog(false)}
+                              size="sm"
                               disabled={rejectMutation.isPending}
+                              data-help="action.application.decline"
+                              data-testid={`button-reject-${application.id}`}
+                              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                             >
-                              Cancel
+                              <UserX className="mr-1 h-4 w-4" />
+                              Decline
                             </Button>
-                            <Button
-                              variant="destructive"
-                              onClick={handleConfirmReject}
-                              disabled={rejectMutation.isPending}
-                              data-testid={`button-confirm-reject-${application.id}`}
-                            >
-                              {rejectMutation.isPending ? "Declining..." : "Decline Application"}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </>
-                  )}
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Decline Application</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">
+                                  You are about to decline the application from{" "}
+                                  <strong>
+                                    {application.freelancer_profile
+                                      ? `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`
+                                      : "this freelancer"}
+                                  </strong>{" "}
+                                  for <strong>&quot;{application.job_title}&quot;</strong>.
+                                </p>
+                              </div>
+                              <div>
+                                <Label htmlFor="rejection-message">
+                                  Message{" "}
+                                  <span className="text-muted-foreground">
+                                    (optional but recommended)
+                                  </span>
+                                </Label>
+                                <Textarea
+                                  id="rejection-message"
+                                  placeholder="Provide constructive feedback to help the applicant improve future applications..."
+                                  value={rejectionMessage}
+                                  onChange={(e) => setRejectionMessage(e.target.value)}
+                                  className="mt-2 min-h-[100px]"
+                                  data-testid={`textarea-rejection-message-${application.id}`}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  This message will be sent to the applicant along with the decline
+                                  notification.
+                                </p>
+                              </div>
+                            </div>
+                            <DialogFooter className="gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowRejectionDialog(false)}
+                                disabled={rejectMutation.isPending}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={handleConfirmReject}
+                                disabled={rejectMutation.isPending}
+                                data-testid={`button-confirm-reject-${application.id}`}
+                              >
+                                {rejectMutation.isPending ? "Declining..." : "Decline Application"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )}
 
                   {/* Rating button for hired applications */}
                   {application.status === "hired" &&
@@ -1402,6 +1457,29 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           senderId={currentUserId}
         />
       )}
+      {/* After a hire that leaves places open: offer to close early */}
+      <AlertDialog open={!!closeEarly} onOpenChange={(o) => !o && setCloseEarly(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {closeEarly?.filled} of {closeEarly?.positions} filled
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Close this job to new applicants? The applicants you haven&apos;t chosen will be told.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it open</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => closeJobMutation.mutate()}
+              disabled={closeJobMutation.isPending}
+            >
+              Close it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Report Review Dialog */}
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent>
