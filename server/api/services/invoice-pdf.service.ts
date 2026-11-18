@@ -1,3 +1,4 @@
+import { formatSortCode } from "@shared/invoice-vat";
 import { fmtDate } from "@shared/dates";
 import PDFDocument from "pdfkit";
 import https from "https";
@@ -270,7 +271,7 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
         fy += 11;
       }
       if (billingProfile.bank_sort_code) {
-        doc.text(`Sort code: ${billingProfile.bank_sort_code}`, L, fy);
+        doc.text(`Sort code: ${formatSortCode(billingProfile.bank_sort_code)}`, L, fy);
         fy += 11;
       }
       if (billingProfile.bank_account_number) {
@@ -492,7 +493,7 @@ export async function renderBlankTemplatePDF(
         fy += 11;
       }
       if (billingProfile.bank_sort_code) {
-        doc.text(`Sort code: ${billingProfile.bank_sort_code}`, L, fy);
+        doc.text(`Sort code: ${formatSortCode(billingProfile.bank_sort_code)}`, L, fy);
         fy += 11;
       }
       if (billingProfile.bank_account_number) {
@@ -876,7 +877,7 @@ export async function renderBlankTemplateDoc(
     if (billingProfile.bank_sort_code)
       bankLines.push(
         new Paragraph({
-          children: [bodyRun(`Sort code: ${billingProfile.bank_sort_code}`)],
+          children: [bodyRun(`Sort code: ${formatSortCode(billingProfile.bank_sort_code)}`)],
         })
       );
     if (billingProfile.bank_account_number)

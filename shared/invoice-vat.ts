@@ -43,3 +43,11 @@ export function netOfInvoice(
   if (!invoice.total_pence || invoice.total_pence === invoice.subtotal_pence) return receivedPence;
   return Math.round((receivedPence * invoice.subtotal_pence) / invoice.total_pence);
 }
+
+/** UK sort code as 12-34-56, whatever separators were typed. */
+export function formatSortCode(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 6) return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+  return s.replace(/^[-\s]+|[-\s]+$/g, "");
+}

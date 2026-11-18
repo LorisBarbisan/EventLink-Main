@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { invoiceTotals, netOfInvoice } from "./invoice-vat";
+import { formatSortCode, invoiceTotals, netOfInvoice } from "./invoice-vat";
 
 describe("invoiceTotals", () => {
   it("not registered: no VAT", () => {
@@ -46,5 +46,13 @@ describe("netOfInvoice", () => {
   });
   it("no VAT: unchanged", () => {
     expect(netOfInvoice({ subtotal_pence: 500, total_pence: 500 }, 400)).toBe(400);
+  });
+});
+
+describe("formatSortCode", () => {
+  it("formats six digits as 12-34-56", () => {
+    expect(formatSortCode("12-34-56-")).toBe("12-34-56");
+    expect(formatSortCode("123456")).toBe("12-34-56");
+    expect(formatSortCode("12 34 56")).toBe("12-34-56");
   });
 });

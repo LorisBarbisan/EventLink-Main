@@ -1,5 +1,5 @@
 import { fmtDate } from "@shared/dates";
-import { invoiceTotals, isVatRate } from "@shared/invoice-vat";
+import { formatSortCode, invoiceTotals, isVatRate } from "@shared/invoice-vat";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
@@ -81,7 +81,8 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     invoice_footer_note,
   };
   if (bank_account_name !== undefined) data.bank_account_name = bank_account_name;
-  if (bank_sort_code !== undefined) data.bank_sort_code = bank_sort_code;
+  if (bank_sort_code !== undefined)
+    data.bank_sort_code = bank_sort_code ? formatSortCode(String(bank_sort_code)) : null;
   if (bank_account_number !== undefined) data.bank_account_number = bank_account_number;
   if (bank_iban !== undefined) data.bank_iban = bank_iban;
   if (payment_terms_days !== undefined) data.payment_terms_days = Number(payment_terms_days);
