@@ -1,5 +1,8 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
 import { messagingAllowed } from "@shared/safety";
+
+/** A user as the messaging queries select them — not every column of the row. */
+type MessagingUser = Omit<User, "credential_reminders_opt_out" | "help_mode">;
 import {
   contact_messages,
   conversations,
@@ -371,15 +374,17 @@ export interface IStorage {
 
   // Messaging management
   getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation>;
-  getConversationsByUserId(userId: number): Promise<Array<Conversation & { otherUser: User }>>;
+  getConversationsByUserId(
+    userId: number
+  ): Promise<Array<Conversation & { otherUser: MessagingUser }>>;
   sendMessage(message: InsertMessage): Promise<Message>;
   getConversationMessages(
     conversationId: number
-  ): Promise<Array<Message & { sender: User; attachments?: MessageAttachment[] }>>;
+  ): Promise<Array<Message & { sender: MessagingUser; attachments?: MessageAttachment[] }>>;
   getConversationMessagesForUser(
     conversationId: number,
     userId: number
-  ): Promise<Array<Message & { sender: User; attachments?: MessageAttachment[] }>>;
+  ): Promise<Array<Message & { sender: MessagingUser; attachments?: MessageAttachment[] }>>;
   markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
   getUnreadMessageCount(userId: number): Promise<number>;
   // Soft delete methods for messages
@@ -3264,7 +3269,7 @@ export class DatabaseStorage implements IStorage {
 
   async getConversationsByUserId(
     userId: number
-  ): Promise<Array<Conversation & { otherUser: User }>> {
+  ): Promise<Array<Conversation & { otherUser: MessagingUser }>> {
     const result = await db
       .select({
         id: conversations.id,
@@ -3497,7 +3502,7 @@ export class DatabaseStorage implements IStorage {
 
   async getConversationMessages(
     conversationId: number
-  ): Promise<Array<Message & { sender: User; attachments?: MessageAttachment[] }>> {
+  ): Promise<Array<Message & { sender: MessagingUser; attachments?: MessageAttachment[] }>> {
     const result = await db
       .select({
         id: messages.id,
@@ -3576,7 +3581,7 @@ export class DatabaseStorage implements IStorage {
   async getConversationMessagesForUser(
     conversationId: number,
     userId: number
-  ): Promise<Array<Message & { sender: User; attachments?: MessageAttachment[] }>> {
+  ): Promise<Array<Message & { sender: MessagingUser; attachments?: MessageAttachment[] }>> {
     // First, get the conversation to check if user deleted it and when
     const conversation = await db
       .select()
