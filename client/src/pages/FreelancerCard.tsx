@@ -158,7 +158,8 @@ export default function FreelancerCard() {
 
   const { data: documents = [] } = useQuery<any[]>({
     queryKey: ["/api/documents", uid],
-    queryFn: () => apiRequest(`/api/documents/${uid}`),
+    queryFn: () =>
+      apiRequest(`/api/documents/${uid}${urlPt ? `?pt=${encodeURIComponent(urlPt)}` : ""}`),
     enabled: !!uid,
   });
 

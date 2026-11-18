@@ -6,6 +6,7 @@ import {
 } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { documentViewer, ownerDocumentView, publicDocumentView } from "../utils/document-views";
 import { ObjectStorageService } from "../utils/object-storage";
 import {
   isLocalPath,
@@ -297,8 +298,21 @@ export async function getDocuments(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer not found" });
     }
 
+    const profile = await storage.getFreelancerProfile(freelancerId);
+    const viewer = documentViewer({
+      requester: (req as any).user ?? null,
+      freelancerId,
+      profileIsPublic: Boolean((profile as any)?.profile_is_public),
+      shareToken: profile?.reference_token ?? null,
+      presentedToken: (req.query.pt as string | undefined) ?? null,
+    });
+    if (viewer.kind === "denied") {
+      return res.status(404).json({ error: "Freelancer not found" });
+    }
+
     const documents = await storage.getFreelancerDocuments(freelancerId);
-    res.json(documents);
+    const full = viewer.kind === "owner" || viewer.kind === "admin";
+    res.json(documents.map(full ? ownerDocumentView : publicDocumentView));
   } catch (error) {
     console.error("Get documents error:", error);
     res.status(500).json({ error: "Failed to get documents" });

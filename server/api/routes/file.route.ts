@@ -64,8 +64,9 @@ export function registerFileRoutes(app: Express) {
   app.get("/api/documents/incomplete", authenticateJWT, getIncompleteCredentials);
   app.post("/api/documents/backfill", authenticateJWT, saveCredentialDates);
 
-  // Get freelancer documents (public - visible to all viewers)
-  app.get("/api/documents/:freelancerId", getDocuments);
+  // Freelancer's credential list — same access rule as the download below:
+  // employers and admins, the owner, or (signed out) a public profile / share token
+  app.get("/api/documents/:freelancerId", authenticateOptionalJWT, getDocuments);
 
   // Download document — JWT optional (owner access) OR valid ?pt= public profile token
   app.get("/api/documents/:documentId/download", authenticateOptionalJWT, downloadDocument);
