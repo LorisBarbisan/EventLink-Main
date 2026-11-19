@@ -80,6 +80,7 @@ export function PublicAvailabilityMonth({
         <Button
           variant="ghost"
           size="icon"
+          className="h-11 w-11"
           disabled={!canBack}
           onClick={() => setOffset((o) => o - 1)}
           aria-label="Previous month"
@@ -92,6 +93,7 @@ export function PublicAvailabilityMonth({
         <Button
           variant="ghost"
           size="icon"
+          className="h-11 w-11"
           disabled={!canForward}
           onClick={() => setOffset((o) => o + 1)}
           aria-label="Next month"
@@ -129,7 +131,14 @@ export function PublicAvailabilityMonth({
 }
 
 /** Card: the next 30 days as a strip, with a one-line summary. */
-export function PublicAvailabilityStrip({ data }: { data: PublicAvailability }) {
+export function PublicAvailabilityStrip({
+  data,
+  showUpdated = true,
+}: {
+  data: PublicAvailability;
+  /** Off when a month view below already says when it was updated */
+  showUpdated?: boolean;
+}) {
   const states = new Map(data.days.map((d) => [d.date, d.state]));
   const start = utc(data.from);
   const next30 = Array.from({ length: 30 }, (_, i) => {
@@ -153,7 +162,9 @@ export function PublicAvailabilityStrip({ data }: { data: PublicAvailability }) 
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">{stalenessLine(data.updated_at)}</p>
+      {showUpdated && (
+        <p className="text-[11px] text-muted-foreground">{stalenessLine(data.updated_at)}</p>
+      )}
     </div>
   );
 }

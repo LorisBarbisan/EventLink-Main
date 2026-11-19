@@ -495,7 +495,7 @@ export default function FreelancerCard() {
     if (type === "calendar" && freelancer.public_availability) {
       return (
         <div style={{ fontSize: 12 }}>
-          <PublicAvailabilityStrip data={freelancer.public_availability} />
+          <PublicAvailabilityStrip data={freelancer.public_availability} showUpdated={false} />
           <div style={{ marginTop: 14 }}>
             <PublicAvailabilityMonth data={freelancer.public_availability} />
           </div>
@@ -868,6 +868,7 @@ export default function FreelancerCard() {
                             fontSize: 14,
                             color: DM.text1,
                             textDecoration: "none",
+                            minHeight: 44,
                             display: "flex",
                             alignItems: "center",
                             gap: 7,
@@ -885,6 +886,7 @@ export default function FreelancerCard() {
                             fontSize: 13,
                             color: DM.text1,
                             textDecoration: "none",
+                            minHeight: 44,
                             display: "flex",
                             alignItems: "center",
                             gap: 7,
@@ -1176,8 +1178,10 @@ export default function FreelancerCard() {
                           color: themeAccent,
                           fontWeight: 600,
                           cursor: "pointer",
-                          marginBottom: 10,
-                          padding: 0,
+                          minHeight: 44,
+                          margin: "-12px 0 -2px",
+                          padding: "0 12px 0 0",
+                          alignSelf: "flex-start",
                         }}
                       >
                         <ChevronLeft style={{ width: 13, height: 13 }} /> Back
@@ -1384,7 +1388,10 @@ export default function FreelancerCard() {
               <div>
                 {rightTab === "calendar" && freelancer.public_availability && (
                   <div style={{ fontSize: 12, color: DM.text1 }}>
-                    <PublicAvailabilityStrip data={freelancer.public_availability} />
+                    <PublicAvailabilityStrip
+                      data={freelancer.public_availability}
+                      showUpdated={false}
+                    />
                     <div style={{ marginTop: 14 }}>
                       <PublicAvailabilityMonth data={freelancer.public_availability} />
                     </div>
