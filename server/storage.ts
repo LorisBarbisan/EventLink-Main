@@ -959,7 +959,7 @@ export interface IStorage {
   // ── Receipts ────────────────────────────────────────────────────────────────
   createReceipt(data: InsertReceipt): Promise<Receipt>;
   getReceipt(id: number): Promise<Receipt | undefined>;
-  listReceiptsForExpense(expenseId: number): Promise<Receipt[]>;
+  listReceiptsForExpense(expenseId: number, freelancerId: number): Promise<Receipt[]>;
   listUnattachedReceipts(freelancerId: number): Promise<Receipt[]>;
   countUnattachedReceipts(freelancerId: number): Promise<number>;
   attachReceipt(
@@ -7518,11 +7518,17 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async listReceiptsForExpense(expenseId: number): Promise<Receipt[]> {
+  async listReceiptsForExpense(expenseId: number, freelancerId: number): Promise<Receipt[]> {
     return db
       .select()
       .from(receipts)
-      .where(and(eq(receipts.expense_id, expenseId), eq(receipts.archived, false)))
+      .where(
+        and(
+          eq(receipts.expense_id, expenseId),
+          eq(receipts.freelancer_id, freelancerId),
+          eq(receipts.archived, false)
+        )
+      )
       .orderBy(asc(receipts.captured_at));
   }
 

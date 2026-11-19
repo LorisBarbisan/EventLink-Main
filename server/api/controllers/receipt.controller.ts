@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { logBooksEvent } from "../services/books-usage.service";
 import { randomUUID } from "crypto";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
@@ -18,7 +19,14 @@ const ALLOWED_TYPES = new Set([
 export async function uploadReceipt(req: Request, res: Response) {
   try {
     const freelancerId = req.user!.id;
-    const { fileData, filename, contentType, expense_id } = req.body;
+    const { fileData, filename, contentType, expense_id, receipt_date, note } = req.body;
+    const dateOk = typeof receipt_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(receipt_date);
+    if (expense_id) {
+      const own = await storage.getExpense(Number(expense_id));
+      if (!own || own.freelancer_id !== freelancerId) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+    }
 
     if (!fileData || !filename || !contentType) {
       return res.status(400).json({ error: "fileData, filename and contentType are required" });
@@ -43,7 +51,11 @@ export async function uploadReceipt(req: Request, res: Response) {
       file_name: filename,
       mime_type: contentType,
       size_bytes: buffer.length,
+      receipt_date: dateOk ? receipt_date : null,
+      note: typeof note === "string" && note.trim() ? note.trim().slice(0, 500) : null,
     });
+    // A photo into the inbox (not straight onto an expense) is a capture
+    if (!expense_id) void logBooksEvent(freelancerId, "receipt.captured");
 
     const url = await ObjectStorageService.getDownloadUrl(key);
     return res.status(201).json({ ...receipt, url });
@@ -59,7 +71,8 @@ export async function listReceiptsForExpense(req: Request, res: Response) {
   const expenseId = parseInt(req.params.expenseId);
   if (isNaN(expenseId)) return res.status(400).json({ error: "Invalid id" });
 
-  const rows = await storage.listReceiptsForExpense(expenseId);
+  // Only your own receipts, whatever expense id is asked for
+  const rows = await storage.listReceiptsForExpense(expenseId, req.user!.id);
   const withUrls = await Promise.all(
     rows.map(async (r) => ({
       ...r,
@@ -110,6 +123,12 @@ export async function attachReceipt(req: Request, res: Response) {
   // expense_id: number to attach, null to detach
   const expenseId = req.body.expense_id !== undefined ? req.body.expense_id : undefined;
   if (expenseId === undefined) return res.status(400).json({ error: "expense_id is required" });
+  if (expenseId !== null) {
+    const own = await storage.getExpense(Number(expenseId));
+    if (!own || own.freelancer_id !== req.user!.id) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+  }
 
   const receipt = await storage.attachReceipt(
     id,
@@ -117,6 +136,8 @@ export async function attachReceipt(req: Request, res: Response) {
     expenseId === null ? null : Number(expenseId)
   );
   if (!receipt) return res.status(404).json({ error: "Not found" });
+  // Filed: a receipt from the inbox now belongs to an expense
+  if (expenseId !== null) void logBooksEvent(req.user!.id, "receipt.filed");
   return res.json(receipt);
 }
 

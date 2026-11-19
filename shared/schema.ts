@@ -1778,6 +1778,9 @@ export const receipts = pgTable(
     mime_type: text("mime_type").notNull(),
     size_bytes: integer("size_bytes").notNull(),
     captured_at: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+    // The day the receipt is for (editable on capture), and an optional note
+    receipt_date: date("receipt_date"),
+    note: text("note"),
     ocr_status: text("ocr_status")
       .notNull()
       .default("none")
@@ -2191,13 +2194,18 @@ export const books_usage_events = pgTable(
     user_id: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    event: text("event").notNull().$type<"workbook.downloaded">(),
+    event: text("event")
+      .notNull()
+      .$type<"workbook.downloaded" | "receipt.captured" | "receipt.filed">(),
     occurred_on: date("occurred_on").notNull(),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     userIdx: index("books_usage_events_user_idx").on(t.user_id, t.event),
-    eventCheck: check("books_usage_events_event_check", sql`${t.event} IN ('workbook.downloaded')`),
+    eventCheck: check(
+      "books_usage_events_event_check",
+      sql`${t.event} IN ('workbook.downloaded', 'receipt.captured', 'receipt.filed')`
+    ),
   })
 );
 

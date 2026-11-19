@@ -18,7 +18,11 @@ export type BooksArea = (typeof BOOKS_AREAS)[number];
 export type BooksCohort = "active" | "slowing" | "lapsed" | "tried" | "never";
 
 /** The only events the usage log accepts. Mirrored by a CHECK constraint. */
-export const BOOKS_USAGE_EVENTS = ["workbook.downloaded"] as const;
+export const BOOKS_USAGE_EVENTS = [
+  "workbook.downloaded",
+  "receipt.captured",
+  "receipt.filed",
+] as const;
 export type BooksUsageEvent = (typeof BOOKS_USAGE_EVENTS)[number];
 
 const DAY = 86_400_000;

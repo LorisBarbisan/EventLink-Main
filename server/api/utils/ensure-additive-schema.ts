@@ -95,6 +95,11 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // Migration 0046 — receipt capture fields and two usage events
+  `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS receipt_date date`,
+  `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS note text`,
+  `ALTER TABLE books_usage_events DROP CONSTRAINT IF EXISTS books_usage_events_event_check`,
+  `ALTER TABLE books_usage_events ADD CONSTRAINT books_usage_events_event_check CHECK (event IN ('workbook.downloaded', 'receipt.captured', 'receipt.filed'))`,
   // Migration 0045 — opt-in public calendar
   `ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS show_calendar_publicly boolean NOT NULL DEFAULT false`,
   // Migration 0044 — crew count and job completion
