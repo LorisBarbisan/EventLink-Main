@@ -104,7 +104,7 @@ async function finishedCandidates(recruiterId?: number): Promise<Candidate[]> {
         isNull(jobsTable.completed_at),
         ne(jobsTable.status, "completed" as any),
         isNull(jobsTable.deleted_at),
-        sql`${jobsTable.event_date} IS NOT NULL AND ${jobsTable.event_date} <> ''`,
+        sql`${jobsTable.event_date} IS NOT NULL`,
         recruiterId != null ? eq(jobsTable.recruiter_id, recruiterId) : sql`true`,
         sql`EXISTS (SELECT 1 FROM ${job_applications} a WHERE a.job_id = ${jobsTable.id}
               AND a.status IN (${sql.raw(FILLED_STATUSES.map((s) => `'${s}'`).join(","))}))`

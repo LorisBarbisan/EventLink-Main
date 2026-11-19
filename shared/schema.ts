@@ -201,8 +201,10 @@ export const jobs = pgTable("jobs", {
   contract_type: text("contract_type"), // Specific contract type when type is 'contract'
   rate: text("rate").notNull(),
   description: text("description").notNull(),
-  event_date: text("event_date"), // Start date of the event/job
-  end_date: text("end_date"), // Optional end date of the event/job
+  // Calendar dates (migration 0048 made these real `date` columns; mode
+  // "string" keeps them YYYY-MM-DD strings in TypeScript)
+  event_date: date("event_date", { mode: "string" }), // Start date of the event/job
+  end_date: date("end_date", { mode: "string" }), // Optional end date of the event/job
   // Job duration fields - user can choose one of three options
   duration_type: text("duration_type").$type<"time" | "days" | "hours" | null>(), // Which duration option was selected
   start_time: text("start_time"), // Optional start time (e.g., "09:00")
@@ -486,6 +488,16 @@ export const insertRecruiterProfileSchema = createInsertSchema(recruiter_profile
     user_id: z.number(),
   });
 
+/** A job date: YYYY-MM-DD, or empty → null (a form's blank field). */
+const calendarDateField = z.preprocess(
+  (v) => (v === "" || v === undefined ? null : v),
+  z
+    .string()
+    .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Use a date like 2026-11-19")
+    .nullable()
+    .optional()
+);
+
 export const insertJobSchema = createInsertSchema(jobs)
   .omit({
     id: true,
@@ -501,6 +513,8 @@ export const insertJobSchema = createInsertSchema(jobs)
     rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
+    event_date: calendarDateField,
+    end_date: calendarDateField,
     positions: z.coerce
       .number()
       .int("Enter a whole number of people")
@@ -533,6 +547,8 @@ export const insertFreelancerJobSchema = createInsertSchema(jobs)
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
     company: z.string().optional(),
+    event_date: calendarDateField,
+    end_date: calendarDateField,
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)

@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { parseCalendarDate } from "@shared/job-dates";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { assignBatchWindow } from "../utils/batch-window.util";
@@ -81,8 +82,8 @@ export async function submitGuestJob(req: Request, res: Response) {
       currency: currency || "GBP",
       rate: (rate as string).trim(),
       description: (description as string).trim(),
-      event_date: event_date || null,
-      end_date: end_date || null,
+      event_date: parseCalendarDate(event_date as string | null),
+      end_date: parseCalendarDate(end_date as string | null),
       start_time: start_time || null,
       end_time: end_time || null,
       type: jobType || "freelance",
@@ -176,8 +177,8 @@ export async function confirmGuestJob(req: Request, res: Response) {
       currency: (payload.currency as string) || "GBP",
       rate: payload.rate as string,
       description: payload.description as string,
-      event_date: (payload.event_date as string) || null,
-      end_date: (payload.end_date as string) || null,
+      event_date: parseCalendarDate(payload.event_date as string),
+      end_date: parseCalendarDate(payload.end_date as string),
       start_time: (payload.start_time as string) || null,
       end_time: (payload.end_time as string) || null,
       type: ((payload.type as string) || "freelance") as any,
