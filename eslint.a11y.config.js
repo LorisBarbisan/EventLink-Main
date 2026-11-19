@@ -28,7 +28,25 @@ export const a11yBlock = {
     parser: tseslint.parser,
     parserOptions: { ecmaFeatures: { jsx: true } },
   },
-  rules: asWarnings,
+  rules: {
+    ...asWarnings,
+    // Labels that wrap their field may hold the text a few elements deep, and
+    // the field may be one of our components rather than a raw <input>.
+    "jsx-a11y/label-has-associated-control": [
+      "warn",
+      {
+        depth: 4,
+        controlComponents: [
+          "Input",
+          "Textarea",
+          "Checkbox",
+          "Switch",
+          "SelectTrigger",
+          "SearchableSelect",
+        ],
+      },
+    ],
+  },
   // shadcn components render these elements; mapping them lets the rules see
   // icon-only <Button>s and <Label>/<Input> pairs, not just raw HTML.
   settings: {

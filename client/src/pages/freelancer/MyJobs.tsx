@@ -371,6 +371,7 @@ export default function MyJobs() {
                 Document type
               </label>
               <select
+                id="myjobs-document-type-367"
                 value={docType}
                 onChange={(e) => {
                   setDocType(e.target.value);

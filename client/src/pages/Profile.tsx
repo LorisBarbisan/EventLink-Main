@@ -477,6 +477,7 @@ function ClientFeedbackSection({
                 Reason <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Textarea
+                id="profile-reason-476"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 placeholder="Why do you believe this reference is suspicious?"
@@ -653,6 +654,7 @@ function ReferencesSection({
                 Reason <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Textarea
+                id="profile-reason-652"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 placeholder="Why do you believe this reference is suspicious?"

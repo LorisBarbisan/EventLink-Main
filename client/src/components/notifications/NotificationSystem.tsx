@@ -221,6 +221,8 @@ export function NotificationSystem({ userId, dark }: NotificationSystemProps) {
       {isOpen && (
         <>
           {/* Mobile backdrop */}
+          {/* Backdrop click-to-close is a mouse convenience; Escape and the bell button also close it */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="fixed inset-0 z-40 bg-black/5 sm:hidden"
             onClick={() => setIsOpen(false)}

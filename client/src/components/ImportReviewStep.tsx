@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
+import { pressable } from "@/lib/a11y";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -293,37 +294,37 @@ function ReviewTable({
       <div className="flex flex-wrap gap-2 text-sm">
         <span
           className={`cursor-pointer rounded-full px-3 py-1 ${decisionFilter === "all" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}
-          onClick={() => {
+          {...pressable(() => {
             setDecisionFilter("all");
             setPage(1);
-          }}
+          })}
         >
           All ({batch.row_count})
         </span>
         <span
           className={`cursor-pointer rounded-full px-3 py-1 ${decisionFilter === "pending" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}
-          onClick={() => {
+          {...pressable(() => {
             setDecisionFilter("pending");
             setPage(1);
-          }}
+          })}
         >
           Pending ({counts.pending})
         </span>
         <span
           className={`cursor-pointer rounded-full px-3 py-1 ${decisionFilter === "approved" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}
-          onClick={() => {
+          {...pressable(() => {
             setDecisionFilter("approved");
             setPage(1);
-          }}
+          })}
         >
           Approved ({counts.approved})
         </span>
         <span
           className={`cursor-pointer rounded-full px-3 py-1 ${decisionFilter === "skipped" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}
-          onClick={() => {
+          {...pressable(() => {
             setDecisionFilter("skipped");
             setPage(1);
-          }}
+          })}
         >
           Skipped ({counts.skipped})
         </span>

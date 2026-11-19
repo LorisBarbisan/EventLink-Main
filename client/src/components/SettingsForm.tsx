@@ -256,7 +256,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
       if (updateResponse && updateResponse.user) {
         updateUser(updateResponse.user);
         // Also update the form state to reflect the saved values
-        setAccountForm(prev => ({
+        setAccountForm((prev) => ({
           ...prev,
           first_name: updateResponse.user.first_name || "",
           last_name: updateResponse.user.last_name || "",
@@ -303,11 +303,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
         setIsLoadingProfile(true);
         try {
           const profile = await apiRequest(`/api/recruiter/${user.id}`);
-          setAccountForm(prev => ({
+          setAccountForm((prev) => ({
             ...prev,
             company_name: profile.company_name || "",
           }));
-        } catch (error) {
+        } catch {
           // Profile might not exist yet, which is fine
           console.log("No recruiter profile found yet");
         } finally {
@@ -328,7 +328,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <CardDescription>Manage your account details and preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="first_name">
                 First Name{user.role === "recruiter" ? " (Optional)" : ""}
@@ -337,7 +337,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 id="first_name"
                 type="text"
                 value={accountForm.first_name}
-                onChange={e => setAccountForm(prev => ({ ...prev, first_name: e.target.value }))}
+                onChange={(e) =>
+                  setAccountForm((prev) => ({ ...prev, first_name: e.target.value }))
+                }
                 placeholder={
                   user.role === "recruiter"
                     ? "Enter your first name (optional)"
@@ -354,7 +356,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 id="last_name"
                 type="text"
                 value={accountForm.last_name}
-                onChange={e => setAccountForm(prev => ({ ...prev, last_name: e.target.value }))}
+                onChange={(e) => setAccountForm((prev) => ({ ...prev, last_name: e.target.value }))}
                 placeholder={
                   user.role === "recruiter"
                     ? "Enter your last name (optional)"
@@ -372,7 +374,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 id="company_name"
                 type="text"
                 value={accountForm.company_name}
-                onChange={e => setAccountForm(prev => ({ ...prev, company_name: e.target.value }))}
+                onChange={(e) =>
+                  setAccountForm((prev) => ({ ...prev, company_name: e.target.value }))
+                }
                 placeholder="Enter your company name"
                 data-testid="input-company-name"
               />
@@ -389,7 +393,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="email">Email Address</Label>
               <div className="flex items-center gap-2">
@@ -407,7 +411,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   onClick={() => setShowEmail(!showEmail)}
                   data-testid="button-toggle-email"
                 >
-                  {showEmail ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showEmail ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -415,9 +419,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
               <Label htmlFor="role">Account Type</Label>
               <Select
                 value={accountForm.role}
-                onValueChange={value => {
+                onValueChange={(value) => {
                   console.log("🔄 Role dropdown changed from", accountForm.role, "to", value);
-                  setAccountForm(prev => ({ ...prev, role: value as "freelancer" | "recruiter" }));
+                  setAccountForm((prev) => ({
+                    ...prev,
+                    role: value as "freelancer" | "recruiter",
+                  }));
                 }}
               >
                 <SelectTrigger data-testid="select-account-type">
@@ -433,9 +440,15 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
           {isOAuthUser ? (
             <div>
-              <Label>Password</Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                You signed in with {user.auth_provider === "google" ? "Google" : user.auth_provider === "linkedin" ? "LinkedIn" : user.auth_provider}. Password management is not available for social sign-in accounts.
+              <p className="text-sm font-medium">Password</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You signed in with{" "}
+                {user.auth_provider === "google"
+                  ? "Google"
+                  : user.auth_provider === "linkedin"
+                    ? "LinkedIn"
+                    : user.auth_provider}
+                . Password management is not available for social sign-in accounts.
               </p>
             </div>
           ) : (
@@ -453,7 +466,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" data-testid="button-change-password">
-                      <Key className="w-4 h-4 mr-1" />
+                      <Key className="mr-1 h-4 w-4" />
                       Change
                     </Button>
                   </DialogTrigger>
@@ -471,8 +484,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
                           id="old-password"
                           type="password"
                           value={passwordForm.oldPassword}
-                          onChange={e =>
-                            setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({ ...prev, oldPassword: e.target.value }))
                           }
                           data-testid="input-old-password"
                         />
@@ -483,8 +496,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
                           id="new-password"
                           type="password"
                           value={passwordForm.newPassword}
-                          onChange={e =>
-                            setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))
                           }
                           data-testid="input-new-password"
                         />
@@ -495,8 +508,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
                           id="confirm-password"
                           type="password"
                           value={passwordForm.confirmPassword}
-                          onChange={e =>
-                            setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({
+                              ...prev,
+                              confirmPassword: e.target.value,
+                            }))
                           }
                           data-testid="input-confirm-password"
                         />
@@ -513,7 +529,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
                       <Button
                         onClick={handlePasswordChange}
                         disabled={
-                          isChangingPassword || !passwordForm.oldPassword || !passwordForm.newPassword
+                          isChangingPassword ||
+                          !passwordForm.oldPassword ||
+                          !passwordForm.newPassword
                         }
                         data-testid="button-confirm-password-change"
                       >
@@ -535,7 +553,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <CardDescription>Control your privacy settings and account security</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
               <h4 className="font-medium">Profile Visibility</h4>
               <p className="text-sm text-muted-foreground">
@@ -544,13 +562,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
             <Switch
               checked={privacySettings.profileVisible}
-              onCheckedChange={checked =>
-                setPrivacySettings(prev => ({ ...prev, profileVisible: checked }))
+              onCheckedChange={(checked) =>
+                setPrivacySettings((prev) => ({ ...prev, profileVisible: checked }))
               }
               data-testid="toggle-profile-visibility"
             />
           </div>
-
         </CardContent>
       </Card>
 
@@ -561,7 +578,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <CardDescription>Irreversible actions that affect your account</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+          <div className="flex items-center justify-between rounded-lg border border-destructive p-4">
             <div>
               <h4 className="font-medium text-destructive">Delete Account</h4>
               <p className="text-sm text-muted-foreground">
@@ -571,7 +588,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" data-testid="button-delete-account">
-                  <Trash2 className="w-4 h-4 mr-1" />
+                  <Trash2 className="mr-1 h-4 w-4" />
                   Delete Account
                 </Button>
               </AlertDialogTrigger>
@@ -581,7 +598,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   <AlertDialogDescription>
                     This action cannot be undone. This will permanently delete your account and
                     remove all your data from our servers, including:
-                    <ul className="list-disc list-inside mt-2 space-y-1">
+                    <ul className="mt-2 list-inside list-disc space-y-1">
                       <li>Your profile information</li>
                       <li>All job applications</li>
                       <li>Message history</li>
@@ -590,12 +607,14 @@ export function SettingsForm({ user }: SettingsFormProps) {
                     <div className="mt-4">
                       {isOAuthUser ? (
                         <>
-                          <Label htmlFor="delete-confirm">Type <span className="font-bold">DELETE</span> to confirm:</Label>
+                          <Label htmlFor="delete-confirm">
+                            Type <span className="font-bold">DELETE</span> to confirm:
+                          </Label>
                           <Input
                             id="delete-confirm"
                             type="text"
                             value={deleteConfirmPhrase}
-                            onChange={e => setDeleteConfirmPhrase(e.target.value)}
+                            onChange={(e) => setDeleteConfirmPhrase(e.target.value)}
                             placeholder="Type DELETE"
                             className="mt-2"
                             data-testid="input-delete-confirm"
@@ -608,7 +627,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                             id="delete-password"
                             type="password"
                             value={deletePassword}
-                            onChange={e => setDeletePassword(e.target.value)}
+                            onChange={(e) => setDeletePassword(e.target.value)}
                             placeholder="Your password"
                             className="mt-2"
                             data-testid="input-delete-password"
@@ -620,7 +639,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel
-                    onClick={() => { setDeletePassword(""); setDeleteConfirmPhrase(""); }}
+                    onClick={() => {
+                      setDeletePassword("");
+                      setDeleteConfirmPhrase("");
+                    }}
                     disabled={isDeletingAccount}
                   >
                     Cancel
@@ -628,7 +650,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   <AlertDialogAction
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     onClick={handleDeleteAccount}
-                    disabled={isOAuthUser ? deleteConfirmPhrase !== "DELETE" || isDeletingAccount : !deletePassword || isDeletingAccount}
+                    disabled={
+                      isOAuthUser
+                        ? deleteConfirmPhrase !== "DELETE" || isDeletingAccount
+                        : !deletePassword || isDeletingAccount
+                    }
                     data-testid="button-confirm-delete"
                   >
                     {isDeletingAccount ? "Deleting..." : "Yes, delete my account"}

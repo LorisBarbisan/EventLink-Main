@@ -781,6 +781,7 @@ export default function Auth() {
                   <div className="space-y-4">
                     <Label htmlFor="auth-i-want-to-join-as-782">I want to join as:</Label>
                     <RadioGroup
+                      id="auth-i-want-to-join-as-782"
                       value={signUpData.role}
                       onValueChange={(value) =>
                         setSignUpData((prev) => ({

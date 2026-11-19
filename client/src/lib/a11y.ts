@@ -23,3 +23,25 @@ export function pressable(
     },
   } as const;
 }
+
+/**
+ * Keyboard-only activation, for the readable part of a row whose whole
+ * surface already handles the mouse click (and which also holds other
+ * controls, so the row itself can't be a button). Focusable, announced as a
+ * button, Enter/Space call fn; no onClick, so a mouse click isn't doubled.
+ */
+export function keyActivate(fn: () => void, opts: { label?: string; expanded?: boolean } = {}) {
+  return {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": opts.label,
+    "aria-expanded": opts.expanded,
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        fn();
+      }
+    },
+  } as const;
+}

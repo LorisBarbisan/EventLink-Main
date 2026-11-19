@@ -402,6 +402,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-trading-name-403">Trading name / your name</Label>
             <Input
+              id="invoices-trading-name-403"
               value={form.trading_name}
               onChange={(e) => set("trading_name", e.target.value)}
               placeholder="Jane Smith Consulting"
@@ -411,6 +412,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-company-number-412">Company number</Label>
               <Input
+                id="invoices-company-number-412"
                 value={form.company_number}
                 onChange={(e) => set("company_number", e.target.value)}
                 placeholder="12345678"
@@ -419,6 +421,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-utr-420">UTR (sole trader)</Label>
               <Input
+                id="invoices-utr-420"
                 value={form.utr}
                 onChange={(e) => set("utr", e.target.value)}
                 placeholder="1234567890"
@@ -429,7 +432,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-vat-registered-430">VAT registered?</Label>
               <Select value={form.vat_registered} onValueChange={(v) => set("vat_registered", v)}>
-                <SelectTrigger>
+                <SelectTrigger id="invoices-vat-registered-430">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -442,6 +445,7 @@ function BillingProfileModal({
               <div>
                 <Label htmlFor="invoices-vat-number-443">VAT number</Label>
                 <Input
+                  id="invoices-vat-number-443"
                   value={form.vat_number}
                   onChange={(e) => set("vat_number", e.target.value)}
                   placeholder="GB123456789"
@@ -452,7 +456,7 @@ function BillingProfileModal({
               <div className="col-span-2">
                 <Label htmlFor="invoices-vat-on-invoices-set-453">VAT on invoices</Label>
                 <Select value={form.vat_rate_pct} onValueChange={(v) => set("vat_rate_pct", v)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="invoices-vat-on-invoices-set-453">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -478,6 +482,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-address-line-479">Address line 1</Label>
             <Input
+              id="invoices-address-line-479"
               value={form.address_line1}
               onChange={(e) => set("address_line1", e.target.value)}
               placeholder="123 High Street"
@@ -486,6 +491,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-address-line-487">Address line 2</Label>
             <Input
+              id="invoices-address-line-487"
               value={form.address_line2}
               onChange={(e) => set("address_line2", e.target.value)}
               placeholder="Suite 4"
@@ -495,6 +501,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-city-496">City</Label>
               <Input
+                id="invoices-city-496"
                 value={form.city}
                 onChange={(e) => set("city", e.target.value)}
                 placeholder="London"
@@ -503,6 +510,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-postcode-504">Postcode</Label>
               <Input
+                id="invoices-postcode-504"
                 value={form.postcode}
                 onChange={(e) => set("postcode", e.target.value)}
                 placeholder="SW1A 1AA"
@@ -512,6 +520,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-country-513">Country</Label>
             <Input
+              id="invoices-country-513"
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
               placeholder="United Kingdom"
@@ -528,6 +537,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-email-on-invoice-529">Email on invoice</Label>
               <Input
+                id="invoices-email-on-invoice-529"
                 type="email"
                 value={form.email}
                 onChange={(e) => set("email", e.target.value)}
@@ -537,6 +547,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-phone-538">Phone</Label>
               <Input
+                id="invoices-phone-538"
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="+44 7700 900000"
@@ -553,6 +564,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-account-name-554">Account name</Label>
             <Input
+              id="invoices-account-name-554"
               value={form.bank_account_name}
               onChange={(e) => set("bank_account_name", e.target.value)}
               placeholder="Jane Smith"
@@ -562,6 +574,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-sort-code-563">Sort code</Label>
               <Input
+                id="invoices-sort-code-563"
                 value={form.bank_sort_code}
                 onChange={(e) => set("bank_sort_code", e.target.value)}
                 placeholder="12-34-56"
@@ -570,6 +583,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-account-number-571">Account number</Label>
               <Input
+                id="invoices-account-number-571"
                 value={form.bank_account_number}
                 onChange={(e) => set("bank_account_number", e.target.value)}
                 placeholder="12345678"
@@ -579,6 +593,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-iban-580">IBAN (international)</Label>
             <Input
+              id="invoices-iban-580"
               value={form.bank_iban}
               onChange={(e) => set("bank_iban", e.target.value)}
               placeholder="GB29 NWBK 6016 1331 9268 19"
@@ -595,6 +610,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-invoice-prefix-596">Invoice prefix</Label>
               <Input
+                id="invoices-invoice-prefix-596"
                 value={form.invoice_prefix}
                 onChange={(e) => set("invoice_prefix", e.target.value)}
                 placeholder="INV"
@@ -604,6 +620,7 @@ function BillingProfileModal({
             <div>
               <Label htmlFor="invoices-payment-terms-605">Payment terms (days)</Label>
               <Input
+                id="invoices-payment-terms-605"
                 type="number"
                 value={form.payment_terms_days}
                 onChange={(e) => set("payment_terms_days", e.target.value)}
@@ -615,6 +632,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-logo-616">Logo</Label>
             <input
+              id="invoices-logo-616"
               ref={logoInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -673,6 +691,7 @@ function BillingProfileModal({
           <div>
             <Label htmlFor="invoices-footer-note-674">Footer note</Label>
             <Textarea
+              id="invoices-footer-note-674"
               value={form.invoice_footer_note}
               onChange={(e) => set("invoice_footer_note", e.target.value)}
               placeholder="e.g. Please quote invoice number on your bank transfer."
@@ -1087,6 +1106,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div>
                 <Label htmlFor="invoices-name-1088">Name</Label>
                 <Input
+                  id="invoices-name-1088"
                   value={toDetails.name}
                   onChange={(e) => setToDetails((d) => ({ ...d, name: e.target.value }))}
                   placeholder="Jane Smith"
@@ -1096,6 +1116,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div>
                 <Label htmlFor="invoices-company-1097">Company</Label>
                 <Input
+                  id="invoices-company-1097"
                   value={toDetails.company}
                   onChange={(e) => setToDetails((d) => ({ ...d, company: e.target.value }))}
                   placeholder="Acme Ltd"
@@ -1105,6 +1126,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div className="col-span-2">
                 <Label htmlFor="invoices-email-1106">Email</Label>
                 <Input
+                  id="invoices-email-1106"
                   type="email"
                   value={toDetails.email}
                   onChange={(e) => setToDetails((d) => ({ ...d, email: e.target.value }))}
@@ -1115,6 +1137,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div className="col-span-2">
                 <Label htmlFor="invoices-address-line-1116">Address line 1</Label>
                 <Input
+                  id="invoices-address-line-1116"
                   value={toDetails.address_line1}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line1: e.target.value }))}
                   placeholder="123 High Street"
@@ -1124,6 +1147,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div className="col-span-2">
                 <Label htmlFor="invoices-address-line-1125">Address line 2</Label>
                 <Input
+                  id="invoices-address-line-1125"
                   value={toDetails.address_line2}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line2: e.target.value }))}
                   placeholder="Suite 4"
@@ -1133,6 +1157,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div>
                 <Label htmlFor="invoices-city-1134">City</Label>
                 <Input
+                  id="invoices-city-1134"
                   value={toDetails.city}
                   onChange={(e) => setToDetails((d) => ({ ...d, city: e.target.value }))}
                   placeholder="London"
@@ -1142,6 +1167,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div>
                 <Label htmlFor="invoices-postcode-1143">Postcode</Label>
                 <Input
+                  id="invoices-postcode-1143"
                   value={toDetails.postcode}
                   onChange={(e) => setToDetails((d) => ({ ...d, postcode: e.target.value }))}
                   placeholder="EC1A 1BB"
@@ -1151,6 +1177,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <div className="col-span-2">
                 <Label htmlFor="invoices-country-1152">Country</Label>
                 <Input
+                  id="invoices-country-1152"
                   value={toDetails.country}
                   onChange={(e) => setToDetails((d) => ({ ...d, country: e.target.value }))}
                   placeholder="United Kingdom"
@@ -1165,6 +1192,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             <div>
               <Label htmlFor="invoices-issue-date-1166">Issue date</Label>
               <Input
+                id="invoices-issue-date-1166"
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
@@ -1174,6 +1202,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             <div>
               <Label htmlFor="invoices-due-date-1175">Due date</Label>
               <Input
+                id="invoices-due-date-1175"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
@@ -1203,14 +1232,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 <div key={i} className="grid grid-cols-12 items-center gap-2">
                   <div className="col-span-5">
                     {i === 0 && (
-                      <Label
-                        htmlFor="invoices-description-1206"
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
+                      <span aria-hidden className="mb-1 block text-xs text-muted-foreground">
                         Description
-                      </Label>
+                      </span>
                     )}
                     <Input
+                      aria-label={`Line ${i + 1} description`}
                       value={li.description}
                       onChange={(e) => updateLine(i, "description", e.target.value)}
                       placeholder="e.g. Photography shoot"
@@ -1219,19 +1246,16 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label
-                        htmlFor="invoices-rate-1219"
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
+                      <span aria-hidden className="mb-1 block text-xs text-muted-foreground">
                         Rate
-                      </Label>
+                      </span>
                     )}
                     <Select
                       value={li.rate_type ?? "day"}
                       onValueChange={(v) => updateLine(i, "rate_type", v)}
                       disabled={currentStatus !== "draft"}
                     >
-                      <SelectTrigger className="h-9 text-xs">
+                      <SelectTrigger className="h-9 text-xs" aria-label={`Line ${i + 1} rate`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1245,17 +1269,15 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label
-                        htmlFor="invoices-qty-1240"
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
+                      <span aria-hidden className="mb-1 block text-xs text-muted-foreground">
                         Qty
-                      </Label>
+                      </span>
                     )}
                     <Input
                       type="number"
                       min={0}
                       step="0.5"
+                      aria-label={`Line ${i + 1} quantity`}
                       value={li.quantity}
                       onChange={(e) => updateLine(i, "quantity", e.target.value)}
                       disabled={currentStatus !== "draft"}
@@ -1263,14 +1285,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label
-                        htmlFor="invoices-unit-price-1253"
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
+                      <span aria-hidden className="mb-1 block text-xs text-muted-foreground">
                         Unit price (£)
-                      </Label>
+                      </span>
                     )}
                     <Input
+                      aria-label={`Line ${i + 1} unit price`}
                       value={priceInputs[i] ?? ""}
                       onChange={(e) => updatePriceInput(i, e.target.value)}
                       onBlur={() => commitPrice(i)}
@@ -1320,6 +1340,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           <div>
             <Label htmlFor="invoices-notes-1305">Notes (optional)</Label>
             <textarea
+              id="invoices-notes-1305"
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               rows={2}
               value={notes}
@@ -1461,6 +1482,8 @@ function InvoiceRow({
       </td>
       <td className="px-4 py-3 text-sm">{invoice.issue_date}</td>
       <td className="hidden px-4 py-3 text-sm sm:table-cell">{invoice.due_date}</td>
+      {/* The cell holds a labelled button; the rule reads the cell itself as the control */}
+      {/* eslint-disable-next-line jsx-a11y/control-has-associated-label */}
       <td className="hidden px-4 py-3 sm:table-cell">
         <Popover open={statusOpen} onOpenChange={setStatusOpen}>
           <PopoverTrigger asChild>
@@ -2183,8 +2206,9 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             </p>
             {!sendingInvoice?.booking_id && (
               <div className="space-y-1">
-                <Label>Send to</Label>
+                <Label htmlFor="invoice-send-to">Send to</Label>
                 <SearchableSelect
+                  id="invoice-send-to"
                   value={sendRecipientEmployerId?.toString() ?? ""}
                   onChange={(val) => setSendRecipientEmployerId(parseInt(val))}
                   options={sendOptions.map((opt) => ({

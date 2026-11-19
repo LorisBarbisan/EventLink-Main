@@ -147,6 +147,7 @@ function DashLogPaymentDialog({
           <div className="space-y-1">
             <Label htmlFor="freelancerdashboard-amount-received-148">Amount received (£) *</Label>
             <Input
+              id="freelancerdashboard-amount-received-148"
               type="number"
               min="0"
               step="0.01"
@@ -158,6 +159,7 @@ function DashLogPaymentDialog({
           <div className="space-y-1">
             <Label htmlFor="freelancerdashboard-date-paid-159">Date paid *</Label>
             <Input
+              id="freelancerdashboard-date-paid-159"
               type="date"
               value={form.datePaid}
               onChange={(e) => set("datePaid", e.target.value)}
@@ -166,6 +168,7 @@ function DashLogPaymentDialog({
           <div className="space-y-1">
             <Label htmlFor="freelancerdashboard-note-167">Note (optional)</Label>
             <Input
+              id="freelancerdashboard-note-167"
               placeholder="e.g. invoice ref, bank transfer"
               value={form.note}
               onChange={(e) => set("note", e.target.value)}
@@ -1215,6 +1218,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                 Referee&apos;s email <span className="text-red-500">*</span>
               </Label>
               <Input
+                id="freelancerdashboard-referee-1214"
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
@@ -1226,6 +1230,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                 Referee&apos;s name <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Input
+                id="freelancerdashboard-referee-1225"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. Sarah Johnson"

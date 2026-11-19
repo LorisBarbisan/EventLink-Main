@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { pressable } from "@/lib/a11y";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -397,7 +398,9 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        onClick={() => !isPending && fileRef.current?.click()}
+        {...pressable(() => !isPending && fileRef.current?.click(), {
+          label: "Choose a file to import",
+        })}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
           dragging
             ? "border-primary bg-primary/5"

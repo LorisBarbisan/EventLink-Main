@@ -252,14 +252,16 @@ function KitItemDialog({
             <div className="col-span-2">
               <Label htmlFor="kit-name-253">Name *</Label>
               <Input
+                id="kit-name-253"
                 value={form.name}
                 onChange={(e) => set("name")(e.target.value)}
                 placeholder="e.g. Shure SM58"
               />
             </div>
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="kit-category">Category</Label>
               <SearchableSelect
+                id="kit-category"
                 value={form.category}
                 onChange={set("category")}
                 options={(Object.keys(CATEGORY_LABELS) as KitCategory[]).map((c) => ({
@@ -274,7 +276,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-status-275">Status</Label>
               <Select value={form.status} onValueChange={set("status")}>
-                <SelectTrigger>
+                <SelectTrigger id="kit-status-275">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -289,6 +291,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-manufacturer-290">Manufacturer</Label>
               <Input
+                id="kit-manufacturer-290"
                 value={form.manufacturer}
                 onChange={(e) => set("manufacturer")(e.target.value)}
                 placeholder="Shure"
@@ -297,6 +300,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-model-298">Model</Label>
               <Input
+                id="kit-model-298"
                 value={form.model}
                 onChange={(e) => set("model")(e.target.value)}
                 placeholder="SM58"
@@ -305,6 +309,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-serial-number-306">Serial number</Label>
               <Input
+                id="kit-serial-number-306"
                 value={form.serial_number}
                 onChange={(e) => set("serial_number")(e.target.value)}
               />
@@ -312,6 +317,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-quantity-313">Quantity</Label>
               <Input
+                id="kit-quantity-313"
                 type="number"
                 min="1"
                 value={form.quantity}
@@ -321,6 +327,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-purchase-date-322">Purchase date</Label>
               <Input
+                id="kit-purchase-date-322"
                 type="date"
                 value={form.purchase_date}
                 onChange={(e) => set("purchase_date")(e.target.value)}
@@ -329,6 +336,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-purchase-price-330">Purchase price (£)</Label>
               <Input
+                id="kit-purchase-price-330"
                 type="number"
                 step="0.01"
                 placeholder="0.00"
@@ -339,7 +347,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-currency-340">Currency</Label>
               <Select value={form.currency} onValueChange={set("currency")}>
-                <SelectTrigger>
+                <SelectTrigger id="kit-currency-340">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -352,6 +360,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-supplier-353">Supplier</Label>
               <Input
+                id="kit-supplier-353"
                 value={form.supplier}
                 onChange={(e) => set("supplier")(e.target.value)}
                 placeholder="Thomann"
@@ -360,7 +369,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-funding-method-361">Funding method</Label>
               <Select value={form.funding_method} onValueChange={set("funding_method")}>
-                <SelectTrigger>
+                <SelectTrigger id="kit-funding-method-361">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -374,6 +383,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-business-use-375">Business use %</Label>
               <Input
+                id="kit-business-use-375"
                 type="number"
                 min="0"
                 max="100"
@@ -384,6 +394,7 @@ function KitItemDialog({
             <div>
               <Label htmlFor="kit-replacement-value-385">Replacement value (£)</Label>
               <Input
+                id="kit-replacement-value-385"
                 type="number"
                 step="0.01"
                 placeholder="0.00"
@@ -394,6 +405,7 @@ function KitItemDialog({
             <div className="col-span-2">
               <Label htmlFor="kit-condition-notes-395">Condition notes</Label>
               <Input
+                id="kit-condition-notes-395"
                 value={form.condition_notes}
                 onChange={(e) => set("condition_notes")(e.target.value)}
                 placeholder="Minor scuffs on body"
@@ -600,13 +612,19 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
                 <Label htmlFor="kit-date-sold-setsaledate-600" className="text-xs">
                   Date sold
                 </Label>
-                <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                <Input
+                  id="kit-date-sold-setsaledate-600"
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="kit-sold-for-604" className="text-xs">
                   Sold for (£)
                 </Label>
                 <Input
+                  id="kit-sold-for-604"
                   type="number"
                   min="0"
                   step="0.01"

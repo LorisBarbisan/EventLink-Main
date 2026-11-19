@@ -824,8 +824,11 @@ function AllApplicationsView({ jobs, isLoading }: { jobs: Job[]; isLoading: bool
     <div className="space-y-4">
       {jobsWithApps.length > 1 && (
         <div className="flex items-center gap-2">
-          <Label className="shrink-0 text-sm">Filter by job:</Label>
+          <Label htmlFor="posted-jobs-filter" className="shrink-0 text-sm">
+            Filter by job:
+          </Label>
           <SearchableSelect
+            id="posted-jobs-filter"
             value={String(selectedJobId)}
             onChange={(v) => setSelectedJobId(v === "all" ? "all" : parseInt(v))}
             options={jobsWithApps.map((j) => ({

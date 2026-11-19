@@ -1200,6 +1200,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   Document type
                 </label>
                 <select
+                  id="applicationcard-document-type-1196"
                   value={docType}
                   onChange={(e) => {
                     setDocType(e.target.value);
@@ -1222,6 +1223,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     Document name
                   </label>
                   <input
+                    id="applicationcard-document-name-1215"
                     type="text"
                     value={customDocName}
                     onChange={(e) => setCustomDocName(e.target.value)}

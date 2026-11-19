@@ -124,11 +124,7 @@ export function StartAgainCard() {
             <>
               <fieldset className="space-y-2">
                 {options.map((o) => (
-                  <label
-                    htmlFor="startagaincard-input-127"
-                    key={o.value}
-                    className="flex cursor-pointer items-start gap-2"
-                  >
+                  <label key={o.value} className="flex cursor-pointer items-start gap-2">
                     <input
                       type="radio"
                       name="start-again-scope"

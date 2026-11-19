@@ -1,5 +1,6 @@
 // components/notifications/NotificationItem.tsx
 import { Badge } from "@/components/ui/badge";
+import { keyActivate } from "@/lib/a11y";
 import { Button } from "@/components/ui/button";
 import { Notification } from "@shared/schema";
 import {
@@ -90,6 +91,8 @@ const NotificationItem = memo(
     isDeleteDisabled,
   }: Props) => {
     return (
+      // Whole item is a mouse target; it holds buttons, so the text block below is the keyboard control
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
       <div
         className={`cursor-pointer p-4 transition-colors hover:bg-gray-50 ${
           !notification.is_read ? getPriorityColor(notification.priority || "normal") : ""
@@ -101,7 +104,7 @@ const NotificationItem = memo(
             {getNotificationIcon(notification.type, notification.priority || "normal")}
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" {...keyActivate(() => onClick?.())}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p

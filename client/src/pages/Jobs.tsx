@@ -788,6 +788,7 @@ export default function Jobs() {
               Note <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <Textarea
+              id="jobs-note-784"
               placeholder="Add a short note to the employer — introduce yourself, highlight relevant experience, or ask a question..."
               value={coverLetter}
               onChange={(e) => setCoverLetter(e.target.value)}

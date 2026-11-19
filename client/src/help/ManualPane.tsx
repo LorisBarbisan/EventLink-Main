@@ -29,7 +29,12 @@ function TipsSwitch() {
       className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-muted-foreground"
       title={on ? "Hide the tips that appear when you hover" : "Show tips when you hover"}
     >
-      <Switch checked={on} onCheckedChange={(v) => setMode(v ? "full" : "off")} aria-label="Tips" />
+      <Switch
+        id="manualpane-label-classname-27"
+        checked={on}
+        onCheckedChange={(v) => setMode(v ? "full" : "off")}
+        aria-label="Tips"
+      />
       Tips
     </label>
   );

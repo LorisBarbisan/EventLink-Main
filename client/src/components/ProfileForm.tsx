@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { pressable } from "@/lib/a11y";
 import { ProfileThemePicker } from "@/components/ProfileThemePicker";
 import { CVParsingReview } from "@/components/CVParsingReview";
 import { DocumentUploader } from "@/components/DocumentUploader";
@@ -902,6 +903,7 @@ function FreelancerProfileFields({
         <Label htmlFor="profile-skills-902">Skills (Optional)</Label>
         <div className="mb-2 flex gap-2">
           <Input
+            id="profile-skills-902"
             value={newSkill}
             onChange={(e) => setNewSkill(e.target.value)}
             placeholder="Add a skill"
@@ -1075,7 +1077,7 @@ function CardLivePreview({
 
       {/* 3-D flip scene — matches real card ratio (340×646 scaled to 170×323) */}
       <div
-        onClick={() => setFlipped((f) => !f)}
+        {...pressable(() => setFlipped((f) => !f), { label: "Flip card preview" })}
         style={{ perspective: 900, cursor: "pointer", width: 170, margin: "0 auto" }}
       >
         <div

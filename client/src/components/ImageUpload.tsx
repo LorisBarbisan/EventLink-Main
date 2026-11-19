@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { pressable } from "@/lib/a11y";
 import { Label } from "@/components/ui/label";
 import { Image as ImageIcon, Plus, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
@@ -130,7 +131,7 @@ export function ImageUpload({
               src={value}
               alt="Uploaded"
               className="h-full w-full object-cover"
-              onError={(e) => {
+              onError={() => {
                 console.log("ImageUpload: Image failed to load:", value?.substring(0, 50));
                 // Hide the image preview if it fails to load
                 onChange("");
@@ -177,7 +178,7 @@ export function ImageUpload({
                 className={`relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-primary/50 transition-colors hover:border-primary ${
                   isDragging ? "border-primary bg-primary/5" : ""
                 }`}
-                onClick={() => fileInputRef.current?.click()}
+                {...pressable(() => fileInputRef.current?.click(), { label: "Change photo" })}
               >
                 <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
               </div>

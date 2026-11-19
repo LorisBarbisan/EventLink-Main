@@ -182,6 +182,8 @@ export function SearchableSelect({
             const isPinned = i < visiblePinned.length;
             const isSelected = o.value === value;
             return (
+              // A combobox option: keyboard selection is handled by the input (arrow keys + Enter)
+              // eslint-disable-next-line jsx-a11y/click-events-have-key-events
               <li
                 key={`${isPinned ? "p" : "o"}-${i}-${o.value}`}
                 id={optionId(i)}

@@ -332,6 +332,7 @@ export default function JobDetail() {
                         Cover letter (optional)
                       </label>
                       <Textarea
+                        id="jobdetail-cover-letter-328"
                         placeholder="Tell the employer why you're a great fit..."
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}

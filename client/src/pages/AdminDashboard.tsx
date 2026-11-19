@@ -1,4 +1,5 @@
 import { AdminGuard } from "@/components/AdminGuard";
+import { pressable } from "@/lib/a11y";
 import { Layout } from "@/components/Layout";
 import { ModerationTable } from "@/components/ModerationTable";
 import { ShareJobButton } from "@/components/ShareJobButton";
@@ -1598,13 +1599,9 @@ function AdminDashboardContent() {
                                   )}
 
                                   <div className="space-y-2">
-                                    <label
-                                      htmlFor="admindashboard-your-response-1601"
-                                      className="text-sm font-medium"
-                                    >
-                                      Your Response:
-                                    </label>
+                                    <p className="text-sm font-medium">Your Response:</p>
                                     <Textarea
+                                      aria-label="Your response"
                                       value={adminResponse}
                                       onChange={(e) => setAdminResponse(e.target.value)}
                                       placeholder="Enter your response to this feedback..."
@@ -1754,6 +1751,7 @@ function AdminDashboardContent() {
                   Note (optional)
                 </label>
                 <Textarea
+                  id="admindashboard-note-1748"
                   className="mt-1"
                   rows={2}
                   placeholder="Internal note about this decision…"
@@ -1923,13 +1921,9 @@ function AdminDashboardContent() {
                                 </div>
 
                                 <div className="space-y-2">
-                                  <label
-                                    htmlFor="admindashboard-your-reply-1919"
-                                    className="text-sm font-medium"
-                                  >
-                                    Your Reply:
-                                  </label>
+                                  <p className="text-sm font-medium">Your Reply:</p>
                                   <Textarea
+                                    aria-label="Your reply"
                                     value={contactReply}
                                     onChange={(e) => setContactReply(e.target.value)}
                                     placeholder="Enter your reply message here... This will be sent via email to the user."
@@ -3936,10 +3930,7 @@ function AdminDashboardContent() {
                                           }))
                                         }
                                       />
-                                      <label
-                                        htmlFor="admindashboard-checkbox-3927"
-                                        className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
-                                      >
+                                      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                         <Checkbox
                                           checked={editNoExpiry}
                                           onCheckedChange={(v) =>
@@ -4291,11 +4282,11 @@ function AdminDashboardContent() {
                             "flex cursor-pointer items-center justify-between border-b px-3 py-2 text-sm last:border-0 hover:bg-muted",
                             isSelected && "bg-muted/70"
                           )}
-                          onClick={() =>
+                          {...pressable(() =>
                             setNotifySelectedUsers((prev) =>
                               isSelected ? prev.filter((s) => s.id !== u.id) : [...prev, u as any]
                             )
-                          }
+                          )}
                         >
                           <div>
                             <span>

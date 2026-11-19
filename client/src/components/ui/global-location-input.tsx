@@ -132,6 +132,8 @@ export function GlobalLocationInput({
       {open && suggestions.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
           {suggestions.map((loc, i) => (
+            // A combobox option: keyboard selection is handled by the input (arrow keys + Enter)
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
             <li
               key={i}
               className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"

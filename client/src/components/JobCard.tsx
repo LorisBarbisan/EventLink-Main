@@ -248,11 +248,18 @@ export function JobCard({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h3
-                className={`text-lg font-semibold ${onViewDetail ? "cursor-pointer hover:text-primary hover:underline" : ""}`}
-                onClick={() => onViewDetail?.(job.id)}
-              >
-                {job.title}
+              <h3 className="text-lg font-semibold">
+                {onViewDetail ? (
+                  <button
+                    type="button"
+                    className="text-left hover:text-primary hover:underline"
+                    onClick={() => onViewDetail(job.id)}
+                  >
+                    {job.title}
+                  </button>
+                ) : (
+                  job.title
+                )}
               </h3>
               {isPosted && (
                 <Badge className="border-green-200 bg-green-100 text-green-800 hover:bg-green-200">
@@ -702,6 +709,7 @@ export function JobCard({
                   Document type
                 </label>
                 <select
+                  id="jobcard-document-type-698"
                   value={docType}
                   onChange={(e) => {
                     setDocType(e.target.value);

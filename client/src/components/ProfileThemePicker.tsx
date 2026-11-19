@@ -184,8 +184,11 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: accent }}
           >
+            <span className="sr-only">Accent colour</span>
             <input
+              id="profilethemepicker-label-classname-182"
               type="color"
+              aria-label="Accent colour"
               value={accent}
               onChange={(e) => setAccent(e.target.value)}
               className="sr-only"
@@ -215,7 +218,9 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: buttonColor }}
           >
+            <span className="sr-only">Button colour</span>
             <input
+              id="profilethemepicker-label-classname-212"
               type="color"
               value={buttonColor}
               onChange={(e) => setButtonColor(e.target.value)}

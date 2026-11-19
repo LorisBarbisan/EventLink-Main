@@ -470,8 +470,10 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               )}
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Search Radius</Label>
-                <div className="flex gap-2">
+                <p id="search-radius-label" className="text-sm font-medium">
+                  Search Radius
+                </p>
+                <div className="flex gap-2" role="group" aria-labelledby="search-radius-label">
                   {[10, 30, 60, 100].map((radius) => (
                     <Button
                       key={radius}
@@ -552,9 +554,9 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
             {/* Date Range Filter */}
             <div className="space-y-3">
-              <Label className="text-base font-medium" data-testid="label-date-range-filter">
+              <p className="text-base font-medium" data-testid="label-date-range-filter">
                 Date Range
-              </Label>
+              </p>
               <p className="text-sm text-muted-foreground">
                 Only get notified about jobs starting within a specific date range
               </p>

@@ -135,7 +135,7 @@ export function GigFormBody({
           value={form.work_status || "__none__"}
           onValueChange={(v) => onChange("work_status", v === "__none__" ? "" : v)}
         >
-          <SelectTrigger>
+          <SelectTrigger id="gigformfields-booking-status-133">
             <SelectValue placeholder="Not a scheduled booking" />
           </SelectTrigger>
           <SelectContent>
@@ -176,7 +176,7 @@ export function GigFormBody({
         <div className="space-y-1">
           <Label htmlFor="gigformfields-unit-onchange-177">Unit</Label>
           <Select value={form.unit} onValueChange={(v) => onChange("unit", v)}>
-            <SelectTrigger>
+            <SelectTrigger id="gigformfields-unit-onchange-177">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -200,7 +200,7 @@ export function GigFormBody({
         <div className="space-y-1">
           <Label htmlFor="gigformfields-currency-onchange-201">Currency</Label>
           <Select value={form.currency} onValueChange={(v) => onChange("currency", v)}>
-            <SelectTrigger>
+            <SelectTrigger id="gigformfields-currency-onchange-201">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -232,7 +232,7 @@ export function GigFormBody({
         <div className="space-y-1">
           <Label htmlFor="gigformfields-payment-status-onchange-233">Payment status</Label>
           <Select value={form.status} onValueChange={(v) => onChange("status", v)}>
-            <SelectTrigger>
+            <SelectTrigger id="gigformfields-payment-status-onchange-233">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

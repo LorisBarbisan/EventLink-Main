@@ -1,4 +1,5 @@
 import { fmtDate as fmtSharedDate } from "@shared/dates";
+import { keyActivate, pressable } from "@/lib/a11y";
 import type { BookingStatus } from "@shared/schema";
 import React, { useEffect, useRef, useState } from "react";
 import { JobSelect, type JobOption } from "./JobSelect";
@@ -169,6 +170,8 @@ function MonthSection({
             className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"} ${accentClass}`}
           />
           {selectAll && (
+            // Only stops the click reaching the row behind it; not itself a control
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
             <span onClick={(e) => e.stopPropagation()} className="flex items-center">
               {selectAll}
             </span>
@@ -602,8 +605,9 @@ function ExpenseDialog({
               />
             </div>
             <div className="space-y-1">
-              <Label>Category</Label>
+              <Label htmlFor="expense-category">Category</Label>
               <SearchableSelect
+                id="expense-category"
                 value={form.category_id}
                 onChange={(v) => set("category_id", v)}
                 options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
@@ -718,7 +722,7 @@ function ExpenseDialog({
               <div className="space-y-1">
                 <Label htmlFor="books-payment-method-set-719">Payment method</Label>
                 <Select value={form.payment_method} onValueChange={(v) => set("payment_method", v)}>
-                  <SelectTrigger style={{ fontSize: "16px" }}>
+                  <SelectTrigger id="books-payment-method-set-719" style={{ fontSize: "16px" }}>
                     <SelectValue placeholder="Not specified" />
                   </SelectTrigger>
                   <SelectContent>
@@ -930,10 +934,14 @@ function ReceiptRow({ expenseId }: { expenseId: number }) {
 
       {/* Lightbox */}
       {lightboxUrl && (
+        // Backdrop click-to-close is a mouse convenience; the dialog has its own close control
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
           onClick={() => setLightboxUrl(null)}
         >
+          {/* Only stops the click closing the lightbox; not a control */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
           <img
             src={lightboxUrl}
             alt="Receipt"
@@ -1139,10 +1147,14 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
 
       {/* Lightbox */}
       {lightboxUrl && (
+        // Backdrop click-to-close is a mouse convenience; the dialog has its own close control
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
           onClick={() => setLightboxUrl(null)}
         >
+          {/* Only stops the click closing the lightbox; not a control */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
           <img
             src={lightboxUrl}
             alt="Receipt"
@@ -1322,12 +1334,17 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
+        {/* Whole header is a mouse target; it holds a button, so the title block below is the keyboard control */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           className="cursor-pointer bg-amber-500 px-5 py-3 dark:bg-amber-700"
           onClick={toggleSection}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2"
+              {...keyActivate(toggleSection, { expanded: sectionOpen })}
+            >
               <ChevronDown
                 className={`h-4 w-4 text-amber-100 transition-transform ${sectionOpen ? "" : "-rotate-90"}`}
               />
@@ -1668,11 +1685,17 @@ function TripDialog({
         <div className="space-y-3">
           <div>
             <Label htmlFor="books-date-1670">Date</Label>
-            <Input type="date" value={form.trip_date} onChange={set("trip_date")} />
+            <Input
+              id="books-date-1670"
+              type="date"
+              value={form.trip_date}
+              onChange={set("trip_date")}
+            />
           </div>
           <div>
             <Label htmlFor="books-from-1674">From</Label>
             <Input
+              id="books-from-1674"
               list="saved-places-from"
               placeholder="Starting point"
               value={form.from_place}
@@ -1683,6 +1706,7 @@ function TripDialog({
           <div>
             <Label htmlFor="books-to-1684">To</Label>
             <Input
+              id="books-to-1684"
               list="saved-places-to"
               placeholder="Destination"
               value={form.to_place}
@@ -1694,6 +1718,7 @@ function TripDialog({
             <div className="flex-1">
               <Label htmlFor="books-miles-1695">Miles</Label>
               <Input
+                id="books-miles-1695"
                 type="number"
                 min="1"
                 step="1"
@@ -1705,6 +1730,7 @@ function TripDialog({
             <div className="flex-1">
               <Label htmlFor="books-vehicle-1706">Vehicle</Label>
               <select
+                id="books-vehicle-1706"
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                 value={form.vehicle_type}
                 onChange={set("vehicle_type")}
@@ -1718,6 +1744,7 @@ function TripDialog({
           <div>
             <Label htmlFor="books-purpose-1719">Purpose</Label>
             <Input
+              id="books-purpose-1719"
               placeholder="Client visit, site survey…"
               value={form.purpose}
               onChange={set("purpose")}
@@ -1726,7 +1753,7 @@ function TripDialog({
           <JobSelect value={form.job_id} onChange={(v) => setForm((f) => ({ ...f, job_id: v }))} />
           <div>
             <Label htmlFor="books-notes-1728">Notes (optional)</Label>
-            <Textarea rows={2} value={form.notes} onChange={set("notes")} />
+            <Textarea id="books-notes-1728" rows={2} value={form.notes} onChange={set("notes")} />
           </div>
         </div>
         <DialogFooter>
@@ -1992,6 +2019,7 @@ function TimeSection() {
                     Date
                   </Label>
                   <Input
+                    id="books-date-1991"
                     type="date"
                     value={dayForm.work_date}
                     onChange={(e) => setDayForm((f) => ({ ...f, work_date: e.target.value }))}
@@ -2003,6 +2031,7 @@ function TimeSection() {
                     Break (minutes)
                   </Label>
                   <Input
+                    id="books-break-2000"
                     type="number"
                     min={0}
                     value={dayForm.break_minutes}
@@ -2015,6 +2044,7 @@ function TimeSection() {
                     Start
                   </Label>
                   <Input
+                    id="books-start-2010"
                     type="time"
                     value={dayForm.start_time}
                     onChange={(e) => setDayForm((f) => ({ ...f, start_time: e.target.value }))}
@@ -2026,6 +2056,7 @@ function TimeSection() {
                     Finish
                   </Label>
                   <Input
+                    id="books-finish-2019"
                     type="time"
                     value={dayForm.finish_time}
                     onChange={(e) => setDayForm((f) => ({ ...f, finish_time: e.target.value }))}
@@ -2038,6 +2069,7 @@ function TimeSection() {
                   Notes (optional)
                 </Label>
                 <Input
+                  id="books-notes-2029"
                   value={dayForm.notes}
                   onChange={(e) => setDayForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Night shoot, location day…"
@@ -2100,6 +2132,7 @@ function TimeSection() {
                     Overtime hours to invoice
                   </Label>
                   <Input
+                    id="books-overtime-hours-to-invoice-2089"
                     type="number"
                     min={0}
                     step={0.25}
@@ -2174,6 +2207,7 @@ function TimeSection() {
                       Standard hours per day
                     </Label>
                     <Input
+                      id="books-standard-hours-per-day-2161"
                       type="number"
                       min={1}
                       max={24}
@@ -2190,6 +2224,7 @@ function TimeSection() {
                       Overtime rate (£/hr)
                     </Label>
                     <Input
+                      id="books-overtime-rate-2175"
                       type="number"
                       min={0}
                       step={0.01}
@@ -2375,7 +2410,7 @@ function MileageSection() {
       <Card className="overflow-hidden">
         <div
           className="cursor-pointer border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20"
-          onClick={toggleTrips}
+          {...pressable(toggleTrips)}
         >
           <div className="flex items-center gap-2">
             <ChevronDown
@@ -3474,6 +3509,7 @@ function OverviewSection({
                 £
               </span>
               <input
+                id="books-label-data-3449"
                 type="number"
                 min="0"
                 step="1"
@@ -3501,6 +3537,7 @@ function OverviewSection({
               Scottish taxpayer
             </label>
             <input
+              id="books-scottish-taxpayer-3479"
               type="checkbox"
               className="h-4 w-4 rounded"
               checked={scotland}
@@ -3572,6 +3609,7 @@ function OverviewSection({
                 £
               </span>
               <input
+                id="books-pension-contributions-3543"
                 type="number"
                 min="0"
                 step="1"
@@ -3593,10 +3631,14 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label data-help="tax.workingFromHome" className="text-sm text-muted-foreground">
+            <p
+              id="wfh-label"
+              data-help="tax.workingFromHome"
+              className="text-sm text-muted-foreground"
+            >
               Working from home (HMRC flat rate)
-            </label>
-            <div className="flex gap-2">
+            </p>
+            <div className="flex gap-2" role="group" aria-labelledby="wfh-label">
               {(
                 [
                   { value: "low", label: "25–50 h/mo", detail: "£10/mo" },
@@ -3641,6 +3683,7 @@ function OverviewSection({
                 £
               </span>
               <input
+                id="books-gift-aid-donations-3609"
                 type="number"
                 min="0"
                 step="1"
@@ -3673,6 +3716,7 @@ function OverviewSection({
                 £
               </span>
               <input
+                id="books-losses-carried-forward-3636"
                 type="number"
                 min="0"
                 step="1"
@@ -3705,6 +3749,7 @@ function OverviewSection({
                 £
               </span>
               <input
+                id="books-child-benefit-received-3663"
                 type="number"
                 min="0"
                 step="1"
@@ -3726,8 +3771,10 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Marriage Allowance</label>
-            <div className="flex gap-2">
+            <p id="marriage-allowance-label" className="text-sm text-muted-foreground">
+              Marriage Allowance
+            </p>
+            <div className="flex gap-2" role="group" aria-labelledby="marriage-allowance-label">
               {(
                 [
                   {
@@ -4594,7 +4641,7 @@ export function BooksTab() {
               value={statusEditForm.status}
               onValueChange={(v) => setStatusEditForm((f) => ({ ...f, status: v }))}
             >
-              <SelectTrigger>
+              <SelectTrigger id="books-status-4553">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -4610,6 +4657,7 @@ export function BooksTab() {
               <div className="space-y-1">
                 <Label htmlFor="books-amount-received-4572">Amount received (£) *</Label>
                 <Input
+                  id="books-amount-received-4572"
                   type="number"
                   min="0"
                   step="0.01"
@@ -4621,6 +4669,7 @@ export function BooksTab() {
               <div className="space-y-1">
                 <Label htmlFor="books-date-paid-4583">Date paid *</Label>
                 <Input
+                  id="books-date-paid-4583"
                   type="date"
                   value={statusEditForm.datePaid}
                   onChange={(e) => setStatusEditForm((f) => ({ ...f, datePaid: e.target.value }))}
@@ -5041,12 +5090,19 @@ export function BooksTab() {
 
       {/* ── Section 2: My Jobs ── */}
       <Card className="overflow-hidden">
+        {/* Whole header is a mouse target; it holds controls, so the title block below is the keyboard control */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           className="cursor-pointer border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20"
           onClick={() => toggleSection("jobs", setJobsOpen, jobsOpen)}
         >
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2"
+              {...keyActivate(() => toggleSection("jobs", setJobsOpen, jobsOpen), {
+                expanded: jobsOpen,
+              })}
+            >
               <ChevronDown
                 className={`h-4 w-4 text-indigo-500 transition-transform ${jobsOpen ? "" : "-rotate-90"}`}
               />
@@ -5063,6 +5119,8 @@ export function BooksTab() {
                 ) : null;
               })()}
             </div>
+            {/* Only stops the click reaching the row behind it; not itself a control */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
               {unloggedBookings.length > 0 && (
                 <div className="flex items-center gap-1">
@@ -5172,7 +5230,7 @@ export function BooksTab() {
                             <div
                               key={`booking-${b.id}`}
                               className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                              onClick={() => openBooking(b)}
+                              {...pressable(() => openBooking(b))}
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -5225,7 +5283,7 @@ export function BooksTab() {
                           <div
                             key={`entry-${g.id}`}
                             className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
-                            onClick={() => setJobDetailEntryId(g.id)}
+                            {...pressable(() => setJobDetailEntryId(g.id))}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium">
@@ -5270,7 +5328,7 @@ export function BooksTab() {
                           <div
                             key={`booking-tbc-${b.id}`}
                             className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                            onClick={() => openBooking(b)}
+                            {...pressable(() => openBooking(b))}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -5312,7 +5370,7 @@ export function BooksTab() {
           <Card className="overflow-hidden">
             <div
               className="cursor-pointer border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20"
-              onClick={() => toggleSection("earnings", setEarningsOpen, earningsOpen)}
+              {...pressable(() => toggleSection("earnings", setEarningsOpen, earningsOpen))}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -5327,6 +5385,8 @@ export function BooksTab() {
                     </span>
                   )}
                 </div>
+                {/* Only stops the click reaching the row behind it; not itself a control */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {!earningsOpen && earningsTotal > 0 && (
                     <span className="text-xs font-semibold tabular-nums text-blue-700 dark:text-blue-300">
@@ -5376,7 +5436,7 @@ export function BooksTab() {
                         data-help="books.earnings.logPayment"
                         key={`unlogged-${b.id}`}
                         className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
-                        onClick={() => openBooking(b)}
+                        {...pressable(() => openBooking(b))}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -5512,6 +5572,8 @@ export function BooksTab() {
                           selectAll={selectAll}
                         >
                           {monthEntries.map((entry, i) => (
+                            // Whole row is a mouse target; it holds a checkbox, so the text block below is the keyboard control
+                            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                             <div
                               key={entry.id}
                               className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
@@ -5525,6 +5587,7 @@ export function BooksTab() {
                             >
                               <input
                                 type="checkbox"
+                                aria-label={`Select ${entry.description ?? "entry"}`}
                                 checked={selectedEntryIds.has(entry.id)}
                                 className="mr-3 h-3.5 w-3.5 shrink-0 cursor-pointer accent-blue-600"
                                 onClick={(e) => e.stopPropagation()}
@@ -5537,7 +5600,10 @@ export function BooksTab() {
                                   });
                                 }}
                               />
-                              <div className="min-w-0 flex-1">
+                              <div
+                                className="min-w-0 flex-1"
+                                {...keyActivate(() => setJobDetailEntryId(entry.id))}
+                              >
                                 <p className="truncate text-sm font-medium">
                                   {entry.description ?? "Freelance work"}
                                 </p>

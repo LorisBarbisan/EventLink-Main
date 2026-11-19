@@ -538,6 +538,7 @@ export function DocumentUploader({
                     className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"
                   >
                     <Checkbox
+                      id="documentuploader-checkbox-536"
                       checked={noExpiry}
                       onCheckedChange={(v) => setNoExpiry(v === true)}
                       data-testid="checkbox-no-expiry"
