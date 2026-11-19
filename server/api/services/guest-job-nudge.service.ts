@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import cron from "node-cron";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { storage } from "../../storage";
 import { sendGuestJobNudge } from "./guest-job-email.service";
 
@@ -40,7 +40,7 @@ async function processNudges(): Promise<void> {
 
 export function registerGuestJobNudgeScheduler(): void {
   // Run at the top of every hour
-  cron.schedule("0 * * * *", async () => {
+  scheduleExclusive(LOCK.GUEST_JOB_NUDGE, "0 * * * *", async () => {
     try {
       await processNudges();
     } catch (err) {

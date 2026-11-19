@@ -1,4 +1,5 @@
 import cors from "cors";
+import { LOCK, runExclusive, scheduleExclusive } from "./api/utils/scheduled-lock";
 import { allowedOrigins, isAllowedOrigin } from "./api/utils/cors-origins";
 import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
@@ -19,7 +20,6 @@ import { sweepStuckCommits } from "./api/services/import-commit.service";
 import { sweepArchived } from "./api/services/undo.service";
 import { pruneBooksEvents } from "./api/services/books-usage.service";
 import { pruneOldReports } from "./api/services/safety.service";
-import cron from "node-cron";
 import { seedSystemMappings } from "./api/services/import-seed.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
@@ -224,18 +224,21 @@ app.use((req, res, next) => {
   // Sweep stuck import parse/commit jobs every 15 minutes
   setInterval(
     () => {
-      sweepStuckParseJobs().catch((err) =>
-        console.error("[import-sweeper] parse sweep failed:", err)
-      );
-      sweepStuckCommits().catch((err) =>
-        console.error("[import-sweeper] commit sweep failed:", err)
-      );
+      runExclusive(LOCK.IMPORT_STUCK_SWEEP, async () => {
+        await sweepStuckParseJobs().catch((err) =>
+          console.error("[import-sweeper] parse sweep failed:", err)
+        );
+        await sweepStuckCommits().catch((err) =>
+          console.error("[import-sweeper] commit sweep failed:", err)
+        );
+      }).catch((err) => console.error("[import-sweeper] lock failed:", err));
     },
     15 * 60 * 1000
   );
 
   // Hard-delete earnings/expenses archived more than 30 days ago, nightly 03:30 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.UNDO_SWEEP,
     "30 3 * * *",
     () => {
       sweepArchived().catch((err) => console.error("[undo-sweep] failed:", err));
@@ -244,7 +247,8 @@ app.use((req, res, next) => {
   );
 
   // Books usage log retention: 24 months, nightly 03:45 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.BOOKS_EVENTS_PRUNE,
     "45 3 * * *",
     () => {
       pruneBooksEvents().catch((err) => console.error("[books-usage] prune failed:", err));
@@ -253,7 +257,8 @@ app.use((req, res, next) => {
   );
 
   // Safety report retention: six years, nightly 03:50 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.REPORTS_PRUNE,
     "50 3 * * *",
     () => {
       pruneOldReports().catch((err) => console.error("[safety] prune failed:", err));
@@ -331,7 +336,7 @@ app.use((req, res, next) => {
     setInterval(
       async () => {
         try {
-          await storage.closeExpiredJobs();
+          await runExclusive(LOCK.JOB_EXPIRY_HOURLY, () => storage.closeExpiredJobs());
         } catch (err) {
           console.error("Periodic job expiry check failed:", err);
         }

@@ -1,5 +1,5 @@
-import cron from "node-cron";
 import { db } from "../config/db";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { calendar_connections } from "@shared/schema";
 import { and, eq, lt, isNotNull } from "drizzle-orm";
 import { registerGoogleWebhook, stopGoogleWebhook } from "./googleCalendar.service";
@@ -129,7 +129,8 @@ async function dailyReconcile(): Promise<void> {
 
 export function registerCalendarScheduler(): void {
   // Renew Google webhooks every 6 hours
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.CAL_GOOGLE_RENEW,
     "0 */6 * * *",
     () => {
       renewGoogleWebhooks().catch((err) =>
@@ -140,7 +141,8 @@ export function registerCalendarScheduler(): void {
   );
 
   // Renew Outlook webhooks every 6 hours (subscriptions expire every 3 days)
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.CAL_OUTLOOK_RENEW,
     "30 */6 * * *",
     () => {
       renewOutlookWebhooks().catch((err) =>
@@ -151,7 +153,8 @@ export function registerCalendarScheduler(): void {
   );
 
   // Daily reconciliation at 03:00 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.CAL_RECONCILE,
     "0 3 * * *",
     () => {
       dailyReconcile().catch((err) =>

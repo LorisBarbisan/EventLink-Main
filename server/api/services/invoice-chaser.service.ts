@@ -1,5 +1,5 @@
-import cron from "node-cron";
 import { db } from "../config/db";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { invoices, invoice_reminders } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { storage } from "../../storage";
@@ -30,7 +30,7 @@ const STAGE_TITLES: Record<ReminderStage, string> = {
 
 export function registerInvoiceChaserScheduler(): void {
   // 09:00 every day, Europe/London
-  cron.schedule("0 9 * * *", runChaser, { timezone: "Europe/London" });
+  scheduleExclusive(LOCK.INVOICE_CHASER, "0 9 * * *", runChaser, { timezone: "Europe/London" });
   console.log("✅ Invoice chaser scheduler registered (daily 09:00 Europe/London)");
 }
 

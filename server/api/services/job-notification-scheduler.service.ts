@@ -1,5 +1,5 @@
-import cron from "node-cron";
 import { autoCompleteFinishedJobs } from "./job-completion.service";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
 import * as emailTemplates from "../utils/emailTemplates";
@@ -298,7 +298,8 @@ export async function sendUrgentJobNotification(job: any): Promise<void> {
  * Register the morning (09:00) and afternoon (13:00) batch window cron jobs.
  */
 export function registerJobNotificationScheduler(): void {
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.JOB_BATCH_MORNING,
     "0 9 * * *",
     async () => {
       try {
@@ -310,7 +311,8 @@ export function registerJobNotificationScheduler(): void {
     { timezone: "Europe/London" }
   );
 
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.JOB_BATCH_AFTERNOON,
     "0 13 * * *",
     async () => {
       try {
@@ -323,7 +325,8 @@ export function registerJobNotificationScheduler(): void {
   );
 
   // Daily at 10:00am UK time — auto-close expired jobs and send closure emails
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.JOB_AUTO_CLOSE,
     "0 10 * * *",
     async () => {
       try {
@@ -357,7 +360,8 @@ export function registerJobNotificationScheduler(): void {
 
   // Daily at 10:30 UK time — complete jobs nobody marked completed, 7 days
   // after their last day (bookings already complete by date; this is the posting)
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.JOB_AUTO_COMPLETE,
     "30 10 * * *",
     async () => {
       try {
@@ -372,7 +376,8 @@ export function registerJobNotificationScheduler(): void {
 
   // Daily at 08:00 UK time — remind employers 48h before their job auto-closes
   // to hire officially and close manually (so ratings/reviews can happen).
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.JOB_CLOSE_REMINDERS,
     "0 8 * * *",
     async () => {
       try {

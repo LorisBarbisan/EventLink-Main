@@ -1,5 +1,5 @@
-import cron from "node-cron";
 import { and, eq, inArray, isNull, isNotNull } from "drizzle-orm";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { db } from "../config/db";
 import { users, freelancer_documents, credential_reminders } from "@shared/schema";
 import type { CredentialReminderStage, DocumentType } from "@shared/schema";
@@ -289,7 +289,8 @@ Turn these reminders off: ${unsubscribe}
 
 export function registerCredentialReminderScheduler(): void {
   // Daily at 07:17 UK (jittered minute, not :00, to avoid the top-of-hour crowd).
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.CREDENTIAL_REMINDERS,
     "17 7 * * *",
     () => {
       runCredentialReminders().catch((err) =>

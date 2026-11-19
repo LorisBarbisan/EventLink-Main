@@ -1,5 +1,5 @@
-import cron from "node-cron";
 import { and, eq, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { db } from "../config/db";
 import { users, freelancer_profiles, profile_nudge_emails } from "@shared/schema";
 import { sendEmail } from "../utils/emailService";
@@ -129,7 +129,8 @@ async function runNudgeStage(stage: NudgeStage): Promise<void> {
 
 export function registerProfileNudgeScheduler(): void {
   // Stage 1 — Wednesday 12:00 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.PROFILE_NUDGE_1,
     "0 12 * * 3",
     () => {
       runNudgeStage(1).catch((err) => console.error("❌ Profile nudge 1 error:", err));
@@ -138,7 +139,8 @@ export function registerProfileNudgeScheduler(): void {
   );
 
   // Stage 2 — Sunday 19:00 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.PROFILE_NUDGE_2,
     "0 19 * * 0",
     () => {
       runNudgeStage(2).catch((err) => console.error("❌ Profile nudge 2 error:", err));
@@ -147,7 +149,8 @@ export function registerProfileNudgeScheduler(): void {
   );
 
   // Stage 3 — Tuesday 15:30 UK
-  cron.schedule(
+  scheduleExclusive(
+    LOCK.PROFILE_NUDGE_3,
     "30 15 * * 2",
     () => {
       runNudgeStage(3).catch((err) => console.error("❌ Profile nudge 3 error:", err));
