@@ -1,4 +1,6 @@
 import { insertFreelancerProfileSchema, insertRecruiterProfileSchema } from "@shared/schema";
+import { withPublicAvailability } from "@shared/public-availability";
+import { publicAvailabilityForFreelancer } from "../services/public-availability.service";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import sharp from "sharp";
@@ -123,9 +125,17 @@ export async function getFreelancerProfile(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer profile not found" });
     }
 
-    const responseProfile = isOwner
+    const baseProfile = isOwner
       ? resolvedProfile
       : { ...resolvedProfile, reference_token: undefined };
+    // The public calendar only when the freelancer switched it on; otherwise
+    // no key at all. Only date + state ever leave (see public-availability).
+    const responseProfile = withPublicAvailability(baseProfile as Record<string, unknown>, {
+      isOwner,
+      availability: (resolvedProfile as any).show_calendar_publicly
+        ? await publicAvailabilityForFreelancer(profile.user_id)
+        : null,
+    });
 
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");

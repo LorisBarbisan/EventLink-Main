@@ -83,6 +83,30 @@ export function ProfileForm({
     freelancerProfile?.profile_is_public ?? true
   );
 
+  const [showCalendar, setShowCalendar] = useState(
+    (freelancerProfile as { show_calendar_publicly?: boolean } | null)?.show_calendar_publicly ??
+      false
+  );
+  const calendarMutation = useMutation({
+    mutationFn: (on: boolean) =>
+      apiRequest(`/api/freelancer/${user?.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ show_calendar_publicly: on }),
+      }),
+    onSuccess: (_data, on) => {
+      setShowCalendar(on);
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user?.id] });
+      toast({
+        title: on ? "Your calendar is now on your profile" : "Calendar hidden",
+        description: on
+          ? "Clients see which days you're free, tentative or busy for the next 90 days — never your notes, synced events or booking details. Days you're booked through EventLink show as busy."
+          : "Your profile and card no longer show your availability.",
+      });
+    },
+    onError: () =>
+      toast({ title: "Failed to update the calendar setting", variant: "destructive" }),
+  });
+
   const privacyMutation = useMutation({
     mutationFn: (isPublic: boolean) =>
       apiRequest(`/api/freelancer/${user?.id}`, {
@@ -355,6 +379,22 @@ export function ProfileForm({
                     className="cursor-pointer select-none text-sm font-medium"
                   >
                     {profileIsPublic ? "Public" : "Private"}
+                  </label>
+                </div>
+              )}
+              {userType === "freelancer" && user?.id && (
+                <div className="flex items-center gap-2" data-help="form.profile.showCalendar">
+                  <Switch
+                    checked={showCalendar}
+                    onCheckedChange={(checked) => calendarMutation.mutate(checked)}
+                    disabled={calendarMutation.isPending}
+                    id="show-calendar"
+                  />
+                  <label
+                    htmlFor="show-calendar"
+                    className="cursor-pointer select-none text-sm font-medium"
+                  >
+                    Show my calendar
                   </label>
                 </div>
               )}

@@ -95,6 +95,8 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // Migration 0045 — opt-in public calendar
+  `ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS show_calendar_publicly boolean NOT NULL DEFAULT false`,
   // Migration 0044 — crew count and job completion
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS positions integer NOT NULL DEFAULT 1`,
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS completed_at timestamptz`,

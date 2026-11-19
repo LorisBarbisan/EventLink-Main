@@ -23,6 +23,22 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "form.profile.showCalendar",
+    scope: "field",
+    title: "Show my calendar",
+    body: "Shows clients which days you're free, maybe free or busy for the next 90 days, on your profile and your card. Off until you turn it on.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      paragraphs: [
+        "Only the day and whether you're free, tentative or busy is shown. Your notes, your Google or Outlook events and the details of your bookings are never shown.",
+        "Days you've been booked through EventLink show as busy automatically, so you can't be shown free on a day you're already working.",
+        "Days you haven't marked show as blank, not free, and clients see when you last updated your calendar.",
+        "Your card can be opened by anyone you share its link with, so they'll see your calendar too.",
+      ],
+    },
+  },
+  {
     key: "freelancer.jobAlerts",
     scope: "feature",
     title: "Job Alerts",
