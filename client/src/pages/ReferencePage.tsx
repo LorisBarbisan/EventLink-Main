@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { pressable } from "@/lib/a11y";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -464,9 +465,10 @@ export default function ReferencePage() {
                 <p className="mb-4 text-xs text-gray-400">
                   Verified references carry more weight. Choose how you&apos;d like to verify.
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-2" role="radiogroup" aria-label="How to verify">
                   <div
-                    onClick={() => setVerifyMethod("email")}
+                    {...pressable(() => setVerifyMethod("email"), { role: "radio" })}
+                    aria-checked={verifyMethod === "email"}
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 transition-colors ${verifyMethod === "email" ? "border-orange-500 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
                   >
                     <div
@@ -488,7 +490,8 @@ export default function ReferencePage() {
                   </div>
 
                   <div
-                    onClick={() => setVerifyMethod("linkedin")}
+                    {...pressable(() => setVerifyMethod("linkedin"), { role: "radio" })}
+                    aria-checked={verifyMethod === "linkedin"}
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 transition-colors ${verifyMethod === "linkedin" ? "border-orange-500 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
                   >
                     <div
@@ -512,11 +515,11 @@ export default function ReferencePage() {
                   </div>
 
                   <div
-                    onClick={() => {
+                    {...pressable(() => {
                       saveFormState();
                       const redirect = encodeURIComponent(`/reference/${token}`);
                       setLocation(`/auth?redirect=${redirect}`);
-                    }}
+                    })}
                     className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-gray-200 p-3 transition-colors hover:border-gray-300"
                   >
                     <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-gray-300" />

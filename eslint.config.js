@@ -5,6 +5,7 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 import prettier from "eslint-plugin-prettier";
 import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 export default [
   // Base JavaScript config
@@ -22,6 +23,9 @@ export default [
     plugins: {
       "react-hooks": reactHooksPlugin,
       prettier,
+      // Registered so eslint-disable comments naming its rules resolve; the
+      // rules themselves run from eslint.a11y.config.js (npm run lint:a11y).
+      "jsx-a11y": jsxA11y,
     },
     languageOptions: {
       parserOptions: {

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
+import { pressable } from "@/lib/a11y";
 import { PublicAvailabilityMonth, PublicAvailabilityStrip } from "@/components/PublicAvailability";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
@@ -603,10 +604,10 @@ export default function FreelancerCard() {
   }) {
     return (
       <div
-        onClick={(e) => {
+        {...pressable((e) => {
           e.stopPropagation();
           setDetail(id);
-        }}
+        })}
         style={{
           display: "flex",
           alignItems: "center",
@@ -705,7 +706,7 @@ export default function FreelancerCard() {
       );
     if (onClick)
       return (
-        <div style={{ ...row, cursor: "pointer" }} onClick={onClick}>
+        <div style={{ ...row, cursor: "pointer" }} {...pressable(() => onClick())}>
           {inner}
         </div>
       );
@@ -788,7 +789,10 @@ export default function FreelancerCard() {
               padding: "20px 16px 32px",
             }}
           >
-            {/* Card scene */}
+            {/* Card scene — mouse/touch convenience only: it contains links and
+                section buttons, so it can't be a button itself. The real,
+                keyboard-reachable flip control is the button under the card. */}
+            {}
             <div
               onClick={() => {
                 if (!detail) setFlipped((f) => !f);
@@ -1206,9 +1210,26 @@ export default function FreelancerCard() {
               </div>
             </div>
 
-            <p style={{ marginTop: 10, fontSize: 11, color: C.text3, textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setDetail(null);
+                setFlipped((f) => !f);
+              }}
+              style={{
+                marginTop: 4,
+                minHeight: 44,
+                padding: "0 12px",
+                fontSize: 11,
+                color: C.text3,
+                textAlign: "center",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
               {flipped ? "Tap a section to open · tap card to flip back" : "Tap card to flip"}
-            </p>
+            </button>
           </div>
         </div>
 
