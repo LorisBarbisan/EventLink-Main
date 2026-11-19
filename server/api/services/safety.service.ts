@@ -138,6 +138,15 @@ export async function listUserReports(): Promise<AdminReportRow[]> {
   }));
 }
 
+/** Retention (privacy notice §8): reports are deleted six years after they were made. */
+export async function pruneOldReports(): Promise<number> {
+  const rows = await db
+    .delete(user_reports)
+    .where(sql`${user_reports.created_at} < now() - interval '6 years'`)
+    .returning({ id: user_reports.id });
+  return rows.length;
+}
+
 export async function updateUserReport(
   id: number,
   patch: { status?: ReportStatus; admin_notes?: string | null }

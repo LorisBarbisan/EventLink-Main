@@ -1,5 +1,6 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
 import { messagingAllowed } from "@shared/safety";
+import { user_blocks, user_reports } from "@shared/schema";
 
 /** A user as the messaging queries select them — not every column of the row. */
 type MessagingUser = Omit<User, "credential_reminders_opt_out" | "help_mode">;
@@ -4200,6 +4201,18 @@ export class DatabaseStorage implements IStorage {
 
         // 8. Delete CV parsed data (not covered by FK cascade on soft delete)
         await tx.delete(cv_parsed_data).where(eq(cv_parsed_data.user_id, userId));
+
+        // 8b. Safety records (privacy notice §3.7/§8): reports this person MADE
+        // lose the reporter's identity but remain; reports ABOUT them remain as
+        // they are; blocks either way are deleted with the account. Done here
+        // because the account is soft-deleted, so FK cascades never fire.
+        await tx
+          .update(user_reports)
+          .set({ reporter_id: null, updated_at: new Date() })
+          .where(eq(user_reports.reporter_id, userId));
+        await tx
+          .delete(user_blocks)
+          .where(or(eq(user_blocks.blocker_id, userId), eq(user_blocks.blocked_id, userId)));
 
         // 9. Soft delete the user record (mark as deleted instead of removing)
         await tx

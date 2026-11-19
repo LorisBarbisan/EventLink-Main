@@ -18,6 +18,7 @@ import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service"
 import { sweepStuckCommits } from "./api/services/import-commit.service";
 import { sweepArchived } from "./api/services/undo.service";
 import { pruneBooksEvents } from "./api/services/books-usage.service";
+import { pruneOldReports } from "./api/services/safety.service";
 import cron from "node-cron";
 import { seedSystemMappings } from "./api/services/import-seed.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
@@ -247,6 +248,15 @@ app.use((req, res, next) => {
     "45 3 * * *",
     () => {
       pruneBooksEvents().catch((err) => console.error("[books-usage] prune failed:", err));
+    },
+    { timezone: "Europe/London" }
+  );
+
+  // Safety report retention: six years, nightly 03:50 UK
+  cron.schedule(
+    "50 3 * * *",
+    () => {
+      pruneOldReports().catch((err) => console.error("[safety] prune failed:", err));
     },
     { timezone: "Europe/London" }
   );
