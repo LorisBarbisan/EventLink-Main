@@ -14,6 +14,7 @@ export interface FreelancerJob {
     earnings_entry_id: number | null;
     entry_status: EarningsEntry["status"] | null;
     entry_gross_pence: number | null;
+    entry_work_date?: string | null;
     entry_paid_pence: number | null;
     entry_paid_date: string | null;
     createdAt: string;
@@ -40,7 +41,7 @@ export interface FreelancerJob {
 function derivePhase(hb: Omit<FreelancerJob, "phase">): JobPhase {
   if (hb.booking.status === "cancelled") return "cancelled";
   if (hb.booking.entry_status === "paid") return "paid";
-  const eventDate = hb.job.eventDate;
+  const eventDate = hb.job.eventDate || hb.booking.entry_work_date;
   if (!eventDate || new Date(eventDate) >= new Date(new Date().toDateString())) return "upcoming";
   return "awaiting_payment";
 }

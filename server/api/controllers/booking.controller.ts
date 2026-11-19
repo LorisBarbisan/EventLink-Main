@@ -188,6 +188,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
         entryGrossPence: earnings_entries.gross_amount_pence,
         entryPaidPence: earnings_entries.paid_amount_pence,
         entryPaidDate: earnings_entries.paid_date,
+        entryWorkDate: earnings_entries.work_date,
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
@@ -207,6 +208,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
         entryGrossPence,
         entryPaidPence,
         entryPaidDate,
+        entryWorkDate,
       }) => ({
         booking: {
           ...booking,
@@ -215,6 +217,8 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           entry_gross_pence: entryGrossPence ?? null,
           entry_paid_pence: entryPaidPence ?? null,
           entry_paid_date: entryPaidDate ?? null,
+          // The job may have no date; the earnings entry for it usually does
+          entry_work_date: entryWorkDate ?? null,
         },
         job,
         employer: {

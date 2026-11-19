@@ -4119,7 +4119,9 @@ export function BooksTab() {
       job_id: hb.booking.jobId,
       job_title: hb.job.title,
       company_name: hb.employer.companyName ?? undefined,
-      event_date: hb.job.eventDate ?? undefined,
+      // The job's own date, else the date on its earnings entry (jobs posted
+      // without a date still get one there)
+      event_date: hb.job.eventDate || hb.booking.entry_work_date || undefined,
       rate: hb.booking.agreedRate ?? undefined,
       status: hb.booking.status,
       earnings_entry_id: hb.booking.earnings_entry_id ?? undefined,
