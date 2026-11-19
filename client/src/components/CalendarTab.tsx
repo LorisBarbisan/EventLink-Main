@@ -867,6 +867,25 @@ export function CalendarTab({
     enabled: !!user,
   });
 
+  // What clients currently see of this calendar (the public view, from the
+  // same profile endpoint they read). Used for the honest empty state below.
+  const { data: ownProfile } = useQuery<{
+    show_calendar_publicly?: boolean;
+    public_availability?: { from: string; days: { date: string }[] };
+  }>({
+    queryKey: ["/api/freelancer", user?.id, "public-view"],
+    queryFn: () => apiRequest(`/api/freelancer/${user?.id}`),
+    enabled: !!user && user.role === "freelancer",
+  });
+  const shownButEmpty = (() => {
+    if (!ownProfile?.show_calendar_publicly || !ownProfile.public_availability) return false;
+    const from = ownProfile.public_availability.from;
+    const d = new Date(`${from}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 30);
+    const to = d.toISOString().slice(0, 10);
+    return !ownProfile.public_availability.days.some((x) => x.date >= from && x.date < to);
+  })();
+
   const { data: externalEvents = [] } = useQuery<
     { id: string; title: string; start: string; end: string; allDay: boolean }[]
   >({
@@ -1099,6 +1118,12 @@ export function CalendarTab({
 
   return (
     <div>
+      {shownButEmpty && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          Your calendar is on your profile, but nothing is marked for the next 30 days — so clients
+          currently see no availability. Click a day to mark it free, maybe or busy.
+        </div>
+      )}
       {/* Sync panel */}
       <CalendarSyncPanel
         status={calStatus}
