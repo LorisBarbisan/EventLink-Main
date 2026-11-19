@@ -95,6 +95,12 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // Migration 0047 — hot-table indexes. CONCURRENTLY so a boot never blocks
+  // writes; each statement runs on its own (not in a transaction), which
+  // CONCURRENTLY requires. A no-op once the migration has been run on Neon.
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS job_applications_job_status_idx ON job_applications (job_id, status)`,
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS job_applications_freelancer_idx ON job_applications (freelancer_id)`,
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)`,
   // Migration 0046 — receipt capture fields and two usage events
   `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS receipt_date date`,
   `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS note text`,

@@ -247,33 +247,42 @@ export const jobs = pgTable("jobs", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const job_applications = pgTable("job_applications", {
-  id: serial("id").primaryKey(),
-  job_id: integer("job_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
-  freelancer_id: integer("freelancer_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  status: text("status")
-    .default("applied")
-    .$type<
-      "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined"
-    >(),
-  cover_letter: text("cover_letter"),
-  rejection_message: text("rejection_message"), // Message explaining rejection (recruiter -> freelancer)
-  invitation_message: text("invitation_message"), // Message sent with invitation (recruiter -> freelancer)
-  freelancer_response: text("freelancer_response"), // Response message when declining (freelancer -> recruiter)
-  freelancer_deleted: boolean("freelancer_deleted").default(false).notNull(), // Soft delete flag for freelancer view
-  recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
-  applied_at: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  closure_email_sent: boolean("closure_email_sent").notNull().default(false),
-  closure_email_sent_at: timestamp("closure_email_sent_at", { withTimezone: true }),
-  earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
-    onDelete: "set null",
-  }),
-});
+export const job_applications = pgTable(
+  "job_applications",
+  {
+    id: serial("id").primaryKey(),
+    job_id: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status")
+      .default("applied")
+      .$type<
+        "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined"
+      >(),
+    cover_letter: text("cover_letter"),
+    rejection_message: text("rejection_message"), // Message explaining rejection (recruiter -> freelancer)
+    invitation_message: text("invitation_message"), // Message sent with invitation (recruiter -> freelancer)
+    freelancer_response: text("freelancer_response"), // Response message when declining (freelancer -> recruiter)
+    freelancer_deleted: boolean("freelancer_deleted").default(false).notNull(), // Soft delete flag for freelancer view
+    recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
+    applied_at: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    closure_email_sent: boolean("closure_email_sent").notNull().default(false),
+    closure_email_sent_at: timestamp("closure_email_sent_at", { withTimezone: true }),
+    earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => ({
+    // (job_id, status): applicants lists, and the hire count under the job-row lock.
+    // Its leftmost prefix also serves lookups by job_id alone. Migration 0047.
+    jobStatusIdx: index("job_applications_job_status_idx").on(t.job_id, t.status),
+    freelancerIdx: index("job_applications_freelancer_idx").on(t.freelancer_id),
+  })
+);
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
@@ -291,17 +300,24 @@ export const conversations = pgTable("conversations", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  conversation_id: integer("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  sender_id: integer("sender_id").references(() => users.id, { onDelete: "cascade" }), // Made nullable for system messages
-  content: text("content").notNull(),
-  is_read: boolean("is_read").default(false).notNull(),
-  is_system_message: boolean("is_system_message").default(false).notNull(), // For account deletion and other system notifications
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    conversation_id: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    sender_id: integer("sender_id").references(() => users.id, { onDelete: "cascade" }), // Made nullable for system messages
+    content: text("content").notNull(),
+    is_read: boolean("is_read").default(false).notNull(),
+    is_system_message: boolean("is_system_message").default(false).notNull(), // For account deletion and other system notifications
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // Opening a thread: lookup and ordering in one index. Migration 0047.
+    conversationIdx: index("messages_conversation_idx").on(t.conversation_id, t.created_at),
+  })
+);
 
 export const message_user_states = pgTable("message_user_states", {
   id: serial("id").primaryKey(),
