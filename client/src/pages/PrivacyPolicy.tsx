@@ -8,12 +8,16 @@ export default function PrivacyPolicy() {
         <h1 className="mb-2 text-3xl font-bold">Privacy Policy &amp; GDPR Notice</h1>
         <p className="mb-1 text-sm text-muted-foreground">Last updated: November 2026</p>
         <p className="mb-2 text-sm text-muted-foreground">
-          Version 2.1 — applies to all users worldwide, including the European Economic Area (EEA),
+          Version 2.2 — applies to all users worldwide, including the European Economic Area (EEA),
           United Kingdom, and United States.
         </p>
         <p className="mb-8 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-300">
-          November 2026 — added section 3.6 covering the financial and business records stored when
-          you use EventLink&apos;s business tools.
+          19 November 2026 — we now measure how much the accounts features are used (counts and
+          dates only, never the contents of your records — section 3.4), we have added reporting and
+          blocking (section 3.7, including how long reports are kept), and you can choose to show an
+          availability calendar on your profile (section 3.2). Earlier in November we added section
+          3.6 covering the financial and business records stored when you use EventLink&apos;s
+          business tools.
         </p>
 
         <div className="space-y-8 text-sm leading-relaxed text-foreground">
@@ -100,7 +104,31 @@ export default function PrivacyPolicy() {
               <li>Availability status</li>
               <li>CV / resume files you upload</li>
               <li>Portfolio posts (photos, videos, blog-style text) you publish on the platform</li>
+              <li>
+                Professional credentials you upload (for example public liability insurance, IRATA,
+                CSCS, PASMA or First Aid), including the issuing body, the dates they run between,
+                and the card or policy number
+              </li>
+              <li>
+                Your availability calendar — the dates you mark as free, tentative or unavailable
+              </li>
             </ul>
+            <p className="mt-2">
+              Your credentials are shown to employers signed in to EventLink, and on your profile
+              where you have set it to public. The card or policy number is never shown to anyone
+              but you — an employer sees that you hold a current credential and who issued it, not
+              the number itself.
+            </p>
+            <p className="mt-2">
+              Your availability calendar is not shown to anyone unless you turn it on. If you do, it
+              appears on your profile and on your shareable card, and shows only whether each date
+              is free, tentative or busy. Days you are booked through EventLink show as busy
+              automatically. It never shows the notes you write against a date, never shows anything
+              from a calendar you have connected from Google or Outlook, and never shows who you are
+              working for. Bear in mind that a card link can be forwarded: if you share your card
+              and later wonder who can see your availability, the answer is anyone who has been
+              given that link.
+            </p>
 
             <h3 className="mb-1 mt-3 font-semibold">3.3 Activity &amp; Transactional Data</h3>
             <ul className="ml-4 list-disc space-y-1">
@@ -116,7 +144,20 @@ export default function PrivacyPolicy() {
               <li>Pages visited, features used, and time spent on the platform</li>
               <li>Session tokens for authentication (JWT)</li>
               <li>Error logs and performance data</li>
+              <li>
+                Which parts of the accounts features you use — how many records you have of each
+                kind, when you first used them, and when you last added something. These are counts
+                and dates, never the contents of your records
+              </li>
+              <li>A record of when you download a year-end workbook</li>
             </ul>
+            <p className="mt-2">
+              We measure how much the accounts features are used so we can tell whether they are
+              worth building on and so we can help people who have got stuck. What we look at is how
+              many records you have and when you last added one — not what is in them. Nobody at
+              EventLink reads your earnings, your expenses or your invoices to work out whether you
+              are using the product.
+            </p>
 
             <h3 className="mb-1 mt-3 font-semibold">3.5 Third-Party Integration Data</h3>
             <ul className="ml-4 list-disc space-y-1">
@@ -197,6 +238,27 @@ export default function PrivacyPolicy() {
               them to the user who holds it.
             </p>
 
+            <h3 className="mb-1 mt-3 font-semibold">3.7 Safety Reports and Blocks</h3>
+            <ul className="ml-4 list-disc space-y-1">
+              <li>
+                If you report someone: your identity, the category you chose, anything you wrote,
+                when you sent it, and the name of the person it concerns
+              </li>
+              <li>If you block someone: the fact that you have blocked them, and when</li>
+            </ul>
+            <p className="mt-2">
+              We do not tell someone that they have been reported or blocked, and we do not pass on
+              who reported them.
+            </p>
+            <p className="mt-2">
+              We keep reports even after an account is deleted, including the account the report was
+              about. We do this so that a pattern across several reports stays visible, and so that
+              a report cannot be made to disappear by the person it concerns closing their account.
+              The name recorded is the one held at the time of the report. If you were the person
+              who made a report, your identity is removed from it when you delete your account; the
+              report itself remains.
+            </p>
+
             <p className="mt-3">
               We do <strong>not</strong> collect special category data (e.g. health, ethnicity,
               religion, political opinions, biometric data) and ask that you do not include such
@@ -240,6 +302,18 @@ export default function PrivacyPolicy() {
                     [
                       "Analysing platform usage to improve the service",
                       "Legitimate Interests (Art. 6(1)(f))",
+                    ],
+                    [
+                      "Understanding how much the accounts features are used",
+                      "Legitimate Interests (Art. 6(1)(f))",
+                    ],
+                    [
+                      "Handling safety reports and blocks, and keeping the platform safe",
+                      "Legitimate Interests (Art. 6(1)(f))",
+                    ],
+                    [
+                      "Showing your availability calendar on your profile or card",
+                      "Consent (Art. 6(1)(a)) — off unless you turn it on, and you can turn it off again",
                     ],
                     [
                       "Fraud prevention and security monitoring",
@@ -423,7 +497,8 @@ export default function PrivacyPolicy() {
               <li>
                 <strong>Account deletion:</strong> When you delete your account, your personal data
                 is anonymised or deleted within <strong>30 days</strong>, except where retention is
-                required by law.
+                required by law, and except for safety reports about you (see below and section
+                3.7).
               </li>
               <li>
                 <strong>Financial and billing records (Stripe/subscription):</strong> Retained for{" "}
@@ -451,6 +526,19 @@ export default function PrivacyPolicy() {
               </li>
               <li>
                 <strong>Technical logs:</strong> Retained for a maximum of 90 days.
+              </li>
+              <li>
+                <strong>Usage records:</strong> The record of when you downloaded a workbook, and
+                similar usage events, are kept for <strong>24 months</strong> and then deleted. The
+                counts and dates we derive from your records are not stored separately — they are
+                worked out when needed and disappear when the records do.
+              </li>
+              <li>
+                <strong>Safety reports:</strong> Kept for <strong>six years</strong>, and kept even
+                if the account they concern is deleted, for the reasons set out in section 3.7. This
+                is an exception to the 30-day deletion above, and it rests on our legitimate
+                interest in keeping the platform safe rather than on any legal requirement. Blocks
+                are deleted with either account.
               </li>
             </ul>
           </section>
@@ -482,7 +570,9 @@ export default function PrivacyPolicy() {
               <li>
                 <strong>Right to erasure / &ldquo;right to be forgotten&rdquo; (Art. 17):</strong>{" "}
                 Request deletion of your personal data where there is no overriding legal basis for
-                retention.
+                retention. The one case where we will not delete something at your request is a
+                safety report made about you. Section 3.7 explains why. Apart from records we must
+                keep by law (such as billing records), everything else goes.
               </li>
               <li>
                 <strong>Right to restriction of processing (Art. 18):</strong> Request that we pause
