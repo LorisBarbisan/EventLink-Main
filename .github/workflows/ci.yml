@@ -20,3 +20,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run help:check
+      # Fail on any production dependency with a known critical vulnerability.
+      # Raise to --audit-level=high once zod 4 lands (zod + zod-validation-error
+      # are the remaining highs; that upgrade is its own change).
+      - run: npm audit --omit=dev --audit-level=critical
