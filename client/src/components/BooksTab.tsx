@@ -2842,6 +2842,11 @@ function OverviewSection({
     expenses_pence: number;
     profit_pence: number;
   };
+  const { data: receiptCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/receipts/unattached/count"],
+    queryFn: () =>
+      fetch("/api/receipts/unattached/count", { headers: authHeaders() }).then((r) => r.json()),
+  });
   const { data: quarterlyData } = useQuery<{ tax_year: string; quarters: QuarterRow[] }>({
     queryKey: ["/api/books/quarterly"],
     queryFn: () => fetch("/api/books/quarterly", { headers: authHeaders() }).then((r) => r.json()),
@@ -3042,6 +3047,17 @@ function OverviewSection({
           </div>
         )}
       </div>
+
+      {/* ── Receipts waiting to be filed ── */}
+      {(receiptCount?.count ?? 0) > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+          <Camera className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span>
+            <strong>{receiptCount!.count}</strong> receipt{receiptCount!.count === 1 ? "" : "s"}{" "}
+            waiting to be filed — find them in the Receipt inbox under Expenses.
+          </span>
+        </div>
+      )}
 
       {/* ── Overdue alert ── */}
       {data && data.overdue_count > 0 && (

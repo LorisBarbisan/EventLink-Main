@@ -21,6 +21,8 @@ const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+// Phone receipt capture: its own small chunk, never the Books one
+const Capture = lazy(() => import("./pages/Capture"));
 const CredentialBackfill = lazy(() => import("./pages/CredentialBackfill"));
 const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
@@ -77,6 +79,7 @@ function AppRouter() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/capture" component={Capture} />
           <Route path="/credentials" component={CredentialBackfill} />
           <Route path="/profile" component={Profile} />
           <Route path="/profile/:userId" component={Profile} />

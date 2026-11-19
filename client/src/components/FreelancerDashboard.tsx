@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 // Books is fetched only when it's about to be shown — behind the same
 // useBooksAccess gate as the tab — so nobody who can't open it downloads it.
 const BooksTab = lazy(() => import("./BooksTab").then((m) => ({ default: m.BooksTab })));
+// On a phone: a small Books view instead of the desktop one
+const BooksMobile = lazy(() => import("./BooksMobile").then((m) => ({ default: m.BooksMobile })));
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { BooksHiddenNotice } from "@/components/BooksRecordsNotice";
@@ -429,6 +432,7 @@ export default function SimplifiedFreelancerDashboard() {
   });
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const booksAccess = useBooksAccess();
+  const isMobile = useIsMobile();
   // Books is hidden outside the UK; don't leave those freelancers on an empty tab.
   useEffect(() => {
     if (activeTab === "books" && booksAccess === "unavailable") setActiveTab("profile");
@@ -991,7 +995,7 @@ export default function SimplifiedFreelancerDashboard() {
                   </div>
                 }
               >
-                <BooksTab />
+                {isMobile ? <BooksMobile /> : <BooksTab />}
               </Suspense>
             )}
           </TabsContent>
