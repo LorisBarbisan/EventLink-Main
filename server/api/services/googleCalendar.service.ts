@@ -1,5 +1,5 @@
 import { OAuth2Client } from "google-auth-library";
-import { ukToday } from "@shared/job-dates";
+import { addDays, ukToday } from "@shared/job-dates";
 import { db } from "../config/db";
 import { calendar_connections } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -385,9 +385,7 @@ export async function fetchExternalGoogleEvents(
       // Google all-day events have exclusive end dates (e.g. a 1-day event ends "next day")
       // Subtract one day so it doesn't bleed into the following day on the calendar
       if (allDay && end) {
-        const d = new Date(end);
-        d.setDate(d.getDate() - 1);
-        end = d.toISOString().slice(0, 10);
+        end = addDays(end.slice(0, 10), -1);
       }
       return {
         id: ev.id,

@@ -14,11 +14,11 @@ const ALLOWED = new Set([
   "api/routes/seo.route.ts", // sitemap lastmod: W3C dates, UTC is fine
   "api/services/import-parse-utils.ts", // Excel serial → date: defined in UTC
   "api/services/import-parser.service.ts", // spreadsheet cell dates arrive as UTC midnight
-  "api/services/googleCalendar.service.ts", // all-day end-date arithmetic on a UTC-midnight date
   "api/services/outlookCalendar.service.ts", // retired integration
 ]);
 
 const ROOT = join(__dirname, "../..");
+const SHARED = join(__dirname, "../../../shared");
 const walk = (d: string): string[] =>
   readdirSync(d).flatMap((n) => {
     const p = join(d, n);
@@ -29,12 +29,18 @@ const walk = (d: string): string[] =>
 describe("UK calendar dates on the server", () => {
   it("no UTC 'today' or timestamp→date outside the allowed files", () => {
     const offenders: string[] = [];
-    for (const file of walk(ROOT)) {
-      const rel = relative(ROOT, file).split("\\").join("/");
+    // server/ and shared/ (shared code runs on the server too: tax years live there)
+    const files = [
+      ...walk(ROOT).map((f) => [f, relative(ROOT, f)] as const),
+      ...walk(SHARED).map((f) => [f, "shared/" + relative(SHARED, f)] as const),
+    ];
+    for (const [file, relRaw] of files) {
+      const rel = relRaw.split("\\").join("/");
       if (ALLOWED.has(rel)) continue;
       readFileSync(file, "utf8")
         .split(/\r?\n/)
         .forEach((line, i) => {
+          if (/^\s*(\*|\/\/)/.test(line)) return; // comments may name the pattern
           if (/toISOString\(\)\.(slice\(0, ?10\)|split\(["']T["']\)\[0\])/.test(line))
             offenders.push(`${rel}:${i + 1}`);
         });

@@ -1,3 +1,5 @@
+import { ukToday } from "./job-dates";
+
 /**
  * UK tax year and MTD Income Tax quarter utilities.
  *
@@ -59,7 +61,8 @@ export function taxYearFromStart(startYear: number): TaxYear {
  * Useful for default date ranges in the UI.
  */
 export function currentTaxYear(): TaxYear {
-  return taxYearForDate(new Date().toISOString().slice(0, 10));
+  // The UK date: at 00:30 BST on 6 April the UTC date is still 5 April
+  return taxYearForDate(ukToday());
 }
 
 /**
