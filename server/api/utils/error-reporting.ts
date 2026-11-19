@@ -83,7 +83,10 @@ export function reportInfo(message: string, extra?: Record<string, unknown>): vo
   console.log(`[info] ${message}`, extra ?? "");
   if (!enabled) return;
   try {
-    Sentry.captureMessage(message, { level: "info", extra });
+    Sentry.captureMessage(message, {
+      level: "info",
+      extra: extra ? (scrub(extra) as Record<string, unknown>) : undefined,
+    });
   } catch {
     /* never throw */
   }

@@ -21,8 +21,13 @@ function scrub(value: unknown, depth = 0): unknown {
 }
 
 export function initErrorReporting(): boolean {
+  // Read at BUILD time: on Railway VITE_SENTRY_DSN must be available to the
+  // build, not only at runtime, or the reporter is compiled out entirely.
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return false;
+  if (!dsn) {
+    console.info("Error reporting off (no VITE_SENTRY_DSN at build time)");
+    return false;
+  }
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,

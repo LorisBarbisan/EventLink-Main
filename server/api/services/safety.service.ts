@@ -158,6 +158,10 @@ export async function pruneOldReports(): Promise<number> {
     created_to: plan.to,
   });
   const rows = await db.delete(user_reports).where(due).returning({ id: user_reports.id });
+  reportInfo(`reports prune: deleted ${rows.length} reports`, {
+    job: "reports-prune",
+    ids: rows.map((r) => r.id),
+  });
   return rows.length;
 }
 

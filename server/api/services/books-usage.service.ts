@@ -135,5 +135,12 @@ export async function pruneBooksEvents(): Promise<void> {
     occurred_from: plan.from,
     occurred_to: plan.to,
   });
-  await db.delete(books_usage_events).where(due);
+  const gone = await db
+    .delete(books_usage_events)
+    .where(due)
+    .returning({ id: books_usage_events.id });
+  reportInfo(`books-usage prune: deleted ${gone.length} events`, {
+    job: "books-usage-prune",
+    rows: gone.length,
+  });
 }
