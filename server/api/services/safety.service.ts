@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { reportInfo } from "../utils/error-reporting";
 import { alias } from "drizzle-orm/pg-core";
 import { bookings, user_blocks, user_reports, users } from "@shared/schema";
 import { db } from "../config/db";
@@ -140,10 +141,23 @@ export async function listUserReports(): Promise<AdminReportRow[]> {
 
 /** Retention (privacy notice §8): reports are deleted six years after they were made. */
 export async function pruneOldReports(): Promise<number> {
-  const rows = await db
-    .delete(user_reports)
-    .where(sql`${user_reports.created_at} < now() - interval '6 years'`)
-    .returning({ id: user_reports.id });
+  const due = sql`${user_reports.created_at} < now() - interval '6 years'`;
+  const [plan] = await db
+    .select({
+      rows: sql<number>`count(*)::int`,
+      from: sql<string | null>`min(${user_reports.created_at})::text`,
+      to: sql<string | null>`max(${user_reports.created_at})::text`,
+    })
+    .from(user_reports)
+    .where(due);
+  if (!plan?.rows) return 0;
+  reportInfo(`reports prune: deleting ${plan.rows} reports older than six years`, {
+    job: "reports-prune",
+    rows: plan.rows,
+    created_from: plan.from,
+    created_to: plan.to,
+  });
+  const rows = await db.delete(user_reports).where(due).returning({ id: user_reports.id });
   return rows.length;
 }
 

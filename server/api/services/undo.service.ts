@@ -8,6 +8,7 @@
  */
 
 import { and, eq, gte, isNotNull, isNull, lt, ne, or, sql, desc } from "drizzle-orm";
+import { reportError, reportInfo } from "../utils/error-reporting";
 import { db } from "../config/db";
 import { bookings, earnings_entries, expenses, import_batches } from "@shared/schema";
 
@@ -161,16 +162,42 @@ export async function sweepArchived(): Promise<void> {
     ["expenses", expenses],
   ] as const) {
     try {
-      const gone = await db
-        .delete(table)
-        .where(
-          and(eq(table.archived, true), isNotNull(table.archived_at), lt(table.archived_at, cutoff))
-        )
-        .returning({ id: table.id });
-      if (gone.length) console.log(`[undo-sweep] deleted ${gone.length} archived ${name}`);
+      const due = and(
+        eq(table.archived, true),
+        isNotNull(table.archived_at),
+        lt(table.archived_at, cutoff)
+      );
+      // Record what is about to go — ids and the archive-date range — so a
+      // restore has something to compare against. Ids only, never content.
+      const [plan] = await db
+        .select({
+          rows: sql<number>`count(*)::int`,
+          from: sql<string | null>`min(${table.archived_at})::text`,
+          to: sql<string | null>`max(${table.archived_at})::text`,
+        })
+        .from(table)
+        .where(due);
+      if (!plan?.rows) continue;
+      reportInfo(`undo-sweep: deleting ${plan.rows} archived ${name}`, {
+        job: "undo-sweep",
+        table: name,
+        rows: plan.rows,
+        archived_from: plan.from,
+        archived_to: plan.to,
+        cutoff: cutoff.toISOString(),
+      });
+      const gone = await db.delete(table).where(due).returning({ id: table.id });
+      reportInfo(`undo-sweep: deleted ${gone.length} archived ${name}`, {
+        job: "undo-sweep",
+        table: name,
+        ids: gone.map((g) => g.id).slice(0, 1000),
+      });
     } catch (err) {
       // A row still referenced elsewhere blocks the whole delete; it stays archived.
-      console.error(`[undo-sweep] ${name} sweep failed:`, err);
+      reportError(err, {
+        tags: { kind: "scheduled-job", job: "undo-sweep" },
+        extra: { table: name },
+      });
     }
   }
 }

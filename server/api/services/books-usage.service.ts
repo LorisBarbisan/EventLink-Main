@@ -1,4 +1,5 @@
 import { lt, sql } from "drizzle-orm";
+import { reportInfo } from "../utils/error-reporting";
 import { books_usage_events } from "@shared/schema";
 import { db } from "../config/db";
 import {
@@ -118,7 +119,21 @@ export async function logBooksEvent(userId: number, event: BooksUsageEvent): Pro
 
 /** Retention: events older than 24 months are deleted. */
 export async function pruneBooksEvents(): Promise<void> {
-  await db
-    .delete(books_usage_events)
-    .where(lt(books_usage_events.occurred_on, sql`CURRENT_DATE - INTERVAL '24 months'`));
+  const due = lt(books_usage_events.occurred_on, sql`CURRENT_DATE - INTERVAL '24 months'`);
+  const [plan] = await db
+    .select({
+      rows: sql<number>`count(*)::int`,
+      from: sql<string | null>`min(${books_usage_events.occurred_on})::text`,
+      to: sql<string | null>`max(${books_usage_events.occurred_on})::text`,
+    })
+    .from(books_usage_events)
+    .where(due);
+  if (!plan?.rows) return;
+  reportInfo(`books-usage prune: deleting ${plan.rows} events`, {
+    job: "books-usage-prune",
+    rows: plan.rows,
+    occurred_from: plan.from,
+    occurred_to: plan.to,
+  });
+  await db.delete(books_usage_events).where(due);
 }
