@@ -472,6 +472,10 @@ function KitFileRow({ itemId, file }: { itemId: number; file: KitItemFile }) {
 // Kit never feeds the totals itself; these offers create the expense or income
 // entry that does, and link it. See shared/kit-tax.ts.
 
+// timeZone "UTC" is deliberate: do not change it to Europe/London. The
+// input is a UK calendar date (YYYY-MM-DD) pinned to UTC midnight, and
+// formatting it in UTC prints exactly that day. Any other zone risks printing
+// a different day for the same stored date.
 function longDate(iso: string): string {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
     day: "numeric",

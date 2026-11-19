@@ -6,14 +6,8 @@ import {
   PUBLIC_WINDOW_DAYS,
   type PublicAvailability,
 } from "@shared/public-availability";
-import { jobLastDay, ukToday } from "@shared/job-dates";
+import { addDays, jobLastDay, parseCalendarDate, ukToday } from "@shared/job-dates";
 import { db } from "../config/db";
-
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 /**
  * The public calendar for one freelancer: today to +90 days. Reads ONLY date,
@@ -60,7 +54,7 @@ export async function publicAvailabilityForFreelancer(
 
   const bookedDates: string[] = [];
   for (const b of booked) {
-    const start = b.event_date?.slice(0, 10);
+    const start = parseCalendarDate(b.event_date);
     const last = jobLastDay(b);
     if (!start || !last || last < from || start > to) continue;
     bookedDates.push(...datesBetween(start < from ? from : start, last > to ? to : last));

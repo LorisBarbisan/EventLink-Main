@@ -1,4 +1,71 @@
 /**
+ * Calendar dates (YYYY-MM-DD) for jobs.
+ *
+ * A job date is a day on a UK calendar, not an instant in time, so it never
+ * becomes a Date object here: no time zone, no UTC round trip, no BST/GMT
+ * changeover to cross. Arithmetic is done on the year/month/day numbers.
+ */
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Days since 1970-01-01 for a civil date (proleptic Gregorian). */
+function toDays(y: number, m: number, d: number): number {
+  // Howard Hinnant's days_from_civil
+  y -= m <= 2 ? 1 : 0;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
+/** Civil date for a day count since 1970-01-01. */
+function fromDays(z: number): [number, number, number] {
+  z += 719468;
+  const era = Math.floor(z / 146097);
+  const doe = z - era * 146097;
+  const yoe = Math.floor(
+    (doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365
+  );
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  const d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  const m = mp + (mp < 10 ? 3 : -9);
+  return [yoe + era * 400 + (m <= 2 ? 1 : 0), m, d];
+}
+
+const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+
+/** A valid YYYY-MM-DD (first 10 chars of the input), or null. */
+export function parseCalendarDate(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = String(s).slice(0, 10).match(ISO_DATE);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (mo < 1 || mo > 12 || d < 1) return null;
+  // round-trips only if the day exists in that month (rejects 2026-02-30)
+  const [ry, rm, rd] = fromDays(toDays(y, mo, d));
+  if (ry !== y || rm !== mo || rd !== d) return null;
+  return `${pad(y, 4)}-${pad(mo)}-${pad(d)}`;
+}
+
+/** Add whole days to a YYYY-MM-DD date, without going through Date. */
+export function addDays(iso: string, days: number): string {
+  const valid = parseCalendarDate(iso);
+  if (!valid) throw new Error(`Not a calendar date: ${iso}`);
+  const [y, m, d] = valid.split("-").map(Number);
+  const [ny, nm, nd] = fromDays(toDays(y, m, d) + days);
+  return `${pad(ny, 4)}-${pad(nm)}-${pad(nd)}`;
+}
+
+/** Whole days from a to b (b − a), both YYYY-MM-DD. */
+export function daysBetween(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return toDays(by, bm, bd) - toDays(ay, am, ad);
+}
+
+/**
  * The last day a job runs: its end date, or its start plus any duration in
  * days, or its start. Nothing else computes a last day for itself.
  * Returns YYYY-MM-DD, or null when the job has no usable start date.
@@ -9,22 +76,21 @@ export function jobLastDay(job: {
   duration_type?: string | null;
   days?: number | null;
 }): string | null {
-  const iso = (s: string | null | undefined) => {
-    if (!s) return null;
-    const d = new Date(`${s.slice(0, 10)}T00:00:00Z`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-  const end = iso(job.end_date);
-  if (end) return end.toISOString().slice(0, 10);
-  const start = iso(job.event_date);
+  const end = parseCalendarDate(job.end_date);
+  if (end) return end;
+  const start = parseCalendarDate(job.event_date);
   if (!start) return null;
   if (job.duration_type === "days" && job.days && job.days > 1) {
-    start.setUTCDate(start.getUTCDate() + job.days - 1);
+    return addDays(start, job.days - 1);
   }
-  return start.toISOString().slice(0, 10);
+  return start;
 }
 
-/** Today's date in the UK, as YYYY-MM-DD. */
+/**
+ * Today's date in the UK, as YYYY-MM-DD. The one place an instant becomes a
+ * calendar date, and it names the zone explicitly. (en-CA formats as
+ * YYYY-MM-DD.)
+ */
 export function ukToday(now: Date = new Date()): string {
   return now.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
 }

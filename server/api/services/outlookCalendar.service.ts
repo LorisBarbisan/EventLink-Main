@@ -186,6 +186,8 @@ function buildOutlookEventTimes(
   if (!eventDate) {
     const today = new Date().toISOString().slice(0, 10);
     return {
+      // NOTE: Outlook sync is retired for new connections. These all-day blocks
+      // use UTC midnight, which shows as 01:00 in BST — tolerated, not intended.
       start: { dateTime: `${today}T00:00:00`, timeZone: "UTC" },
       end: { dateTime: `${today}T23:59:00`, timeZone: "UTC" },
       isAllDay: true,

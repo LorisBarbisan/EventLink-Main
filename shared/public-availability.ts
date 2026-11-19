@@ -1,3 +1,5 @@
+import { addDays } from "./job-dates";
+
 /**
  * The public calendar: what a client may see of a freelancer's availability.
  *
@@ -66,12 +68,7 @@ export function buildPublicAvailability(input: {
 /** Every date from start to end inclusive (yyyy-mm-dd). */
 export function datesBetween(start: string, end: string): string[] {
   const out: string[] = [];
-  const d = new Date(`${start}T00:00:00Z`);
-  const last = new Date(`${end}T00:00:00Z`);
-  for (let i = 0; d <= last && i < 400; i++) {
-    out.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
+  for (let d = start, i = 0; d <= end && i < 400; d = addDays(d, 1), i++) out.push(d);
   return out;
 }
 

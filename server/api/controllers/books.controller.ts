@@ -25,6 +25,10 @@ import { addQuartersSheet } from "../utils/hmrc-quarters-sheet";
 import { logBooksEvent } from "../services/books-usage.service";
 
 /** "2026-04-06" → "6 April 2026". */
+// timeZone "UTC" is deliberate: do not change it to Europe/London. The
+// input is a UK calendar date (YYYY-MM-DD) pinned to UTC midnight, and
+// formatting it in UTC prints exactly that day. Any other zone risks printing
+// a different day for the same stored date.
 function fmtLongDate(iso: string): string {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
     day: "numeric",

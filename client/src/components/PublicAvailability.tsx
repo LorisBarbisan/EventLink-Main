@@ -14,6 +14,9 @@ const CELL: Record<State | "none", string> = {
 const LABEL: Record<State, string> = { free: "Free", tentative: "Maybe — ask", busy: "Busy" };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
+// Calendar dates are pinned to UTC midnight and always formatted with
+// timeZone "UTC" below, so the day printed is the day stored — whatever the
+// viewer's zone. Do not "correct" those to local or Europe/London.
 const utc = (s: string) => new Date(`${s}T00:00:00Z`);
 
 /** "Availability updated 3 days ago" / "Last updated on 2 November — worth checking" */

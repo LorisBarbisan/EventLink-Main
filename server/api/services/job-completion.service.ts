@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { bookings, job_applications, jobs as jobsTable } from "@shared/schema";
-import { jobLastDay, ukToday } from "@shared/job-dates";
+import { addDays, jobLastDay, ukToday } from "@shared/job-dates";
 import { AUTO_COMPLETE_AFTER_DAYS, FILLED_STATUSES } from "@shared/hiring";
 import { db } from "../config/db";
 import { storage } from "../../storage";
@@ -112,12 +112,6 @@ async function finishedCandidates(recruiterId?: number): Promise<Candidate[]> {
     );
   return rows as Candidate[];
 }
-
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 /**
  * The day-after prompt: finished jobs (last day before today) that the

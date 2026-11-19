@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { jobHasFinished, jobLastDay } from "./job-dates";
+import {
+  addDays,
+  daysBetween,
+  jobHasFinished,
+  jobLastDay,
+  parseCalendarDate,
+  ukToday,
+} from "./job-dates";
 
 describe("jobLastDay", () => {
   it("single day: the start date", () => {
@@ -40,4 +47,57 @@ describe("jobHasFinished", () => {
   it("finished the day after its last day", () => {
     expect(jobHasFinished(threeDay, "2026-11-20")).toBe(true);
   });
+});
+
+describe("calendar dates without Date objects", () => {
+  it("a three-day job starting on the BST→GMT weekend ends on 27 October", () => {
+    expect(jobLastDay({ event_date: "2026-10-25", duration_type: "days", days: 3 })).toBe(
+      "2026-10-27"
+    );
+    // and across the spring-forward weekend
+    expect(jobLastDay({ event_date: "2027-03-28", duration_type: "days", days: 2 })).toBe(
+      "2027-03-29"
+    );
+  });
+
+  it("addDays crosses months, years and leap days", () => {
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDays("2027-02-28", 1)).toBe("2027-03-01");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(daysBetween("2026-04-05", "2026-04-06")).toBe(1);
+  });
+
+  it("rejects malformed or impossible dates", () => {
+    expect(parseCalendarDate("2026-13-45")).toBeNull();
+    expect(parseCalendarDate("2026-02-30")).toBeNull();
+    expect(parseCalendarDate("next Tuesday")).toBeNull();
+    expect(parseCalendarDate("2026-11-19T10:00:00Z")).toBe("2026-11-19");
+  });
+});
+
+// The completion check either side of midnight London on changeover day, with
+// the process in UTC and in Europe/London: the answer must not depend on it.
+describe("completion is the same whatever the server's zone", () => {
+  const job = { event_date: "2026-10-25" }; // single day, the BST→GMT changeover
+  const cases: Array<[string, string, boolean]> = [
+    ["2026-10-25T22:30:00Z", "2026-10-25", false], // 22:30 GMT, still the 25th in London
+    ["2026-10-26T00:30:00Z", "2026-10-26", true], // 00:30 GMT on the 26th
+    ["2026-10-24T23:30:00Z", "2026-10-25", false], // 00:30 BST on the 25th (UTC still the 24th)
+  ];
+  for (const tz of ["UTC", "Europe/London"]) {
+    it(`with TZ=${tz}`, () => {
+      const prev = process.env.TZ;
+      process.env.TZ = tz;
+      try {
+        for (const [instant, londonDay, finished] of cases) {
+          const today = ukToday(new Date(instant));
+          expect(today).toBe(londonDay);
+          expect(jobHasFinished(job, today)).toBe(finished);
+        }
+      } finally {
+        process.env.TZ = prev;
+      }
+    });
+  }
 });
