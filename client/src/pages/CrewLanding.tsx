@@ -116,7 +116,7 @@ export default function CrewLanding() {
                               {f.profile_photo_url ? (
                                 <img
                                   src={f.profile_photo_url}
-                                  alt={`${name} profile photo`}
+                                  alt={name}
                                   className="h-full w-full object-cover"
                                 />
                               ) : (

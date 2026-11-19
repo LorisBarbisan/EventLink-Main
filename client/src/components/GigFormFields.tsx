@@ -91,7 +91,9 @@ export function GigFormBody({
         </div>
         <datalist id="gig-clients-list">
           {clients.map((c) => (
-            <option key={c.id} value={c.name} />
+            <option key={c.id} value={c.name}>
+              {c.name}
+            </option>
           ))}
         </datalist>
         {addingClient && (

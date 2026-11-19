@@ -1451,6 +1451,7 @@ function InvoiceRow({
             <button
               className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize transition-opacity hover:opacity-80 ${STATUS_COLORS[invoice.status]}`}
               title="Click to change status"
+              aria-label={`Status: ${invoice.status}. Change status`}
             >
               {invoice.status === "overdue" && <AlertTriangle className="h-3 w-3" />}
               {invoice.status}
@@ -2013,7 +2014,9 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                 <th className="hidden px-4 py-2 text-left font-medium text-muted-foreground sm:table-cell">
                   Status
                 </th>
-                <th className="px-4 py-2" />
+                <th className="px-4 py-2">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -2097,6 +2100,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                               <button
                                 className="text-muted-foreground transition-colors hover:text-foreground"
                                 title="Download PDF"
+                                aria-label={`Download ${inv.invoice_number} as PDF`}
                                 onClick={() => downloadInvoicePDF(inv.id, inv.invoice_number)}
                               >
                                 <Download className="h-4 w-4" />

@@ -656,6 +656,7 @@ export function DocumentUploader({
                       View
                     </Button>
                     <Button
+                      aria-label="Delete document"
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteMutation.mutate(doc.id)}

@@ -130,8 +130,7 @@ export function TeamManagement() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiRequest(`/api/team/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest(`/api/team/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team"] });
       toast({ title: "Team member removed" });
@@ -153,9 +152,7 @@ export function TeamManagement() {
   };
 
   const displayName = (m: TeamMemberRecord) =>
-    m.firstName && m.lastName
-      ? `${m.firstName} ${m.lastName}`
-      : m.invitedEmail;
+    m.firstName && m.lastName ? `${m.firstName} ${m.lastName}` : m.invitedEmail;
 
   return (
     <div className="space-y-8">
@@ -201,9 +198,7 @@ export function TeamManagement() {
                       <div>
                         <p className="font-medium">{displayName(member)}</p>
                         {member.firstName && (
-                          <p className="text-xs text-muted-foreground">
-                            {member.invitedEmail}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{member.invitedEmail}</p>
                         )}
                       </div>
                     </TableCell>
@@ -260,6 +255,7 @@ export function TeamManagement() {
                             )}
                           {member.userId !== user?.companyId && member.userId !== user?.id && (
                             <Button
+                              aria-label="Remove team member"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
@@ -284,75 +280,79 @@ export function TeamManagement() {
 
       {/* Invite new member */}
       {manageTeam ? (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Invite New Team Member
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleInvite} className="space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="invite-email">Email address</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={(e) => {
-                    setInviteEmail(e.target.value);
-                    setInviteSuccess(null);
-                  }}
-                  required
-                />
-              </div>
-              <div className="w-full space-y-1.5 sm:w-40">
-                <Label htmlFor="invite-role">Role</Label>
-                <Select
-                  value={inviteRole}
-                  onValueChange={(v) => setInviteRole(v as TeamMemberRole)}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Invite New Team Member
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleInvite} className="space-y-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="invite-email">Email address</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="colleague@company.com"
+                    value={inviteEmail}
+                    onChange={(e) => {
+                      setInviteEmail(e.target.value);
+                      setInviteSuccess(null);
+                    }}
+                    required
+                  />
+                </div>
+                <div className="w-full space-y-1.5 sm:w-40">
+                  <Label htmlFor="invite-role">Role</Label>
+                  <Select
+                    value={inviteRole}
+                    onValueChange={(v) => setInviteRole(v as TeamMemberRole)}
+                  >
+                    <SelectTrigger id="invite-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="submit"
+                  className="bg-orange-500 hover:bg-orange-600"
+                  disabled={inviteMutation.isPending || !inviteEmail.trim()}
                 >
-                  <SelectTrigger id="invite-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                  </SelectContent>
-                </Select>
+                  {inviteMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
+                  Send Invitation
+                </Button>
               </div>
-              <Button
-                type="submit"
-                className="bg-orange-500 hover:bg-orange-600"
-                disabled={inviteMutation.isPending || !inviteEmail.trim()}
-              >
-                {inviteMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Mail className="mr-2 h-4 w-4" />
-                )}
-                Send Invitation
-              </Button>
-            </div>
 
-            {inviteSuccess && (
-              <p className="text-sm text-green-600">
-                Invitation sent to {inviteSuccess}
-              </p>
-            )}
+              {inviteSuccess && (
+                <p className="text-sm text-green-600">Invitation sent to {inviteSuccess}</p>
+              )}
 
-            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-              <p className="font-medium mb-1">Role permissions:</p>
-              <ul className="space-y-0.5">
-                <li><span className="font-medium">Admin</span> — Same company access as the owner, including profile, team, jobs, and bookings.</li>
-                <li><span className="font-medium">Manager</span> — Post jobs, manage bookings, rate freelancers. Cannot manage team.</li>
-              </ul>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                <p className="mb-1 font-medium">Role permissions:</p>
+                <ul className="space-y-0.5">
+                  <li>
+                    <span className="font-medium">Admin</span> — Same company access as the owner,
+                    including profile, team, jobs, and bookings.
+                  </li>
+                  <li>
+                    <span className="font-medium">Manager</span> — Post jobs, manage bookings, rate
+                    freelancers. Cannot manage team.
+                  </li>
+                </ul>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       ) : (
         <p className="text-sm text-muted-foreground">
           Only company owners and admins can invite or manage team members.

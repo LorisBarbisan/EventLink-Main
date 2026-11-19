@@ -1,10 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileText, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,8 +10,8 @@ interface JobDocumentsModalProps {
   jobTitle: string;
   open: boolean;
   onClose: () => void;
-  isOwner?: boolean;    // employer: can delete
-  canUpload?: boolean;  // employer or hired freelancer: can upload
+  isOwner?: boolean; // employer: can delete
+  canUpload?: boolean; // employer or hired freelancer: can upload
   onAttachFile?: () => void;
   isUploading?: boolean;
 }
@@ -95,20 +90,20 @@ export function JobDocumentsModal({
   const showUploadButton = (isOwner || canUpload) && onAttachFile;
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>📎</span> Job Documents
           </DialogTitle>
-          <p className="text-sm text-muted-foreground truncate">{jobTitle}</p>
+          <p className="truncate text-sm text-muted-foreground">{jobTitle}</p>
         </DialogHeader>
 
-        <div className="space-y-2 max-h-80 overflow-y-auto py-1">
+        <div className="max-h-80 space-y-2 overflow-y-auto py-1">
           {isLoading ? (
             <div className="space-y-2">
-              {[1, 2].map(i => (
-                <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />
+              {[1, 2].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           ) : docs.length === 0 ? (
@@ -120,13 +115,15 @@ export function JobDocumentsModal({
             docs.map((doc: any) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 hover:bg-muted/40 transition-colors"
+                className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/40"
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <FileText className="h-4 w-4 shrink-0 text-orange-500" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{formatDocType(doc.documentType)}</p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="truncate text-sm font-medium">
+                      {formatDocType(doc.documentType)}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
                       {doc.fileName}
                       {doc.fileSize ? ` · ${formatSize(doc.fileSize)}` : ""}
                     </p>
@@ -134,6 +131,7 @@ export function JobDocumentsModal({
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
+                    aria-label="Download document"
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
@@ -144,6 +142,7 @@ export function JobDocumentsModal({
                   </Button>
                   {isOwner && (
                     <Button
+                      aria-label="Remove document"
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"

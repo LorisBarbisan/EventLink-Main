@@ -974,6 +974,7 @@ export default function SimplifiedRecruiterDashboard() {
                           <div className="flex gap-1">
                             {(isSaved || isCrewSearching) && (
                               <Button
+                                aria-label={isSaved ? "Remove from My Crew" : "Save to My Crew"}
                                 variant="ghost"
                                 size="icon"
                                 data-help="dashboard.saveFreelancer"

@@ -137,6 +137,7 @@ export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
       <Sheet>
         <SheetTrigger asChild>
           <Button
+            aria-label="Open menu"
             variant="ghost"
             size="icon"
             className="sm:hidden"

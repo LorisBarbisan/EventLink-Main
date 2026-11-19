@@ -444,6 +444,7 @@ export default function Jobs() {
                 <button
                   type="button"
                   role="switch"
+                  aria-label="Posted by freelancers only"
                   aria-checked={freelancerPostedFilter}
                   onClick={() => {
                     setFreelancerPostedFilter((v) => !v);

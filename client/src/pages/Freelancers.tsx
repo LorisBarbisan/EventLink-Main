@@ -405,7 +405,7 @@ export default function Freelancers() {
                         freelancer.avatar.startsWith("http://")) ? (
                         <img
                           src={freelancer.avatar}
-                          alt={`${freelancer.name} profile photo`}
+                          alt={freelancer.name}
                           className="h-full w-full rounded-full bg-white object-cover"
                         />
                       ) : (
@@ -500,6 +500,7 @@ export default function Freelancers() {
                         const isSaved = savedIds.includes(freelancerUserId);
                         return (
                           <Button
+                            aria-label={isSaved ? "Remove from My Crew" : "Save to My Crew"}
                             variant="ghost"
                             size="icon"
                             className={`ml-auto h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}

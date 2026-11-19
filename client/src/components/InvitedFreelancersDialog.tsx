@@ -46,7 +46,7 @@ export function InvitedFreelancersDialog({
       }
       return applicationId;
     },
-    onSuccess: (applicationId) => {
+    onSuccess: () => {
       toast({
         title: "Invitation withdrawn",
         description: "The freelancer has been notified.",
@@ -74,78 +74,83 @@ export function InvitedFreelancersDialog({
   };
 
   // Filter out the ones we just removed optimistically
-  const visibleApplications = invitedApplications.filter(app => app.id !== removingId || !withdrawMutation.isPending);
+  const visibleApplications = invitedApplications.filter(
+    (app) => app.id !== removingId || !withdrawMutation.isPending
+  );
 
   return (
-    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px] flex flex-col gap-0 p-0 overflow-hidden bg-white">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex flex-col gap-0 overflow-hidden bg-white p-0 sm:max-w-[500px]">
         <DialogHeader className="p-6 pb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-5 h-5 text-gray-700" />
+          <div className="mb-1 flex items-center gap-2">
+            <Users className="h-5 w-5 text-gray-700" />
             <DialogTitle className="text-xl font-semibold text-gray-900">
               Invited Freelancers
             </DialogTitle>
           </div>
-          <DialogDescription className="text-gray-500 text-sm">
+          <DialogDescription className="text-sm text-gray-500">
             Manage invitations for &quot;{jobTitle}&quot;
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 px-6 pb-6">
-          <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col h-[300px]">
+        <div className="min-h-0 flex-1 px-6 pb-6">
+          <div className="flex h-[300px] flex-col overflow-hidden rounded-lg border border-gray-200">
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-2">
+              <div className="space-y-2 p-2">
                 {visibleApplications.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
+                  <div className="py-10 text-center text-muted-foreground">
                     No invited freelancers found.
                   </div>
                 ) : (
-                  visibleApplications.map(app => {
+                  visibleApplications.map((app) => {
                     const isRemoving = withdrawMutation.isPending && removingId === app.id;
                     const canRemove = app.status === "invited";
 
                     return (
                       <div
                         key={app.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition-colors ${isRemoving ? "opacity-50" : ""}`}
+                        className={`flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 transition-colors hover:bg-gray-50 ${isRemoving ? "opacity-50" : ""}`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className="h-10 w-10 border border-gray-200 flex-shrink-0">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar className="h-10 w-10 flex-shrink-0 border border-gray-200">
                             {app.freelancer_profile?.profile_photo_url ? (
                               <AvatarImage src={app.freelancer_profile.profile_photo_url} />
                             ) : null}
-                            <AvatarFallback className="bg-orange-100 text-orange-600 font-medium">
+                            <AvatarFallback className="bg-orange-100 font-medium text-orange-600">
                               {app.freelancer_profile?.first_name?.[0] || "?"}
                               {app.freelancer_profile?.last_name?.[0] || ""}
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <h4 className="font-semibold text-gray-900 text-sm truncate">
+                            <h4 className="truncate text-sm font-semibold text-gray-900">
                               {app.freelancer_profile
                                 ? `${app.freelancer_profile.first_name} ${app.freelancer_profile.last_name}`
                                 : `Freelancer #${app.freelancer_id}`}
                             </h4>
                             <div className="flex flex-col text-xs text-gray-500">
-                              <span className="truncate">{app.freelancer_profile?.title || "Freelancer"}</span>
-                              <span className="text-muted-foreground mt-0.5">
+                              <span className="truncate">
+                                {app.freelancer_profile?.title || "Freelancer"}
+                              </span>
+                              <span className="mt-0.5 text-muted-foreground">
                                 Invited {formatDate(app.applied_at)}
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <div className="ml-2 flex flex-shrink-0 items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className="bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100"
+                            className="border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100"
                           >
                             {app.status === "invited" ? "Invited" : app.status}
                           </Badge>
                           {canRemove && (
                             <Button
+                              aria-label="Withdraw invitation"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                              className="h-7 w-7 text-gray-400 hover:bg-red-50 hover:text-red-600"
                               onClick={() => handleRemove(app.id)}
                               disabled={isRemoving}
                               title="Withdraw invitation"
@@ -167,7 +172,7 @@ export function InvitedFreelancersDialog({
           </div>
         </div>
 
-        <DialogFooter className="p-4 border-t bg-gray-50">
+        <DialogFooter className="border-t bg-gray-50 p-4">
           <Button onClick={onClose} variant="outline" className="ml-auto">
             Close
           </Button>

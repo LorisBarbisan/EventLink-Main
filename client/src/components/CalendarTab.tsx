@@ -311,6 +311,7 @@ function CalendarSyncPanel({
               </div>
               <button
                 role="switch"
+                aria-label="Show Google Calendar events"
                 aria-checked={!!status.read_external}
                 onClick={() => prefMut.mutate({ read_external: !status.read_external })}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${status.read_external ? "bg-primary" : "bg-input"}`}

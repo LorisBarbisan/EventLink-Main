@@ -32,6 +32,8 @@ type PaginationLinkProps = {
   React.ComponentProps<"a">;
 
 const PaginationLink = ({ className, isActive, size = "icon", ...props }: PaginationLinkProps) => (
+  // Content arrives as children through {...props}
+
   <a
     aria-current={isActive ? "page" : undefined}
     className={cn(

@@ -338,6 +338,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
           {/* Chat header */}
           <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-3">
             <Button
+              aria-label="Back to conversations"
               variant="ghost"
               size="icon"
               className="h-8 w-8 lg:hidden"
@@ -554,6 +555,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                     className="rounded-full border-none bg-muted focus-visible:ring-1"
                   />
                   <Button
+                    aria-label="Send message"
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}

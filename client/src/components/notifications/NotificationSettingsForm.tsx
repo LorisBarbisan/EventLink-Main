@@ -384,6 +384,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   data-testid="input-skill-filter"
                 />
                 <Button
+                  aria-label="Add skill"
                   type="button"
                   variant="outline"
                   size="icon"
@@ -435,6 +436,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   </p>
                 </div>
                 <Button
+                  aria-label="Add location"
                   type="button"
                   variant="outline"
                   size="icon"
@@ -513,6 +515,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   data-testid="input-keyword-filter"
                 />
                 <Button
+                  aria-label="Add keyword"
                   type="button"
                   variant="outline"
                   size="icon"
