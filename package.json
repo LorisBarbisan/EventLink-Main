@@ -44,6 +44,8 @@
     "@replit/vite-plugin-cartographer": "^0.2.8",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@sendgrid/mail": "^8.1.6",
+    "@sentry/node": "^11.15.0",
+    "@sentry/react": "^11.15.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.60.5",
     "@vitejs/plugin-react": "^5.0.0",

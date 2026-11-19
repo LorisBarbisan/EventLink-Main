@@ -4,6 +4,10 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
+  // The deployed commit, so browser errors are tagged with their release
+  define: {
+    "import.meta.env.VITE_RELEASE": JSON.stringify(process.env.RAILWAY_GIT_COMMIT_SHA ?? ""),
+  },
   plugins: [
     react(),
     runtimeErrorOverlay(),

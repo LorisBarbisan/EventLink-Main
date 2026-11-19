@@ -1,4 +1,5 @@
 import { db } from "../config/db";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { calendar_connections } from "@shared/schema";
 import { and, eq, lt, isNotNull } from "drizzle-orm";
@@ -134,7 +135,10 @@ export function registerCalendarScheduler(): void {
     "0 */6 * * *",
     () => {
       renewGoogleWebhooks().catch((err) =>
-        console.error("[calendarScheduler] Google webhook renewal error:", err)
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "[calendarScheduler] Google webhook renewal error:" },
+        })
       );
     },
     { timezone: "Europe/London" }
@@ -146,7 +150,10 @@ export function registerCalendarScheduler(): void {
     "30 */6 * * *",
     () => {
       renewOutlookWebhooks().catch((err) =>
-        console.error("[calendarScheduler] Outlook webhook renewal error:", err)
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "[calendarScheduler] Outlook webhook renewal error:" },
+        })
       );
     },
     { timezone: "Europe/London" }
@@ -158,7 +165,10 @@ export function registerCalendarScheduler(): void {
     "0 3 * * *",
     () => {
       dailyReconcile().catch((err) =>
-        console.error("[calendarScheduler] Daily reconcile error:", err)
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "[calendarScheduler] Daily reconcile error:" },
+        })
       );
     },
     { timezone: "Europe/London" }

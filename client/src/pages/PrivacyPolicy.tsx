@@ -435,6 +435,11 @@ export default function PrivacyPolicy() {
                       "PCI-DSS Level 1 certified; SCCs in place; we share only what Stripe requires (name, email, country)",
                     ],
                     [
+                      "Sentry (Functional Software Inc.)",
+                      "Error reporting: when something breaks, a technical report of the error",
+                      "Reports carry no form contents, amounts or payment details — those are removed before sending; your account is identified by its number only; DPA and SCCs in place",
+                    ],
+                    [
                       "Google / Microsoft",
                       "Calendar sync (only when you connect)",
                       "Conditional on your explicit consent; governed by their own privacy policies",

@@ -1,4 +1,5 @@
 import { and, eq, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { db } from "../config/db";
 import { users, freelancer_profiles, profile_nudge_emails } from "@shared/schema";
@@ -133,7 +134,12 @@ export function registerProfileNudgeScheduler(): void {
     LOCK.PROFILE_NUDGE_1,
     "0 12 * * 3",
     () => {
-      runNudgeStage(1).catch((err) => console.error("❌ Profile nudge 1 error:", err));
+      runNudgeStage(1).catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Profile nudge 1 error:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );
@@ -143,7 +149,12 @@ export function registerProfileNudgeScheduler(): void {
     LOCK.PROFILE_NUDGE_2,
     "0 19 * * 0",
     () => {
-      runNudgeStage(2).catch((err) => console.error("❌ Profile nudge 2 error:", err));
+      runNudgeStage(2).catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Profile nudge 2 error:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );
@@ -153,7 +164,12 @@ export function registerProfileNudgeScheduler(): void {
     LOCK.PROFILE_NUDGE_3,
     "30 15 * * 2",
     () => {
-      runNudgeStage(3).catch((err) => console.error("❌ Profile nudge 3 error:", err));
+      runNudgeStage(3).catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Profile nudge 3 error:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );

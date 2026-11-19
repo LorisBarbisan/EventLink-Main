@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { sql } from "drizzle-orm";
 import { db } from "../config/db";
+import { reportError } from "./error-reporting";
 
 /**
  * One instance at a time for every scheduled job.
@@ -57,6 +58,9 @@ export async function runExclusive(
   });
 }
 
+const jobName = (key: number) =>
+  (Object.entries(LOCK).find(([, v]) => v === key)?.[0] ?? String(key)).toLowerCase();
+
 /** cron.schedule, but only one instance runs each firing. */
 export function scheduleExclusive(
   key: number,
@@ -67,7 +71,9 @@ export function scheduleExclusive(
   return cron.schedule(
     expression,
     () => {
-      runExclusive(key, fn).catch((err) => console.error(`[scheduler] job ${key} failed:`, err));
+      runExclusive(key, fn).catch((err) =>
+        reportError(err, { tags: { kind: "scheduled-job", job: jobName(key) } })
+      );
     },
     options
   );

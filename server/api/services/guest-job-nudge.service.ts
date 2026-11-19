@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { storage } from "../../storage";
 import { sendGuestJobNudge } from "./guest-job-email.service";
@@ -44,7 +45,10 @@ export function registerGuestJobNudgeScheduler(): void {
     try {
       await processNudges();
     } catch (err) {
-      console.error("[guest-nudge] Scheduler error:", err);
+      reportError(err, {
+        tags: { kind: "scheduled-job" },
+        extra: { where: "[guest-nudge] Scheduler error:" },
+      });
     }
   });
 

@@ -1,4 +1,5 @@
 import { db } from "../config/db";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { invoices, invoice_reminders } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
@@ -95,7 +96,10 @@ async function runChaser(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error("Invoice chaser run failed:", err);
+    reportError(err, {
+      tags: { kind: "scheduled-job" },
+      extra: { where: "Invoice chaser run failed:" },
+    });
   }
 }
 

@@ -28,7 +28,23 @@ import { registerRoutes } from "./routes-modular";
 import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
 import { handleWebhook } from "./api/controllers/stripe.controller";
+import { flushErrors, initErrorReporting, reportError } from "./api/utils/error-reporting";
+import { sql } from "drizzle-orm";
+import { db } from "./api/config/db";
 dotenv.config();
+
+// ── Error reporting, before anything else can fail ─────────────────────────
+initErrorReporting();
+// A rejection nobody awaited: report it and carry on.
+process.on("unhandledRejection", (reason) => {
+  reportError(reason, { tags: { kind: "unhandledRejection" } });
+});
+// An exception that escaped everything: the process is in an unknown state.
+// Get the report off the box first, then exit and let Railway restart cleanly.
+process.on("uncaughtException", (err) => {
+  reportError(err, { tags: { kind: "uncaughtException" } });
+  flushErrors(2000).finally(() => process.exit(1));
+});
 
 const app = express();
 
@@ -149,13 +165,18 @@ app.use(
 );
 
 // Keep only one health check endpoint
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "healthy",
-    service: "EventLink",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+// Health: can the service do its job? The database must answer within 2s.
+// Unauthenticated and cheap; says nothing about version or environment.
+app.get("/health", async (_req, res) => {
+  try {
+    await Promise.race([
+      db.execute(sql`SELECT 1`),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("db timeout")), 2000)),
+    ]);
+    res.set("Cache-Control", "no-store").status(200).json({ status: "ok" });
+  } catch {
+    res.set("Cache-Control", "no-store").status(503).json({ status: "unavailable" });
+  }
 });
 
 app.use((req, res, next) => {
@@ -226,12 +247,23 @@ app.use((req, res, next) => {
     () => {
       runExclusive(LOCK.IMPORT_STUCK_SWEEP, async () => {
         await sweepStuckParseJobs().catch((err) =>
-          console.error("[import-sweeper] parse sweep failed:", err)
+          reportError(err, {
+            tags: { kind: "scheduled-job", job: "interval" },
+            extra: { where: "[import-sweeper] parse sweep failed:" },
+          })
         );
         await sweepStuckCommits().catch((err) =>
-          console.error("[import-sweeper] commit sweep failed:", err)
+          reportError(err, {
+            tags: { kind: "scheduled-job", job: "interval" },
+            extra: { where: "[import-sweeper] commit sweep failed:" },
+          })
         );
-      }).catch((err) => console.error("[import-sweeper] lock failed:", err));
+      }).catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job", job: "interval" },
+          extra: { where: "[import-sweeper] lock failed:" },
+        })
+      );
     },
     15 * 60 * 1000
   );
@@ -241,7 +273,12 @@ app.use((req, res, next) => {
     LOCK.UNDO_SWEEP,
     "30 3 * * *",
     () => {
-      sweepArchived().catch((err) => console.error("[undo-sweep] failed:", err));
+      sweepArchived().catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job", job: "undo-sweep" },
+          extra: { where: "failed:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );
@@ -251,7 +288,12 @@ app.use((req, res, next) => {
     LOCK.BOOKS_EVENTS_PRUNE,
     "45 3 * * *",
     () => {
-      pruneBooksEvents().catch((err) => console.error("[books-usage] prune failed:", err));
+      pruneBooksEvents().catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job", job: "books-usage" },
+          extra: { where: "prune failed:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );
@@ -261,7 +303,12 @@ app.use((req, res, next) => {
     LOCK.REPORTS_PRUNE,
     "50 3 * * *",
     () => {
-      pruneOldReports().catch((err) => console.error("[safety] prune failed:", err));
+      pruneOldReports().catch((err) =>
+        reportError(err, {
+          tags: { kind: "scheduled-job", job: "safety" },
+          extra: { where: "prune failed:" },
+        })
+      );
     },
     { timezone: "Europe/London" }
   );
@@ -276,7 +323,8 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    console.error("Server error:", err);
+    if (status >= 500) reportError(err, { tags: { kind: "request" } });
+    else console.error("Server error:", err);
   });
 
   if (process.env.NODE_ENV === "development") {
@@ -338,7 +386,10 @@ app.use((req, res, next) => {
         try {
           await runExclusive(LOCK.JOB_EXPIRY_HOURLY, () => storage.closeExpiredJobs());
         } catch (err) {
-          console.error("Periodic job expiry check failed:", err);
+          reportError(err, {
+            tags: { kind: "scheduled-job", job: "interval" },
+            extra: { where: "Periodic job expiry check failed:" },
+          });
         }
       },
       60 * 60 * 1000

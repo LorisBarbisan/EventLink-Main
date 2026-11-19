@@ -1,4 +1,5 @@
 import { autoCompleteFinishedJobs } from "./job-completion.service";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
@@ -305,7 +306,10 @@ export function registerJobNotificationScheduler(): void {
       try {
         await processBatchWindow("morning");
       } catch (err) {
-        console.error("❌ Morning batch window error:", err);
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Morning batch window error:" },
+        });
       }
     },
     { timezone: "Europe/London" }
@@ -318,7 +322,10 @@ export function registerJobNotificationScheduler(): void {
       try {
         await processBatchWindow("afternoon");
       } catch (err) {
-        console.error("❌ Afternoon batch window error:", err);
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Afternoon batch window error:" },
+        });
       }
     },
     { timezone: "Europe/London" }
@@ -342,7 +349,10 @@ export function registerJobNotificationScheduler(): void {
             .where(eq(jobs.id, job.id));
 
           await sendJobClosureEmails(job.id).catch((err) =>
-            console.error(`Scheduled closure email error for job ${job.id}:`, err)
+            reportError(err, {
+              tags: { kind: "scheduled-job" },
+              extra: { where: `Scheduled closure email error for job ${job.id}:` },
+            })
           );
         }
 
@@ -352,7 +362,10 @@ export function registerJobNotificationScheduler(): void {
           );
         }
       } catch (err) {
-        console.error("❌ Daily auto-close scheduler error:", err);
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Daily auto-close scheduler error:" },
+        });
       }
     },
     { timezone: "Europe/London" }
@@ -368,7 +381,10 @@ export function registerJobNotificationScheduler(): void {
         const n = await autoCompleteFinishedJobs();
         if (n > 0) console.log(`Daily scheduler: auto-completed ${n} finished jobs`);
       } catch (err) {
-        console.error("❌ Auto-complete scheduler error:", err);
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Auto-complete scheduler error:" },
+        });
       }
     },
     { timezone: "Europe/London" }
@@ -383,7 +399,10 @@ export function registerJobNotificationScheduler(): void {
       try {
         await sendDueCloseReminders(2);
       } catch (err) {
-        console.error("❌ Close-reminder scheduler error:", err);
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Close-reminder scheduler error:" },
+        });
       }
     },
     { timezone: "Europe/London" }

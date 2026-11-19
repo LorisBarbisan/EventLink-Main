@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, isNotNull } from "drizzle-orm";
+import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { db } from "../config/db";
 import { users, freelancer_documents, credential_reminders } from "@shared/schema";
@@ -294,7 +295,10 @@ export function registerCredentialReminderScheduler(): void {
     "17 7 * * *",
     () => {
       runCredentialReminders().catch((err) =>
-        console.error("❌ Credential reminder scheduler error:", err)
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Credential reminder scheduler error:" },
+        })
       );
     },
     { timezone: "Europe/London" }
