@@ -1,4 +1,6 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
+import { PublicAvailabilityMonth } from "@/components/PublicAvailability";
+import type { PublicAvailability } from "@shared/public-availability";
 import { SafetyMenu } from "@/components/SafetyMenu";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
@@ -89,6 +91,8 @@ interface Profile {
 }
 
 interface FreelancerProfile {
+  /** Present only when the freelancer chose to show their calendar */
+  public_availability?: PublicAvailability;
   id?: string;
   user_id: number;
   first_name: string;
@@ -1574,6 +1578,13 @@ export default function Profile() {
                     </div>
 
                     <ReferenceBadges freelancerId={freelancerProfile?.user_id || 0} />
+
+                    {freelancerProfile?.public_availability && (
+                      <div className="max-w-sm rounded-lg border p-3 text-left">
+                        <p className="mb-2 text-sm font-semibold">Availability</p>
+                        <PublicAvailabilityMonth data={freelancerProfile.public_availability} />
+                      </div>
+                    )}
 
                     <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                       {!isOwnProfile && user && freelancerProfile && (

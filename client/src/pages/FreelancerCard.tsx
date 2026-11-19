@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
+import { PublicAvailabilityStrip } from "@/components/PublicAvailability";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsPro } from "@/hooks/useIsPro";
@@ -408,6 +409,11 @@ export default function FreelancerCard() {
             </p>
           )}
           <p style={{ marginTop: 8, fontSize: 11, color: C.text3 }}>{availLabel}</p>
+          {freelancer.public_availability && (
+            <div style={{ marginTop: 12 }}>
+              <PublicAvailabilityStrip data={freelancer.public_availability} />
+            </div>
+          )}
         </div>
       );
     }
@@ -1352,6 +1358,11 @@ export default function FreelancerCard() {
               <div>
                 {rightTab === "about" && (
                   <div>
+                    {freelancer.public_availability && (
+                      <div style={{ paddingBottom: 12 }}>
+                        <PublicAvailabilityStrip data={freelancer.public_availability} />
+                      </div>
+                    )}
                     <p
                       style={{
                         fontSize: 13,
