@@ -45,7 +45,14 @@ function Legend() {
 }
 
 /** Profile: a month view within the 90-day window. */
-export function PublicAvailabilityMonth({ data }: { data: PublicAvailability }) {
+/** fluid: fill the container width, with cells that grow in width but keep a sensible height. */
+export function PublicAvailabilityMonth({
+  data,
+  fluid = false,
+}: {
+  data: PublicAvailability;
+  fluid?: boolean;
+}) {
   const states = useMemo(() => new Map(data.days.map((d) => [d.date, d.state])), [data]);
   const first = utc(data.from);
   const [offset, setOffset] = useState(0);
@@ -106,9 +113,9 @@ export function PublicAvailabilityMonth({ data }: { data: PublicAvailability }) 
             <span
               key={date}
               title={inWindow ? (state ? LABEL[state] : "Not marked") : undefined}
-              className={`flex aspect-square items-center justify-center rounded text-xs tabular-nums ${
-                inWindow ? CELL[state ?? "none"] : "text-muted-foreground/40"
-              }`}
+              className={`flex items-center justify-center rounded tabular-nums ${
+                fluid ? "h-10 text-sm sm:h-12 lg:h-14" : "aspect-square text-xs"
+              } ${inWindow ? CELL[state ?? "none"] : "text-muted-foreground/40"}`}
             >
               {Number(date.slice(8))}
             </span>

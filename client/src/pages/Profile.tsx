@@ -1800,9 +1800,7 @@ export default function Profile() {
                     <CardTitle>Availability</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="max-w-md">
-                      <PublicAvailabilityMonth data={freelancerProfile.public_availability} />
-                    </div>
+                    <PublicAvailabilityMonth data={freelancerProfile.public_availability} fluid />
                   </CardContent>
                 </Card>
               )}
