@@ -50,10 +50,13 @@ import {
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+
+// Books is fetched only when it's about to be shown — behind the same
+// useBooksAccess gate as the tab — so nobody who can't open it downloads it.
+const BooksTab = lazy(() => import("./BooksTab").then((m) => ({ default: m.BooksTab })));
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
-import { BooksTab } from "./BooksTab";
 import { BooksHiddenNotice } from "@/components/BooksRecordsNotice";
 import { useBooksAccess } from "@/hooks/useBooksAccess";
 
@@ -937,7 +940,15 @@ export default function SimplifiedFreelancerDashboard() {
             ) : booksAccess === "loading" ? (
               <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
             ) : (
-              <BooksTab />
+              <Suspense
+                fallback={
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    Loading your books…
+                  </div>
+                }
+              >
+                <BooksTab />
+              </Suspense>
             )}
           </TabsContent>
         )}

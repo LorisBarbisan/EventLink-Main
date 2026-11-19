@@ -1,10 +1,12 @@
-import FreelancerDashboard from "@/components/FreelancerDashboard";
 import { Layout } from "@/components/Layout";
-import RecruiterDashboard from "@/components/RecruiterDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsPro } from "@/hooks/useIsPro";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+
+// Each role downloads only its own dashboard
+const FreelancerDashboard = lazy(() => import("@/components/FreelancerDashboard"));
+const RecruiterDashboard = lazy(() => import("@/components/RecruiterDashboard"));
 import { useLocation } from "wouter";
 
 interface Profile {
@@ -123,14 +125,16 @@ export default function Dashboard() {
   return (
     <Layout dark={darkHeader}>
       <div className="container mx-auto px-4 py-8">
-        {showFreelancerDashboard ? (
-          <FreelancerDashboard />
-        ) : showRecruiterDashboard ? (
-          <RecruiterDashboard />
-        ) : (
-          // Fallback: if role is somehow undefined/null, default to freelancer
-          <FreelancerDashboard />
-        )}
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          {showFreelancerDashboard ? (
+            <FreelancerDashboard />
+          ) : showRecruiterDashboard ? (
+            <RecruiterDashboard />
+          ) : (
+            // Fallback: if role is somehow undefined/null, default to freelancer
+            <FreelancerDashboard />
+          )}
+        </Suspense>
       </div>
     </Layout>
   );
