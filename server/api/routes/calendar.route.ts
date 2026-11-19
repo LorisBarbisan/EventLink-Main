@@ -4,8 +4,6 @@ import {
   getCalendarStatus,
   initiateGoogleConnect,
   googleCallback,
-  initiateOutlookConnect,
-  outlookCallback,
   triggerSync,
   disconnect,
   updatePreferences,
@@ -28,8 +26,6 @@ calendarRouter.delete("/disconnect", authenticateJWT, disconnect);
 // OAuth flows (redirect — no auth middleware; uid rides in state)
 calendarRouter.get("/google/connect", authenticateJWT, initiateGoogleConnect);
 calendarRouter.get("/google/callback", googleCallback);
-calendarRouter.get("/outlook/connect", authenticateJWT, initiateOutlookConnect);
-calendarRouter.get("/outlook/callback", outlookCallback);
 
 // Webhooks (unauthenticated — Google/Microsoft push notifications)
 calendarRouter.post("/webhook/google", googleWebhookHandler);

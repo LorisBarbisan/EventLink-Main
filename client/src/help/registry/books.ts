@@ -338,9 +338,9 @@ const entries: HelpEntry[] = [
     key: "books.calendar.connect",
     scope: "action",
     title: "Calendar sync",
-    body: "Pushes your confirmed jobs to Google or Outlook so they sit alongside the rest of your diary.",
+    body: "Pushes your confirmed jobs to Google Calendar so they sit alongside the rest of your diary.",
     audience: ["freelancer"],
-    version: 1,
+    version: 2,
   },
 
   // ── Job detail ─────────────────────────────────────────────────────────────

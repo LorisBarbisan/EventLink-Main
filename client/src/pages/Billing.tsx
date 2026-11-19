@@ -10,7 +10,7 @@ const FREE_FEATURES = [
   { label: "In-platform messaging", included: true },
   { label: "Basic crew search filters", included: true },
   { label: "Booking management", included: true },
-  { label: "Calendar sync (Google & Outlook)", included: true },
+  { label: "Calendar sync (Google)", included: true },
   { label: "Digital Business Card & QR Code", included: true },
   { label: "Custom profile URL", included: true },
   { label: "Accounting tools & invoice templates", included: true },

@@ -182,7 +182,7 @@ function CalendarSyncPanel({
   status: CalendarStatus | undefined;
   syncing: boolean;
   onSync: () => void;
-  onConnect: (p: "google" | "outlook") => void;
+  onConnect: (p: "google") => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -246,14 +246,21 @@ function CalendarSyncPanel({
             </div>
             <div className="flex items-center gap-3">
               {needsReconnect ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  data-help="books.calendar.connect"
-                  onClick={() => onConnect(status.provider!)}
-                >
-                  Reconnect
-                </Button>
+                status.provider === "google" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    data-help="books.calendar.connect"
+                    onClick={() => onConnect("google")}
+                  >
+                    Reconnect
+                  </Button>
+                ) : (
+                  // Outlook sync is no longer offered: disconnect, then connect Google
+                  <span className="text-xs text-muted-foreground">
+                    Outlook is no longer supported
+                  </span>
+                )
               ) : (
                 <Button
                   data-help="books.calendar.connect"
@@ -324,12 +331,13 @@ function CalendarSyncPanel({
             <div>
               <p className="text-sm font-semibold">Sync bookings to your calendar</p>
               <p className="text-xs text-muted-foreground">
-                Connect Google Calendar or Outlook to keep your schedule in sync.
+                Connect Google Calendar to keep your schedule in sync.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
+              data-help="books.calendar.connect"
               variant="outline"
               size="sm"
               className="gap-2"
@@ -354,21 +362,6 @@ function CalendarSyncPanel({
                 />
               </svg>
               Connect Google Calendar
-            </Button>
-            <Button
-              data-help="books.calendar.connect"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => onConnect("outlook")}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h6.5V2.55q0-.44.3-.75.3-.3.75-.3h12.9q.44 0 .75.3.3.3.3.75V10.85l1.24.72q.26.14.26.43zm-10.24-5.47l-3.76 2.5 3.76 2.5 3.76-2.5zm-6 2.09l3.75 2.5v5.5h.5v-5.5l3.75-2.5V18h-8V8.62zM22.5 11.47l-2.26-1.3v8.33h2.26z"
-                  fill="#0078D4"
-                />
-              </svg>
-              Connect Outlook Calendar
             </Button>
           </div>
         </div>
@@ -974,7 +967,7 @@ export function CalendarTab({
 
   // ── Calendar connect handler ───────────────────────────────────────────────
 
-  function handleConnect(provider: "google" | "outlook") {
+  function handleConnect(provider: "google") {
     const token = localStorage.getItem("auth_token") ?? "";
     window.location.href = `/api/calendar/${provider}/connect?token=${encodeURIComponent(token)}`;
   }
