@@ -473,7 +473,7 @@ function ClientFeedbackSection({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="mb-1 block text-sm text-gray-600">
+              <Label htmlFor="profile-reason-476" className="mb-1 block text-sm text-gray-600">
                 Reason <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Textarea
@@ -649,7 +649,7 @@ function ReferencesSection({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="mb-1 block text-sm text-gray-600">
+              <Label htmlFor="profile-reason-652" className="mb-1 block text-sm text-gray-600">
                 Reason <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Textarea

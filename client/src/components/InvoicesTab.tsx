@@ -400,7 +400,7 @@ function BillingProfileModal({
             Trading identity
           </p>
           <div>
-            <Label>Trading name / your name</Label>
+            <Label htmlFor="invoices-trading-name-403">Trading name / your name</Label>
             <Input
               value={form.trading_name}
               onChange={(e) => set("trading_name", e.target.value)}
@@ -409,7 +409,7 @@ function BillingProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Company number</Label>
+              <Label htmlFor="invoices-company-number-412">Company number</Label>
               <Input
                 value={form.company_number}
                 onChange={(e) => set("company_number", e.target.value)}
@@ -417,7 +417,7 @@ function BillingProfileModal({
               />
             </div>
             <div>
-              <Label>UTR (sole trader)</Label>
+              <Label htmlFor="invoices-utr-420">UTR (sole trader)</Label>
               <Input
                 value={form.utr}
                 onChange={(e) => set("utr", e.target.value)}
@@ -427,7 +427,7 @@ function BillingProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>VAT registered?</Label>
+              <Label htmlFor="invoices-vat-registered-430">VAT registered?</Label>
               <Select value={form.vat_registered} onValueChange={(v) => set("vat_registered", v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -440,7 +440,7 @@ function BillingProfileModal({
             </div>
             {isVat && (
               <div>
-                <Label>VAT number</Label>
+                <Label htmlFor="invoices-vat-number-443">VAT number</Label>
                 <Input
                   value={form.vat_number}
                   onChange={(e) => set("vat_number", e.target.value)}
@@ -450,7 +450,7 @@ function BillingProfileModal({
             )}
             {isVat && (
               <div className="col-span-2">
-                <Label>VAT on invoices</Label>
+                <Label htmlFor="invoices-vat-on-invoices-set-453">VAT on invoices</Label>
                 <Select value={form.vat_rate_pct} onValueChange={(v) => set("vat_rate_pct", v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -476,7 +476,7 @@ function BillingProfileModal({
             Address
           </p>
           <div>
-            <Label>Address line 1</Label>
+            <Label htmlFor="invoices-address-line-479">Address line 1</Label>
             <Input
               value={form.address_line1}
               onChange={(e) => set("address_line1", e.target.value)}
@@ -484,7 +484,7 @@ function BillingProfileModal({
             />
           </div>
           <div>
-            <Label>Address line 2</Label>
+            <Label htmlFor="invoices-address-line-487">Address line 2</Label>
             <Input
               value={form.address_line2}
               onChange={(e) => set("address_line2", e.target.value)}
@@ -493,7 +493,7 @@ function BillingProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>City</Label>
+              <Label htmlFor="invoices-city-496">City</Label>
               <Input
                 value={form.city}
                 onChange={(e) => set("city", e.target.value)}
@@ -501,7 +501,7 @@ function BillingProfileModal({
               />
             </div>
             <div>
-              <Label>Postcode</Label>
+              <Label htmlFor="invoices-postcode-504">Postcode</Label>
               <Input
                 value={form.postcode}
                 onChange={(e) => set("postcode", e.target.value)}
@@ -510,7 +510,7 @@ function BillingProfileModal({
             </div>
           </div>
           <div>
-            <Label>Country</Label>
+            <Label htmlFor="invoices-country-513">Country</Label>
             <Input
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
@@ -526,7 +526,7 @@ function BillingProfileModal({
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Email on invoice</Label>
+              <Label htmlFor="invoices-email-on-invoice-529">Email on invoice</Label>
               <Input
                 type="email"
                 value={form.email}
@@ -535,7 +535,7 @@ function BillingProfileModal({
               />
             </div>
             <div>
-              <Label>Phone</Label>
+              <Label htmlFor="invoices-phone-538">Phone</Label>
               <Input
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
@@ -551,7 +551,7 @@ function BillingProfileModal({
             Bank details
           </p>
           <div>
-            <Label>Account name</Label>
+            <Label htmlFor="invoices-account-name-554">Account name</Label>
             <Input
               value={form.bank_account_name}
               onChange={(e) => set("bank_account_name", e.target.value)}
@@ -560,7 +560,7 @@ function BillingProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Sort code</Label>
+              <Label htmlFor="invoices-sort-code-563">Sort code</Label>
               <Input
                 value={form.bank_sort_code}
                 onChange={(e) => set("bank_sort_code", e.target.value)}
@@ -568,7 +568,7 @@ function BillingProfileModal({
               />
             </div>
             <div>
-              <Label>Account number</Label>
+              <Label htmlFor="invoices-account-number-571">Account number</Label>
               <Input
                 value={form.bank_account_number}
                 onChange={(e) => set("bank_account_number", e.target.value)}
@@ -577,7 +577,7 @@ function BillingProfileModal({
             </div>
           </div>
           <div>
-            <Label>IBAN (international)</Label>
+            <Label htmlFor="invoices-iban-580">IBAN (international)</Label>
             <Input
               value={form.bank_iban}
               onChange={(e) => set("bank_iban", e.target.value)}
@@ -593,7 +593,7 @@ function BillingProfileModal({
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Invoice prefix</Label>
+              <Label htmlFor="invoices-invoice-prefix-596">Invoice prefix</Label>
               <Input
                 value={form.invoice_prefix}
                 onChange={(e) => set("invoice_prefix", e.target.value)}
@@ -602,7 +602,7 @@ function BillingProfileModal({
               />
             </div>
             <div>
-              <Label>Payment terms (days)</Label>
+              <Label htmlFor="invoices-payment-terms-605">Payment terms (days)</Label>
               <Input
                 type="number"
                 value={form.payment_terms_days}
@@ -613,7 +613,7 @@ function BillingProfileModal({
             </div>
           </div>
           <div>
-            <Label>Logo</Label>
+            <Label htmlFor="invoices-logo-616">Logo</Label>
             <input
               ref={logoInputRef}
               type="file"
@@ -671,7 +671,7 @@ function BillingProfileModal({
             </p>
           </div>
           <div>
-            <Label>Footer note</Label>
+            <Label htmlFor="invoices-footer-note-674">Footer note</Label>
             <Textarea
               value={form.invoice_footer_note}
               onChange={(e) => set("invoice_footer_note", e.target.value)}
@@ -1085,7 +1085,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Name</Label>
+                <Label htmlFor="invoices-name-1088">Name</Label>
                 <Input
                   value={toDetails.name}
                   onChange={(e) => setToDetails((d) => ({ ...d, name: e.target.value }))}
@@ -1094,7 +1094,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div>
-                <Label>Company</Label>
+                <Label htmlFor="invoices-company-1097">Company</Label>
                 <Input
                   value={toDetails.company}
                   onChange={(e) => setToDetails((d) => ({ ...d, company: e.target.value }))}
@@ -1103,7 +1103,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div className="col-span-2">
-                <Label>Email</Label>
+                <Label htmlFor="invoices-email-1106">Email</Label>
                 <Input
                   type="email"
                   value={toDetails.email}
@@ -1113,7 +1113,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div className="col-span-2">
-                <Label>Address line 1</Label>
+                <Label htmlFor="invoices-address-line-1116">Address line 1</Label>
                 <Input
                   value={toDetails.address_line1}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line1: e.target.value }))}
@@ -1122,7 +1122,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div className="col-span-2">
-                <Label>Address line 2</Label>
+                <Label htmlFor="invoices-address-line-1125">Address line 2</Label>
                 <Input
                   value={toDetails.address_line2}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line2: e.target.value }))}
@@ -1131,7 +1131,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div>
-                <Label>City</Label>
+                <Label htmlFor="invoices-city-1134">City</Label>
                 <Input
                   value={toDetails.city}
                   onChange={(e) => setToDetails((d) => ({ ...d, city: e.target.value }))}
@@ -1140,7 +1140,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div>
-                <Label>Postcode</Label>
+                <Label htmlFor="invoices-postcode-1143">Postcode</Label>
                 <Input
                   value={toDetails.postcode}
                   onChange={(e) => setToDetails((d) => ({ ...d, postcode: e.target.value }))}
@@ -1149,7 +1149,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 />
               </div>
               <div className="col-span-2">
-                <Label>Country</Label>
+                <Label htmlFor="invoices-country-1152">Country</Label>
                 <Input
                   value={toDetails.country}
                   onChange={(e) => setToDetails((d) => ({ ...d, country: e.target.value }))}
@@ -1163,7 +1163,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Issue date</Label>
+              <Label htmlFor="invoices-issue-date-1166">Issue date</Label>
               <Input
                 type="date"
                 value={issueDate}
@@ -1172,7 +1172,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               />
             </div>
             <div>
-              <Label>Due date</Label>
+              <Label htmlFor="invoices-due-date-1175">Due date</Label>
               <Input
                 type="date"
                 value={dueDate}
@@ -1203,7 +1203,10 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 <div key={i} className="grid grid-cols-12 items-center gap-2">
                   <div className="col-span-5">
                     {i === 0 && (
-                      <Label className="mb-1 block text-xs text-muted-foreground">
+                      <Label
+                        htmlFor="invoices-description-1206"
+                        className="mb-1 block text-xs text-muted-foreground"
+                      >
                         Description
                       </Label>
                     )}
@@ -1216,7 +1219,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label className="mb-1 block text-xs text-muted-foreground">Rate</Label>
+                      <Label
+                        htmlFor="invoices-rate-1219"
+                        className="mb-1 block text-xs text-muted-foreground"
+                      >
+                        Rate
+                      </Label>
                     )}
                     <Select
                       value={li.rate_type ?? "day"}
@@ -1237,7 +1245,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label className="mb-1 block text-xs text-muted-foreground">Qty</Label>
+                      <Label
+                        htmlFor="invoices-qty-1240"
+                        className="mb-1 block text-xs text-muted-foreground"
+                      >
+                        Qty
+                      </Label>
                     )}
                     <Input
                       type="number"
@@ -1250,7 +1263,10 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
-                      <Label className="mb-1 block text-xs text-muted-foreground">
+                      <Label
+                        htmlFor="invoices-unit-price-1253"
+                        className="mb-1 block text-xs text-muted-foreground"
+                      >
                         Unit price (£)
                       </Label>
                     )}
@@ -1302,7 +1318,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
 
           {/* Notes */}
           <div>
-            <Label>Notes (optional)</Label>
+            <Label htmlFor="invoices-notes-1305">Notes (optional)</Label>
             <textarea
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               rows={2}

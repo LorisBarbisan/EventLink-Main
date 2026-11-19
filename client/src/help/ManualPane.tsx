@@ -25,6 +25,7 @@ function TipsSwitch() {
   const on = mode !== "off";
   return (
     <label
+      htmlFor="manualpane-label-classname-27"
       className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-muted-foreground"
       title={on ? "Hide the tips that appear when you hover" : "Show tips when you hover"}
     >

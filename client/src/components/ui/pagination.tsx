@@ -33,7 +33,7 @@ type PaginationLinkProps = {
 
 const PaginationLink = ({ className, isActive, size = "icon", ...props }: PaginationLinkProps) => (
   // Content arrives as children through {...props}
-
+  // eslint-disable-next-line jsx-a11y/anchor-has-content
   <a
     aria-current={isActive ? "page" : undefined}
     className={cn(

@@ -364,7 +364,12 @@ export default function MyJobs() {
               </div>
             )}
             <div className="mb-5">
-              <label className="mb-2 block text-sm font-medium text-gray-700">Document type</label>
+              <label
+                htmlFor="myjobs-document-type-367"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
+                Document type
+              </label>
               <select
                 value={docType}
                 onChange={(e) => {

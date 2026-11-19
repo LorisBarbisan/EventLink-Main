@@ -27,6 +27,10 @@ export default [
       // rules themselves run from eslint.a11y.config.js (npm run lint:a11y).
       "jsx-a11y": jsxA11y,
     },
+    // jsx-a11y rules run from eslint.a11y.config.js, not here, so their
+    // disable comments look "unused" to this config — and `eslint --fix` in
+    // the pre-commit hook would delete them. Don't report (or fix) those.
+    linterOptions: { reportUnusedDisableDirectives: "off" },
     languageOptions: {
       parserOptions: {
         ecmaFeatures: {

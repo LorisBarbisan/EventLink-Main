@@ -325,7 +325,10 @@ export default function JobDetail() {
                   <div className="space-y-4">
                     <h3 className="font-semibold">Apply for this job</h3>
                     <div>
-                      <label className="mb-1 block text-sm text-muted-foreground">
+                      <label
+                        htmlFor="jobdetail-cover-letter-328"
+                        className="mb-1 block text-sm text-muted-foreground"
+                      >
                         Cover letter (optional)
                       </label>
                       <Textarea

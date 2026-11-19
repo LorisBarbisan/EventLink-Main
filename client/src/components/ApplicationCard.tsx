@@ -1193,7 +1193,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                 </div>
               )}
               <div className="mb-5">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="applicationcard-document-type-1196"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   Document type
                 </label>
                 <select
@@ -1212,7 +1215,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               </div>
               {docType === "other" && (
                 <div className="mb-5">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="applicationcard-document-name-1215"
+                    className="mb-2 block text-sm font-medium text-gray-700"
+                  >
                     Document name
                   </label>
                   <input

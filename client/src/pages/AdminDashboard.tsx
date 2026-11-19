@@ -1598,7 +1598,12 @@ function AdminDashboardContent() {
                                   )}
 
                                   <div className="space-y-2">
-                                    <label className="text-sm font-medium">Your Response:</label>
+                                    <label
+                                      htmlFor="admindashboard-your-response-1601"
+                                      className="text-sm font-medium"
+                                    >
+                                      Your Response:
+                                    </label>
                                     <Textarea
                                       value={adminResponse}
                                       onChange={(e) => setAdminResponse(e.target.value)}
@@ -1745,7 +1750,9 @@ function AdminDashboardContent() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="py-2">
-                <label className="text-sm font-medium">Note (optional)</label>
+                <label htmlFor="admindashboard-note-1748" className="text-sm font-medium">
+                  Note (optional)
+                </label>
                 <Textarea
                   className="mt-1"
                   rows={2}
@@ -1916,7 +1923,12 @@ function AdminDashboardContent() {
                                 </div>
 
                                 <div className="space-y-2">
-                                  <label className="text-sm font-medium">Your Reply:</label>
+                                  <label
+                                    htmlFor="admindashboard-your-reply-1919"
+                                    className="text-sm font-medium"
+                                  >
+                                    Your Reply:
+                                  </label>
                                   <Textarea
                                     value={contactReply}
                                     onChange={(e) => setContactReply(e.target.value)}
@@ -3924,7 +3936,10 @@ function AdminDashboardContent() {
                                           }))
                                         }
                                       />
-                                      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                      <label
+                                        htmlFor="admindashboard-checkbox-3927"
+                                        className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+                                      >
                                         <Checkbox
                                           checked={editNoExpiry}
                                           onCheckedChange={(v) =>

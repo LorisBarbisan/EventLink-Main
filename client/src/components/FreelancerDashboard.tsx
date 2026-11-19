@@ -145,7 +145,7 @@ function DashLogPaymentDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1">
-            <Label>Amount received (£) *</Label>
+            <Label htmlFor="freelancerdashboard-amount-received-148">Amount received (£) *</Label>
             <Input
               type="number"
               min="0"
@@ -156,7 +156,7 @@ function DashLogPaymentDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Date paid *</Label>
+            <Label htmlFor="freelancerdashboard-date-paid-159">Date paid *</Label>
             <Input
               type="date"
               value={form.datePaid}
@@ -164,7 +164,7 @@ function DashLogPaymentDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label>Note (optional)</Label>
+            <Label htmlFor="freelancerdashboard-note-167">Note (optional)</Label>
             <Input
               placeholder="e.g. invoice ref, bank transfer"
               value={form.note}
@@ -1211,7 +1211,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
         <CardContent>
           <div className="space-y-3">
             <div>
-              <Label className="text-sm">
+              <Label htmlFor="freelancerdashboard-referee-1214" className="text-sm">
                 Referee&apos;s email <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -1222,7 +1222,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
               />
             </div>
             <div>
-              <Label className="text-sm">
+              <Label htmlFor="freelancerdashboard-referee-1225" className="text-sm">
                 Referee&apos;s name <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Input

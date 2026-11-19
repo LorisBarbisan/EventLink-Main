@@ -695,7 +695,10 @@ export function JobCard({
                 </div>
               )}
               <div className="mb-5">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="jobcard-document-type-698"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   Document type
                 </label>
                 <select

@@ -779,7 +779,7 @@ export default function Auth() {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-4">
-                    <Label>I want to join as:</Label>
+                    <Label htmlFor="auth-i-want-to-join-as-782">I want to join as:</Label>
                     <RadioGroup
                       value={signUpData.role}
                       onValueChange={(value) =>

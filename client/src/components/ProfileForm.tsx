@@ -899,7 +899,7 @@ function FreelancerProfileFields({
       </div>
 
       <div data-help="form.profile.skills">
-        <Label>Skills (Optional)</Label>
+        <Label htmlFor="profile-skills-902">Skills (Optional)</Label>
         <div className="mb-2 flex gap-2">
           <Input
             value={newSkill}

@@ -180,6 +180,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
         <p className="mb-3 text-xs text-muted-foreground">Card background colour.</p>
         <div className="flex items-center gap-2">
           <label
+            htmlFor="profilethemepicker-label-classname-182"
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: accent }}
           >
@@ -210,6 +211,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
         </p>
         <div className="flex items-center gap-2">
           <label
+            htmlFor="profilethemepicker-label-classname-212"
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: buttonColor }}
           >

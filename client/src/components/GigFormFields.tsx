@@ -130,7 +130,7 @@ export function GigFormBody({
 
       {/* Booking status — makes this gig appear on the calendar */}
       <div className="space-y-1">
-        <Label>Booking status</Label>
+        <Label htmlFor="gigformfields-booking-status-133">Booking status</Label>
         <Select
           value={form.work_status || "__none__"}
           onValueChange={(v) => onChange("work_status", v === "__none__" ? "" : v)}
@@ -174,7 +174,7 @@ export function GigFormBody({
 
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1">
-          <Label>Unit</Label>
+          <Label htmlFor="gigformfields-unit-onchange-177">Unit</Label>
           <Select value={form.unit} onValueChange={(v) => onChange("unit", v)}>
             <SelectTrigger>
               <SelectValue />
@@ -198,7 +198,7 @@ export function GigFormBody({
           />
         </div>
         <div className="space-y-1">
-          <Label>Currency</Label>
+          <Label htmlFor="gigformfields-currency-onchange-201">Currency</Label>
           <Select value={form.currency} onValueChange={(v) => onChange("currency", v)}>
             <SelectTrigger>
               <SelectValue />
@@ -230,7 +230,7 @@ export function GigFormBody({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Payment status</Label>
+          <Label htmlFor="gigformfields-payment-status-onchange-233">Payment status</Label>
           <Select value={form.status} onValueChange={(v) => onChange("status", v)}>
             <SelectTrigger>
               <SelectValue />

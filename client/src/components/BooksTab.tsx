@@ -716,7 +716,7 @@ function ExpenseDialog({
               </div>
 
               <div className="space-y-1">
-                <Label>Payment method</Label>
+                <Label htmlFor="books-payment-method-set-719">Payment method</Label>
                 <Select value={form.payment_method} onValueChange={(v) => set("payment_method", v)}>
                   <SelectTrigger style={{ fontSize: "16px" }}>
                     <SelectValue placeholder="Not specified" />
@@ -1667,11 +1667,11 @@ function TripDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>Date</Label>
+            <Label htmlFor="books-date-1670">Date</Label>
             <Input type="date" value={form.trip_date} onChange={set("trip_date")} />
           </div>
           <div>
-            <Label>From</Label>
+            <Label htmlFor="books-from-1674">From</Label>
             <Input
               list="saved-places-from"
               placeholder="Starting point"
@@ -1681,7 +1681,7 @@ function TripDialog({
             <datalist id="saved-places-from">{placeOptions}</datalist>
           </div>
           <div>
-            <Label>To</Label>
+            <Label htmlFor="books-to-1684">To</Label>
             <Input
               list="saved-places-to"
               placeholder="Destination"
@@ -1692,7 +1692,7 @@ function TripDialog({
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label>Miles</Label>
+              <Label htmlFor="books-miles-1695">Miles</Label>
               <Input
                 type="number"
                 min="1"
@@ -1703,7 +1703,7 @@ function TripDialog({
               />
             </div>
             <div className="flex-1">
-              <Label>Vehicle</Label>
+              <Label htmlFor="books-vehicle-1706">Vehicle</Label>
               <select
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                 value={form.vehicle_type}
@@ -1716,7 +1716,7 @@ function TripDialog({
             </div>
           </div>
           <div>
-            <Label>Purpose</Label>
+            <Label htmlFor="books-purpose-1719">Purpose</Label>
             <Input
               placeholder="Client visit, site survey…"
               value={form.purpose}
@@ -1725,7 +1725,7 @@ function TripDialog({
           </div>
           <JobSelect value={form.job_id} onChange={(v) => setForm((f) => ({ ...f, job_id: v }))} />
           <div>
-            <Label>Notes (optional)</Label>
+            <Label htmlFor="books-notes-1728">Notes (optional)</Label>
             <Textarea rows={2} value={form.notes} onChange={set("notes")} />
           </div>
         </div>
@@ -1988,7 +1988,9 @@ function TimeSection() {
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Date</Label>
+                  <Label htmlFor="books-date-1991" className="text-xs">
+                    Date
+                  </Label>
                   <Input
                     type="date"
                     value={dayForm.work_date}
@@ -1997,7 +1999,9 @@ function TimeSection() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Break (minutes)</Label>
+                  <Label htmlFor="books-break-2000" className="text-xs">
+                    Break (minutes)
+                  </Label>
                   <Input
                     type="number"
                     min={0}
@@ -2007,7 +2011,9 @@ function TimeSection() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Start</Label>
+                  <Label htmlFor="books-start-2010" className="text-xs">
+                    Start
+                  </Label>
                   <Input
                     type="time"
                     value={dayForm.start_time}
@@ -2016,7 +2022,9 @@ function TimeSection() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Finish</Label>
+                  <Label htmlFor="books-finish-2019" className="text-xs">
+                    Finish
+                  </Label>
                   <Input
                     type="time"
                     value={dayForm.finish_time}
@@ -2026,7 +2034,9 @@ function TimeSection() {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Notes (optional)</Label>
+                <Label htmlFor="books-notes-2029" className="text-xs">
+                  Notes (optional)
+                </Label>
                 <Input
                   value={dayForm.notes}
                   onChange={(e) => setDayForm((f) => ({ ...f, notes: e.target.value }))}
@@ -2086,7 +2096,9 @@ function TimeSection() {
               </p>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <Label className="text-xs">Overtime hours to invoice</Label>
+                  <Label htmlFor="books-overtime-hours-to-invoice-2089" className="text-xs">
+                    Overtime hours to invoice
+                  </Label>
                   <Input
                     type="number"
                     min={0}
@@ -2158,7 +2170,9 @@ function TimeSection() {
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">Standard hours per day</Label>
+                    <Label htmlFor="books-standard-hours-per-day-2161" className="text-xs">
+                      Standard hours per day
+                    </Label>
                     <Input
                       type="number"
                       min={1}
@@ -2172,7 +2186,9 @@ function TimeSection() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Overtime rate (£/hr)</Label>
+                    <Label htmlFor="books-overtime-rate-2175" className="text-xs">
+                      Overtime rate (£/hr)
+                    </Label>
                     <Input
                       type="number"
                       min={0}
@@ -3447,6 +3463,7 @@ function OverviewSection({
         <CardContent className="space-y-3 py-4">
           <div className="flex items-center gap-3">
             <label
+              htmlFor="books-label-data-3449"
               data-help="tax.estimate.otherIncome"
               className="w-48 shrink-0 text-sm text-muted-foreground"
             >
@@ -3476,7 +3493,11 @@ function OverviewSection({
             <p className="text-xs text-muted-foreground">salary, pension, rental, etc.</p>
           </div>
           <div className="flex items-center gap-3">
-            <label data-help="tax.scotland" className="w-48 shrink-0 text-sm text-muted-foreground">
+            <label
+              htmlFor="books-scottish-taxpayer-3479"
+              data-help="tax.scotland"
+              className="w-48 shrink-0 text-sm text-muted-foreground"
+            >
               Scottish taxpayer
             </label>
             <input
@@ -3540,7 +3561,10 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">
+            <label
+              htmlFor="books-pension-contributions-3543"
+              className="text-sm text-muted-foreground"
+            >
               Pension contributions (£/year gross)
             </label>
             <div className="relative w-40">
@@ -3606,7 +3630,12 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Gift Aid donations (£/year net)</label>
+            <label
+              htmlFor="books-gift-aid-donations-3609"
+              className="text-sm text-muted-foreground"
+            >
+              Gift Aid donations (£/year net)
+            </label>
             <div className="relative w-40">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 £
@@ -3633,7 +3662,12 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Losses carried forward (£)</label>
+            <label
+              htmlFor="books-losses-carried-forward-3636"
+              className="text-sm text-muted-foreground"
+            >
+              Losses carried forward (£)
+            </label>
             <div className="relative w-40">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 £
@@ -3660,7 +3694,12 @@ function OverviewSection({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Child Benefit received (£/year)</label>
+            <label
+              htmlFor="books-child-benefit-received-3663"
+              className="text-sm text-muted-foreground"
+            >
+              Child Benefit received (£/year)
+            </label>
             <div className="relative w-40">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 £
@@ -4550,7 +4589,7 @@ export function BooksTab() {
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1">
-            <Label>Status</Label>
+            <Label htmlFor="books-status-4553">Status</Label>
             <Select
               value={statusEditForm.status}
               onValueChange={(v) => setStatusEditForm((f) => ({ ...f, status: v }))}
@@ -4569,7 +4608,7 @@ export function BooksTab() {
           {statusEditForm.status === "paid" && (
             <>
               <div className="space-y-1">
-                <Label>Amount received (£) *</Label>
+                <Label htmlFor="books-amount-received-4572">Amount received (£) *</Label>
                 <Input
                   type="number"
                   min="0"
@@ -4580,7 +4619,7 @@ export function BooksTab() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Date paid *</Label>
+                <Label htmlFor="books-date-paid-4583">Date paid *</Label>
                 <Input
                   type="date"
                   value={statusEditForm.datePaid}

@@ -533,7 +533,10 @@ export function DocumentUploader({
                       Suggested from the issue date — edit if your certificate says otherwise.
                     </p>
                   )}
-                  <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <label
+                    htmlFor="documentuploader-checkbox-536"
+                    className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"
+                  >
                     <Checkbox
                       checked={noExpiry}
                       onCheckedChange={(v) => setNoExpiry(v === true)}

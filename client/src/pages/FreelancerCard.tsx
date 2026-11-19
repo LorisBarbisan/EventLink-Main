@@ -792,7 +792,7 @@ export default function FreelancerCard() {
             {/* Card scene — mouse/touch convenience only: it contains links and
                 section buttons, so it can't be a button itself. The real,
                 keyboard-reachable flip control is the button under the card. */}
-            {}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               onClick={() => {
                 if (!detail) setFlipped((f) => !f);

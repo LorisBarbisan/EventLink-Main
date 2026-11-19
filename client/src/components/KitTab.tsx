@@ -250,7 +250,7 @@ function KitItemDialog({
         <div className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <Label>Name *</Label>
+              <Label htmlFor="kit-name-253">Name *</Label>
               <Input
                 value={form.name}
                 onChange={(e) => set("name")(e.target.value)}
@@ -272,7 +272,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Status</Label>
+              <Label htmlFor="kit-status-275">Status</Label>
               <Select value={form.status} onValueChange={set("status")}>
                 <SelectTrigger>
                   <SelectValue />
@@ -287,7 +287,7 @@ function KitItemDialog({
               </Select>
             </div>
             <div>
-              <Label>Manufacturer</Label>
+              <Label htmlFor="kit-manufacturer-290">Manufacturer</Label>
               <Input
                 value={form.manufacturer}
                 onChange={(e) => set("manufacturer")(e.target.value)}
@@ -295,7 +295,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Model</Label>
+              <Label htmlFor="kit-model-298">Model</Label>
               <Input
                 value={form.model}
                 onChange={(e) => set("model")(e.target.value)}
@@ -303,14 +303,14 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Serial number</Label>
+              <Label htmlFor="kit-serial-number-306">Serial number</Label>
               <Input
                 value={form.serial_number}
                 onChange={(e) => set("serial_number")(e.target.value)}
               />
             </div>
             <div>
-              <Label>Quantity</Label>
+              <Label htmlFor="kit-quantity-313">Quantity</Label>
               <Input
                 type="number"
                 min="1"
@@ -319,7 +319,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Purchase date</Label>
+              <Label htmlFor="kit-purchase-date-322">Purchase date</Label>
               <Input
                 type="date"
                 value={form.purchase_date}
@@ -327,7 +327,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Purchase price (£)</Label>
+              <Label htmlFor="kit-purchase-price-330">Purchase price (£)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -337,7 +337,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Currency</Label>
+              <Label htmlFor="kit-currency-340">Currency</Label>
               <Select value={form.currency} onValueChange={set("currency")}>
                 <SelectTrigger>
                   <SelectValue />
@@ -350,7 +350,7 @@ function KitItemDialog({
               </Select>
             </div>
             <div>
-              <Label>Supplier</Label>
+              <Label htmlFor="kit-supplier-353">Supplier</Label>
               <Input
                 value={form.supplier}
                 onChange={(e) => set("supplier")(e.target.value)}
@@ -358,7 +358,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Funding method</Label>
+              <Label htmlFor="kit-funding-method-361">Funding method</Label>
               <Select value={form.funding_method} onValueChange={set("funding_method")}>
                 <SelectTrigger>
                   <SelectValue />
@@ -372,7 +372,7 @@ function KitItemDialog({
               </Select>
             </div>
             <div>
-              <Label>Business use %</Label>
+              <Label htmlFor="kit-business-use-375">Business use %</Label>
               <Input
                 type="number"
                 min="0"
@@ -382,7 +382,7 @@ function KitItemDialog({
               />
             </div>
             <div>
-              <Label>Replacement value (£)</Label>
+              <Label htmlFor="kit-replacement-value-385">Replacement value (£)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -392,7 +392,7 @@ function KitItemDialog({
               />
             </div>
             <div className="col-span-2">
-              <Label>Condition notes</Label>
+              <Label htmlFor="kit-condition-notes-395">Condition notes</Label>
               <Input
                 value={form.condition_notes}
                 onChange={(e) => set("condition_notes")(e.target.value)}
@@ -597,11 +597,15 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
           <div className={box}>
             <div className="mb-2 grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">Date sold</Label>
+                <Label htmlFor="kit-date-sold-setsaledate-600" className="text-xs">
+                  Date sold
+                </Label>
                 <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">Sold for (£)</Label>
+                <Label htmlFor="kit-sold-for-604" className="text-xs">
+                  Sold for (£)
+                </Label>
                 <Input
                   type="number"
                   min="0"

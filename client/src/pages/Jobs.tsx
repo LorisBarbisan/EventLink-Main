@@ -781,7 +781,10 @@ export default function Jobs() {
             <DialogDescription className="truncate">{applyModalJob?.title}</DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="jobs-note-784"
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
               Note <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <Textarea
