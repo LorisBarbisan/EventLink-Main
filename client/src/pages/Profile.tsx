@@ -1066,6 +1066,7 @@ export default function Profile() {
             setFreelancerProfile({
               id: data.id,
               user_id: data.user_id,
+              public_availability: data.public_availability,
               first_name: data.first_name || "",
               last_name: data.last_name || "",
               title: data.title || "",
@@ -1148,6 +1149,7 @@ export default function Profile() {
         setFreelancerProfile({
           id: profileData.id,
           user_id: profileData.user_id,
+          public_availability: profileData.public_availability,
           first_name: profileData.first_name || "",
           last_name: profileData.last_name || "",
           title: profileData.title || "",
@@ -1188,6 +1190,7 @@ export default function Profile() {
             setFreelancerProfile({
               id: data.id,
               user_id: data.user_id,
+              public_availability: data.public_availability,
               first_name: data.first_name || "",
               last_name: data.last_name || "",
               title: data.title || "",
@@ -1707,7 +1710,7 @@ export default function Profile() {
           {isFreelancerSection && (
             <div className="profile-themed">
               {/* Tab bar */}
-              <div className="flex overflow-x-auto border-b border-border">
+              <div className="flex overflow-x-auto overflow-y-hidden border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {[
                   ...themeSections.filter((t) => t !== "calendar"),
                   // Only when the freelancer chose to show their calendar
