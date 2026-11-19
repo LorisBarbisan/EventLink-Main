@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { PublicAvailabilityStrip } from "@/components/PublicAvailability";
+import { PublicAvailabilityMonth, PublicAvailabilityStrip } from "@/components/PublicAvailability";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsPro } from "@/hooks/useIsPro";
@@ -8,6 +8,7 @@ import { useParams } from "wouter";
 import {
   Award,
   ChevronLeft,
+  CalendarDays,
   ChevronRight,
   Download,
   FileText,
@@ -40,8 +41,8 @@ const C = {
   border2: "rgba(0,0,0,0.18)",
 };
 
-type Detail = "about" | "credentials" | "files" | null;
-type RightTab = "about" | "credentials" | "files";
+type Detail = "about" | "credentials" | "files" | "calendar" | null;
+type RightTab = "about" | "credentials" | "files" | "calendar";
 
 export default function FreelancerCard() {
   const { userId } = useParams();
@@ -409,11 +410,6 @@ export default function FreelancerCard() {
             </p>
           )}
           <p style={{ marginTop: 8, fontSize: 11, color: C.text3 }}>{availLabel}</p>
-          {freelancer.public_availability && (
-            <div style={{ marginTop: 12 }}>
-              <PublicAvailabilityStrip data={freelancer.public_availability} />
-            </div>
-          )}
         </div>
       );
     }
@@ -493,6 +489,16 @@ export default function FreelancerCard() {
           {(references as any[]).length === 0 && !isVerified && (
             <p style={{ fontSize: 12, color: C.text3 }}>No credentials added yet.</p>
           )}
+        </div>
+      );
+    }
+    if (type === "calendar" && freelancer.public_availability) {
+      return (
+        <div style={{ fontSize: 12 }}>
+          <PublicAvailabilityStrip data={freelancer.public_availability} />
+          <div style={{ marginTop: 14 }}>
+            <PublicAvailabilityMonth data={freelancer.public_availability} />
+          </div>
         </div>
       );
     }
@@ -706,7 +712,12 @@ export default function FreelancerCard() {
     return <div style={row}>{inner}</div>;
   }
 
-  const DETAIL_PANELS: Detail[] = ["about", "credentials", "files"];
+  const DETAIL_PANELS: Detail[] = [
+    "about",
+    "credentials",
+    "files",
+    ...(freelancer?.public_availability ? (["calendar"] as Detail[]) : []),
+  ];
 
   // Dark mode theme overrides
   const DM = darkMode
@@ -1002,6 +1013,14 @@ export default function FreelancerCard() {
                         label="Files"
                         sub="CV & documents"
                       />
+                      {freelancer.public_availability && (
+                        <SectionBtn
+                          id="calendar"
+                          icon={<CalendarDays style={{ width: 18, height: 18 }} />}
+                          label="Calendar"
+                          sub="When I'm free"
+                        />
+                      )}
 
                       {freelancer.linkedin_url && (
                         <a
@@ -1332,7 +1351,14 @@ export default function FreelancerCard() {
                   gap: 2,
                 }}
               >
-                {(["about", "credentials", "files"] as RightTab[]).map((tab) => (
+                {(
+                  [
+                    "about",
+                    "credentials",
+                    "files",
+                    ...(freelancer.public_availability ? ["calendar"] : []),
+                  ] as RightTab[]
+                ).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setRightTab(tab)}
@@ -1356,13 +1382,16 @@ export default function FreelancerCard() {
 
               {/* Tab content */}
               <div>
+                {rightTab === "calendar" && freelancer.public_availability && (
+                  <div style={{ fontSize: 12, color: DM.text1 }}>
+                    <PublicAvailabilityStrip data={freelancer.public_availability} />
+                    <div style={{ marginTop: 14 }}>
+                      <PublicAvailabilityMonth data={freelancer.public_availability} />
+                    </div>
+                  </div>
+                )}
                 {rightTab === "about" && (
                   <div>
-                    {freelancer.public_availability && (
-                      <div style={{ paddingBottom: 12 }}>
-                        <PublicAvailabilityStrip data={freelancer.public_availability} />
-                      </div>
-                    )}
                     <p
                       style={{
                         fontSize: 13,

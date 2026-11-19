@@ -1572,6 +1572,8 @@ export class DatabaseStorage implements IStorage {
 
     if ((profile as any).profile_is_public !== undefined)
       updateData.profile_is_public = (profile as any).profile_is_public;
+    if ((profile as any).show_calendar_publicly !== undefined)
+      updateData.show_calendar_publicly = Boolean((profile as any).show_calendar_publicly);
 
     // CV fields
     if (profile.cv_file_url !== undefined) updateData.cv_file_url = profile.cv_file_url;

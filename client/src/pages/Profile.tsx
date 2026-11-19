@@ -962,7 +962,7 @@ export default function Profile() {
   }, [profileTheme.font, themeAccent]);
 
   // Profile tabs
-  type TabId = "about" | "references" | "documents" | "contacts";
+  type TabId = "about" | "references" | "documents" | "contacts" | "calendar";
   const [activeTab, setActiveTab] = useState<TabId>("about");
 
   // Generate QR code when Pro modal opens
@@ -1579,13 +1579,6 @@ export default function Profile() {
 
                     <ReferenceBadges freelancerId={freelancerProfile?.user_id || 0} />
 
-                    {freelancerProfile?.public_availability && (
-                      <div className="max-w-sm rounded-lg border p-3 text-left">
-                        <p className="mb-2 text-sm font-semibold">Availability</p>
-                        <PublicAvailabilityMonth data={freelancerProfile.public_availability} />
-                      </div>
-                    )}
-
                     <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                       {!isOwnProfile && user && freelancerProfile && (
                         <SafetyMenu
@@ -1715,7 +1708,11 @@ export default function Profile() {
             <div className="profile-themed">
               {/* Tab bar */}
               <div className="flex overflow-x-auto border-b border-border">
-                {themeSections.map((tab) => (
+                {[
+                  ...themeSections.filter((t) => t !== "calendar"),
+                  // Only when the freelancer chose to show their calendar
+                  ...(freelancerProfile?.public_availability ? (["calendar"] as TabId[]) : []),
+                ].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab as TabId)}
@@ -1791,6 +1788,20 @@ export default function Profile() {
                   viewerRole={user?.role as "freelancer" | "recruiter" | "admin"}
                   publicToken={!user ? publicToken : undefined}
                 />
+              )}
+
+              {/* Calendar tab — only when the freelancer chose to show it */}
+              {activeTab === "calendar" && freelancerProfile?.public_availability && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Availability</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-w-md">
+                      <PublicAvailabilityMonth data={freelancerProfile.public_availability} />
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Contacts tab */}
