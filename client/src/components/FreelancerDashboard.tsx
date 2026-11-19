@@ -467,6 +467,36 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // Opt-in public calendar (profile + card). Off by default.
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [togglingCalendar, setTogglingCalendar] = useState(false);
+  useEffect(() => {
+    const v = (profile as { show_calendar_publicly?: boolean } | undefined)?.show_calendar_publicly;
+    if (v !== undefined) setShowCalendar(!!v);
+  }, [profile]);
+  const toggleShowCalendar = async () => {
+    if (!user?.id) return;
+    setTogglingCalendar(true);
+    const next = !showCalendar;
+    try {
+      await apiRequest(`/api/freelancer/${user.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ show_calendar_publicly: next }),
+      });
+      setShowCalendar(next);
+      toast({
+        title: next ? "Your calendar is now on your profile and card" : "Calendar hidden",
+        description: next
+          ? "Clients see which days you're free, tentative or busy for the next 90 days — never your notes, synced events or booking details. Days you're booked through EventLink show as busy. Mark days in the Calendar tab."
+          : "Your profile and card no longer show your availability.",
+      });
+    } catch {
+      toast({ title: "Failed to update the calendar setting", variant: "destructive" });
+    } finally {
+      setTogglingCalendar(false);
+    }
+  };
+
   const [cardShareUrl, setCardShareUrl] = useState("");
 
   useEffect(() => {
@@ -599,6 +629,20 @@ export default function SimplifiedFreelancerDashboard() {
               className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
             >
               {profileIsPublic ? "Public" : "Private"}
+            </label>
+          </div>
+          <div className="flex items-center gap-1.5" data-help="form.profile.showCalendar">
+            <Switch
+              id="show-calendar-bar"
+              checked={showCalendar}
+              onCheckedChange={toggleShowCalendar}
+              disabled={togglingCalendar}
+            />
+            <label
+              htmlFor="show-calendar-bar"
+              className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
+            >
+              Show calendar
             </label>
           </div>
           <Button
