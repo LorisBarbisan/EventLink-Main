@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNotNull, sql, or, isNull } from "drizzle-orm";
+import { ukToday } from "@shared/job-dates";
 import { db } from "../config/db";
 import { storage } from "../../storage";
 import {
@@ -62,7 +63,7 @@ async function writeRecord(
   if (row.target === "earnings") {
     const description = String(parsed.description ?? "Imported earnings entry");
     const dateAssumed = !parsed.date;
-    const workDate = String(parsed.date ?? new Date().toISOString().slice(0, 10));
+    const workDate = String(parsed.date ?? ukToday());
     const rateRaw = typeof parsed.rate_raw === "string" ? parsed.rate_raw : null;
     const grossPence = typeof parsed.amount_pence === "number" ? parsed.amount_pence : 0;
 
@@ -115,7 +116,7 @@ async function writeRecord(
 
   if (row.target === "expense") {
     const description = String(parsed.description ?? "Imported expense");
-    const expenseDate = String(parsed.date ?? new Date().toISOString().slice(0, 10));
+    const expenseDate = String(parsed.date ?? ukToday());
     // Amounts are what was paid (VAT included); split out VAT when the file gives it.
     const grossPence = typeof parsed.amount_pence === "number" ? Math.abs(parsed.amount_pence) : 0;
     const vatPence =

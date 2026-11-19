@@ -1,4 +1,5 @@
 import { db } from "../config/db";
+import { addDays, ukToday } from "@shared/job-dates";
 import { reportError } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { invoices, invoice_reminders } from "@shared/schema";
@@ -42,7 +43,7 @@ async function runChaser(): Promise<void> {
     if (flipped > 0) console.log(`📋 Invoice chaser: flipped ${flipped} invoice(s) to overdue`);
 
     // 2. Raise per-stage notifications for active invoices
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
 
     for (const rule of STAGES) {
       const targetDate = offsetDate(today, -rule.daysOffset); // the due_date that triggers this stage today
@@ -103,8 +104,5 @@ async function runChaser(): Promise<void> {
   }
 }
 
-function offsetDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+// Calendar-date arithmetic lives in one place (shared/job-dates)
+const offsetDate = addDays;

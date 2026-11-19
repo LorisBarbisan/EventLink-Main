@@ -1,4 +1,5 @@
 import { db } from "../config/db";
+import { ukDate, ukToday } from "@shared/job-dates";
 import { netOfInvoice } from "@shared/invoice-vat";
 import { bookings, jobs, job_applications } from "@shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
@@ -54,7 +55,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
     const existing = await storage.getEarningsEntryByBooking(booking.id);
 
     const { pence: ratePence, needsReview } = parseRatePence(booking.agreedRate || job.rate);
-    const workDate = job.event_date || booking.createdAt.toISOString().slice(0, 10);
+    const workDate = job.event_date || ukDate(booking.createdAt);
     const jobEndDate = job.end_date || null;
     const currency = booking.currency ?? job.currency ?? "GBP";
     const days = daySpan(workDate, jobEndDate);
@@ -143,7 +144,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
  */
 export async function linkInvoiceToEntry(invoice: Invoice): Promise<void> {
   try {
-    const invoicedDate = invoice.issue_date ?? new Date().toISOString().slice(0, 10);
+    const invoicedDate = invoice.issue_date ?? ukToday();
 
     // Try to find the entry by booking first, then by invoice id
     const entry = invoice.booking_id
@@ -197,10 +198,10 @@ export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
   try {
     const paidDate =
       invoice.paid_at instanceof Date
-        ? invoice.paid_at.toISOString().slice(0, 10)
+        ? ukDate(invoice.paid_at)
         : typeof invoice.paid_at === "string"
           ? (invoice.paid_at as string).slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
+          : ukToday();
 
     const entry = await storage.getEarningsEntryByInvoice(invoice.id);
     if (entry) {

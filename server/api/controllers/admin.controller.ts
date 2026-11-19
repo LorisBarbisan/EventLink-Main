@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ukDate, ukToday } from "@shared/job-dates";
 import {
   addTypedSheet,
   createWorkbook,
@@ -679,7 +680,7 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 function isoDay(d: unknown): string | null {
   if (!d) return null;
   const t = new Date(d as string);
-  return Number.isNaN(t.getTime()) ? null : t.toISOString().slice(0, 10);
+  return Number.isNaN(t.getTime()) ? null : ukDate(t);
 }
 
 /** Column specs from headers; anything not listed in `types` is text. */
@@ -888,7 +889,7 @@ export async function exportAdminXLSX(req: Request, res: Response) {
       ])
     );
 
-    const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const filename = `eventlink_admin_export_${ukToday()}.xlsx`;
     await streamWorkbook(wb, res, filename);
     res.end();
   } catch (error) {

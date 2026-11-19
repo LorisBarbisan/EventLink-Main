@@ -1,4 +1,5 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
+import { ukToday } from "@shared/job-dates";
 import { messagingAllowed } from "@shared/safety";
 import { user_blocks, user_reports } from "@shared/schema";
 
@@ -2554,7 +2555,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async closeExpiredJobs(): Promise<number> {
-    const today = new Date().toISOString().split("T")[0];
+    const today = ukToday();
     const result = await db
       .update(jobs)
       .set({ status: "closed", updated_at: new Date() })
@@ -2831,7 +2832,7 @@ export class DatabaseStorage implements IStorage {
       );
 
       // Exclude jobs whose event_date has passed
-      const today = new Date().toISOString().split("T")[0];
+      const today = ukToday();
       conditions.push(or(isNull(jobs.event_date), sql`${jobs.event_date}::date > ${today}::date`));
 
       // Keyword search: title, description, or company (case-insensitive)
@@ -6702,7 +6703,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async flipOverdueInvoices(): Promise<number> {
-    const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const now = ukToday(); // YYYY-MM-DD
     const result = await db
       .update(invoices)
       .set({ status: "overdue", updated_at: new Date() })
@@ -7037,7 +7038,7 @@ export class DatabaseStorage implements IStorage {
       invoice_number: string | null;
     }[]
   > {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     const rows = await db
       .select({
         id: earnings_entries.id,
@@ -7864,7 +7865,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async syncOverdueEntries(freelancerId: number): Promise<number> {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = ukToday(); // YYYY-MM-DD
 
     // Find invoiced entries where the invoice due_date has passed,
     // OR where invoiced_date + billing profile payment_terms_days < today.

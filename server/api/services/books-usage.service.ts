@@ -1,4 +1,5 @@
 import { lt, sql } from "drizzle-orm";
+import { ukDate } from "@shared/job-dates";
 import { reportInfo } from "../utils/error-reporting";
 import { books_usage_events } from "@shared/schema";
 import { db } from "../config/db";
@@ -40,8 +41,7 @@ type RawRow = {
   workbook: boolean;
 };
 
-const iso = (d: Date | string | null): string | null =>
-  d == null ? null : new Date(d).toISOString().slice(0, 10);
+const iso = (d: Date | string | null): string | null => (d == null ? null : ukDate(d));
 
 export async function booksUsage(now: Date = new Date()): Promise<BooksUsageResponse> {
   const unions = BOOKS_AREAS.map(

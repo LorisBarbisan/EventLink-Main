@@ -1,4 +1,5 @@
 import { formatSortCode } from "@shared/invoice-vat";
+import { ukToday } from "@shared/job-dates";
 import { fmtDate } from "@shared/dates";
 import PDFDocument from "pdfkit";
 import https from "https";
@@ -305,7 +306,7 @@ export async function renderBlankTemplatePDF(
     ? await fetchImageBuffer(billingProfile.logo_url)
     : null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ukToday();
   const prefix = billingProfile.invoice_prefix ?? "INV";
 
   const placeholderInvoice = {

@@ -1,4 +1,5 @@
 import connectPgSimple from "connect-pg-simple";
+import { ukToday } from "@shared/job-dates";
 import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
@@ -430,7 +431,7 @@ export async function registerRoutes(
 
       const activeJobs = allJobs.filter((j) => j.status === "active");
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = ukToday();
 
       const staticUrls = [
         `  <url>\n    <loc>${BASE_URL}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n    <lastmod>${today}</lastmod>\n  </url>`,

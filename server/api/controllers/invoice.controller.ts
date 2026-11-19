@@ -1,4 +1,5 @@
 import { fmtDate } from "@shared/dates";
+import { addDays, ukDate, ukToday } from "@shared/job-dates";
 import { formatSortCode, invoiceTotals, isVatRate } from "@shared/invoice-vat";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
@@ -309,7 +310,7 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       email: employerUser?.email ?? null,
     };
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     const dueDate = addDays(today, billingProfile.payment_terms_days);
 
     // Allocate number inside transaction
@@ -371,7 +372,7 @@ export async function createBlankInvoice(req: Request, res: Response) {
         .json({ error: "Please set up your billing profile first", code: "NO_BILLING_PROFILE" });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     const dueDate = addDays(today, billingProfile.payment_terms_days);
     const invoiceNumber = await storage.allocateInvoiceNumber(billingProfile.id);
 
@@ -962,7 +963,7 @@ export async function correctInvoice(req: Request, res: Response) {
       subtotal_pence: original.subtotal_pence,
       vat_pence: original.vat_pence,
       total_pence: original.total_pence,
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: ukToday(),
       due_date: original.due_date ?? undefined,
       notes: original.notes ?? undefined,
       po_number: original.po_number ?? undefined,
@@ -1133,7 +1134,7 @@ export async function exportInvoicesCSV(req: Request, res: Response) {
         net: inv.subtotal_pence / 100,
         vat: (inv.vat_pence ?? 0) / 100,
         gross: inv.total_pence / 100,
-        paid_date: inv.paid_at ? new Date(inv.paid_at).toISOString().slice(0, 10) : "",
+        paid_date: inv.paid_at ? ukDate(inv.paid_at) : "",
         status: inv.status,
       });
     }
@@ -1182,10 +1183,4 @@ function formatMoney(pence: number, currency: string): string {
   const symbol =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   return `${symbol}${amount.toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }

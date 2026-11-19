@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { endOfFollowingMonth, ukToday } from "@shared/job-dates";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
@@ -509,12 +510,10 @@ router.patch("/bulk", auth, async (req: Request, res: Response) => {
       if (status !== "paid") return null;
       if (date_mode === "work_date") return entry.work_date;
       if (date_mode === "end_of_following_month") {
-        const d = new Date(entry.work_date);
-        const eom = new Date(d.getFullYear(), d.getMonth() + 2, 0);
-        return eom.toISOString().slice(0, 10);
+        return endOfFollowingMonth(entry.work_date);
       }
       if (date_mode === "explicit" && typeof paid_date === "string" && paid_date) return paid_date;
-      return new Date().toISOString().slice(0, 10);
+      return ukToday();
     };
 
     // Snapshot before state for undo

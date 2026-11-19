@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ukDate } from "@shared/job-dates";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate, taxQuarters } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
@@ -67,7 +68,7 @@ async function syntheticInvoicePence(
       if (linkedInvoiceIds.has(inv.id)) return false;
       const paidDate =
         inv.paid_at instanceof Date
-          ? inv.paid_at.toISOString().slice(0, 10)
+          ? ukDate(inv.paid_at)
           : typeof inv.paid_at === "string"
             ? (inv.paid_at as string).slice(0, 10)
             : null;
@@ -235,7 +236,7 @@ export async function booksMonthly(req: Request, res: Response) {
       if (linkedInvoiceIds.has(inv.id)) continue;
       const paidDate =
         inv.paid_at instanceof Date
-          ? inv.paid_at.toISOString().slice(0, 10)
+          ? ukDate(inv.paid_at)
           : typeof inv.paid_at === "string"
             ? (inv.paid_at as string).slice(0, 10)
             : null;
@@ -468,7 +469,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         if (linkedInvoiceIds.has(inv.id)) return false;
         const paidDate =
           inv.paid_at instanceof Date
-            ? inv.paid_at.toISOString().slice(0, 10)
+            ? ukDate(inv.paid_at)
             : typeof inv.paid_at === "string"
               ? (inv.paid_at as string).slice(0, 10)
               : null;
@@ -482,7 +483,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
           "Unknown";
         const paidDate =
           inv.paid_at instanceof Date
-            ? inv.paid_at.toISOString().slice(0, 10)
+            ? ukDate(inv.paid_at)
             : (inv.paid_at as unknown as string).slice(0, 10);
         const workDate = inv.issue_date ?? paidDate;
         return {

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ukToday } from "@shared/job-dates";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
 import { priceTaxYear } from "@shared/mileage-split";
@@ -78,7 +79,7 @@ async function findTrip(freelancerId: number, id: number) {
 
 export async function getRate(req: Request, res: Response) {
   const vehicleType = (req.query.vehicle_type as string) ?? "car";
-  const tripDate = (req.query.trip_date as string) ?? new Date().toISOString().slice(0, 10);
+  const tripDate = (req.query.trip_date as string) ?? ukToday();
   const rate = await storage.getActiveRates(vehicleType, tripDate);
   if (!rate) return res.status(404).json({ error: "No rate found" });
   return res.json(rate);

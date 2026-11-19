@@ -12,6 +12,7 @@
  */
 
 import { Router } from "express";
+import { ukToday } from "@shared/job-dates";
 import type { Request, Response } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
@@ -196,7 +197,7 @@ router.get("/kit.csv", auth, async (req: Request, res: Response) => {
       item.id,
     ]);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     sendCsv(res, `eventlink-kit-${today}.csv`, buildCsv({ headers, rows }));
   } catch (err) {
     console.error("kit CSV export error:", err);
@@ -297,7 +298,7 @@ router.get("/invoices.csv", auth, async (req: Request, res: Response) => {
       ]);
     });
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     const filename =
       from && to
         ? exportFilename("eventlink-invoices", from, to)

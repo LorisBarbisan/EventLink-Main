@@ -103,3 +103,24 @@ export function jobHasFinished(
   const last = jobLastDay(job);
   return last != null && last < today;
 }
+
+/**
+ * The UK calendar date of an instant (a timestamp such as paid_at or
+ * created_at), as YYYY-MM-DD. Never toISOString().slice(0, 10): that is the
+ * UTC date, which between midnight and 01:00 in British Summer Time is still
+ * yesterday — enough to move income into the previous tax year.
+ */
+export function ukDate(instant: Date | string | number): string {
+  return ukToday(instant instanceof Date ? instant : new Date(instant));
+}
+
+/** The last day of the month after the given date's month (YYYY-MM-DD). */
+export function endOfFollowingMonth(iso: string): string {
+  const valid = parseCalendarDate(iso);
+  if (!valid) throw new Error(`Not a calendar date: ${iso}`);
+  const [y, m] = valid.split("-").map(Number);
+  // first day of the month two ahead, minus one day
+  const y2 = m >= 11 ? y + 1 : y;
+  const m2 = ((m + 1) % 12) + 1;
+  return addDays(`${String(y2).padStart(4, "0")}-${String(m2).padStart(2, "0")}-01`, -1);
+}

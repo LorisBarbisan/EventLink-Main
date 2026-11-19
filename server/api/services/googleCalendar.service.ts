@@ -1,4 +1,5 @@
 import { OAuth2Client } from "google-auth-library";
+import { ukToday } from "@shared/job-dates";
 import { db } from "../config/db";
 import { calendar_connections } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -178,7 +179,7 @@ function buildEventTimes(
   callTime: string | null
 ): { start: object; end: object } {
   if (!eventDate) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     return { start: { date: today }, end: { date: today } };
   }
 

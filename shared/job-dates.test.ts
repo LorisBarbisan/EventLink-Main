@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   addDays,
   daysBetween,
+  endOfFollowingMonth,
   jobHasFinished,
   jobLastDay,
   parseCalendarDate,
+  ukDate,
   ukToday,
 } from "./job-dates";
 
@@ -100,4 +102,20 @@ describe("completion is the same whatever the server's zone", () => {
       }
     });
   }
+});
+
+describe("UK dates from instants", () => {
+  it("an invoice raised at 00:30 BST on 6 April is dated 6 April, not 5 April", () => {
+    expect(ukDate("2026-04-05T23:30:00Z")).toBe("2026-04-06");
+    expect(ukDate(new Date("2026-04-05T23:30:00Z"))).toBe("2026-04-06");
+  });
+  it("in GMT the UK date is the UTC date", () => {
+    expect(ukDate("2026-01-15T23:30:00Z")).toBe("2026-01-15");
+  });
+  it("end of the following month", () => {
+    expect(endOfFollowingMonth("2026-01-31")).toBe("2026-02-28");
+    expect(endOfFollowingMonth("2027-12-05")).toBe("2028-01-31");
+    expect(endOfFollowingMonth("2027-11-05")).toBe("2027-12-31");
+    expect(endOfFollowingMonth("2028-01-10")).toBe("2028-02-29");
+  });
 });

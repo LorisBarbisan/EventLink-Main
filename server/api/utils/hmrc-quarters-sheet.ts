@@ -12,6 +12,7 @@
  */
 
 import type ExcelJS from "exceljs";
+import { ukToday } from "../../../shared/job-dates";
 import { taxQuarters, type TaxYear } from "../../../shared/tax-periods";
 import { addTypedSheet, type ColSpec } from "./xlsx";
 
@@ -90,7 +91,7 @@ export function addQuartersSheet(
   expenses: DatedAmount[],
   opts: { today?: string; note?: string } = {}
 ): ExcelJS.Worksheet {
-  const today = opts.today ?? new Date().toISOString().slice(0, 10);
+  const today = opts.today ?? ukToday();
   const rows = quarterRows(taxYear, income, expenses, today).map((q) => [
     q.label,
     q.period,
