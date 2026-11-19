@@ -348,6 +348,8 @@ export default function SimplifiedFreelancerDashboard() {
         /* sessionStorage unavailable */
       }
     }
+    // On a phone, land on Edit Profile → Card & Appearance; Books is for a computer
+    if (window.innerWidth < 768) return "profile";
     return "books";
   });
 
