@@ -20,6 +20,9 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run help:check
+      # Accessibility (WCAG Level A mechanics). Rules stay at "warn" so the
+      # pre-commit hook never blocks; here any warning fails the build.
+      - run: npm run lint:a11y
       # Fail on any production dependency with a known critical vulnerability.
       # Raise to --audit-level=high once zod 4 lands (zod + zod-validation-error
       # are the remaining highs; that upgrade is its own change).
