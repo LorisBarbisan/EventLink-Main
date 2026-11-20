@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { estimateTax, BANDS_2024_25, BANDS_2025_26, BANDS_2026_27 } from "./tax-estimate";
+import {
+  estimateTax,
+  bandsForTaxYear,
+  BANDS_2024_25,
+  BANDS_2025_26,
+  BANDS_2026_27,
+} from "./tax-estimate";
 
 /**
  * Known answers, worked by hand from HMRC's 2026/27 rates. These assert
@@ -153,5 +159,67 @@ describe("pension relief at source", () => {
     expect(e.adjustedPersonalAllowancePence).toBe(1_257_000);
     // 47,700 × 20% + 49,730 × 40%
     expect(e.incomeTaxTotalPence / 100).toBe(29_432);
+  });
+});
+
+describe("31 January: the balancing payment is everything Self Assessment collects", () => {
+  it("£70,000, Plan 2, £2,000 Child Benefit", () => {
+    const e = estimateTax(7_000_000, BANDS_2026_27, {
+      studentLoanPlans: ["plan2"],
+      childBenefitAnnualPence: 200_000,
+    });
+    expect(e.totalTaxPence).toBe(1_808_860); // IT 15,432 + Class 4 2,656.60
+    expect(e.studentLoanTotalPence).toBe(365_535); // (70,000 − 29,385) × 9%
+    expect(e.hicbcPence).toBe(100_000); // 50% of £2,000
+    // balancing 18,088.60 + 3,655.35 + 1,000 = 22,743.95
+    // + 1st payment on account: half of (18,088.60 + 1,000) = 9,544.30
+    expect(e.paymentSchedule.januaryPence).toBe(3_228_825);
+    // student loan is never in a payment on account
+    expect(e.paymentSchedule.julyPence).toBe(954_430);
+  });
+});
+
+describe("losses brought forward reduce Class 4 and the student loan too", () => {
+  it("£40,000 less £10,000 is taxed like £30,000", () => {
+    const opts = { studentLoanPlans: ["plan2" as const] };
+    const withLoss = estimateTax(4_000_000, BANDS_2026_27, {
+      ...opts,
+      lossesCarriedForwardPence: 1_000_000,
+    });
+    const plain = estimateTax(3_000_000, BANDS_2026_27, opts);
+    expect(withLoss.incomeTaxTotalPence).toBe(348_600);
+    expect(withLoss.niTotalPence).toBe(104_580);
+    expect(withLoss.studentLoanTotalPence).toBe(5_535);
+    expect(withLoss.niTotalPence).toBe(plain.niTotalPence);
+    expect(withLoss.studentLoanTotalPence).toBe(plain.studentLoanTotalPence);
+  });
+});
+
+describe("Marriage Allowance shows the giver's real cost", () => {
+  it("nil when the reduced allowance still covers the profit", () => {
+    const e = estimateTax(1_000_000, BANDS_2026_27, { marriageAllowance: "giving" });
+    expect(e.marriageAllowancePenceDelta).toBe(0);
+  });
+  it("£252 when the whole £1,260 would have been taxed at 20%", () => {
+    const e = estimateTax(3_000_000, BANDS_2026_27, { marriageAllowance: "giving" });
+    expect(e.marriageAllowancePenceDelta).toBe(25_200);
+  });
+  it("part of it in between: £12,000 profit, £690 newly taxed at 20%", () => {
+    const e = estimateTax(1_200_000, BANDS_2026_27, { marriageAllowance: "giving" });
+    expect(e.marriageAllowancePenceDelta).toBe(13_800);
+  });
+});
+
+describe("a tax year without published rates says so", () => {
+  it("2027/28 borrows 2026/27 figures, keeps its own label and dates", () => {
+    const b = bandsForTaxYear("2027/28");
+    expect(b.provisionalFrom).toBe("2026/27");
+    const e = estimateTax(4_000_000, b);
+    expect(e.taxYearLabel).toBe("2027/28");
+    expect(e.ratesProvisionalFrom).toBe("2026/27");
+    expect(e.paymentSchedule.januaryDate).toBe("31 Jan 2029");
+  });
+  it("a known year is not provisional", () => {
+    expect(bandsForTaxYear("2026/27").provisionalFrom).toBeUndefined();
   });
 });

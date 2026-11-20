@@ -2599,6 +2599,7 @@ interface PaymentSchedule {
 
 interface TaxEstimateData {
   taxYearLabel: string;
+  ratesProvisionalFrom?: string | null;
   netProfitPence: number;
   adjustedPersonalAllowancePence: number;
   otherIncomePence: number;
@@ -3296,6 +3297,12 @@ function OverviewSection({
             </div>
             {taxData && (
               <>
+                {taxData.ratesProvisionalFrom && (
+                  <p className="bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {taxData.taxYearLabel} rates aren&apos;t in EventLink yet, so this uses{" "}
+                    {taxData.ratesProvisionalFrom} rates. Treat it as a rough guide until they are.
+                  </p>
+                )}
                 <div className="flex items-baseline justify-between bg-slate-50 px-5 py-2.5 dark:bg-slate-900/40">
                   <p data-help="tax.estimate" className="text-sm text-muted-foreground">
                     Est. tax &amp; NI ({taxData.effectiveRatePct}%)
@@ -3403,7 +3410,9 @@ function OverviewSection({
                       <p data-help="tax.losses" className="text-sm text-muted-foreground">
                         Losses carried forward
                       </p>
-                      <p className="text-xs text-muted-foreground">IT only — NI unchanged</p>
+                      <p className="text-xs text-muted-foreground">
+                        Reduces Income Tax, NI and student loan
+                      </p>
                     </div>
                     <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                       −{formatPence(taxData.lossReliefPence)}

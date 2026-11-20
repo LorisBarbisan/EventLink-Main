@@ -1872,7 +1872,11 @@ export const mileage_rates = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    vehicleFromIdx: index("mileage_rates_vehicle_from_idx").on(t.vehicle_type, t.effective_from),
+    // Unique since migration 0052: one rate per vehicle per start date
+    vehicleFromKey: uniqueIndex("mileage_rates_vehicle_from_key").on(
+      t.vehicle_type,
+      t.effective_from
+    ),
   })
 );
 

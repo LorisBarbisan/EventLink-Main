@@ -50,6 +50,11 @@ export interface TaxBands {
   scottishRatesPct: [number, number, number, number, number, number];
   /** Student loan repayment thresholds for the year (pence). Updated each April. */
   studentLoanThresholdsPence: Record<StudentLoanPlan, number>;
+  /**
+   * Set when this year's rates aren't in the code yet and an earlier year's
+   * are standing in: the year they come from, e.g. "2026/27".
+   */
+  provisionalFrom?: string;
 }
 
 /** 2024/25 rates — update each April */
@@ -119,9 +124,18 @@ export const BANDS_2026_27: TaxBands = {
 
 const ALL_BANDS: TaxBands[] = [BANDS_2024_25, BANDS_2025_26, BANDS_2026_27];
 
-/** Pick the best matching bands for a tax year label, falling back to latest. */
+/**
+ * The bands for a tax year. A year whose rates aren't in the code yet (the
+ * Budget lands late each year) gets the latest year's figures, labelled with
+ * the year asked for and marked provisional so the screen can say so.
+ */
 export function bandsForTaxYear(label: string): TaxBands {
-  return ALL_BANDS.find((b) => b.taxYear === label) ?? BANDS_2026_27;
+  const known = ALL_BANDS.find((b) => b.taxYear === label);
+  if (known) return known;
+  const latest = ALL_BANDS[ALL_BANDS.length - 1];
+  return /^[0-9]{4}\/[0-9]{2}$/.test(label) && label > latest.taxYear
+    ? { ...latest, taxYear: label, provisionalFrom: latest.taxYear }
+    : latest;
 }
 
 export interface TaxBand {
@@ -186,7 +200,8 @@ export interface TaxOptions {
   giftAidNetPence?: number;
   /**
    * Unused trading losses brought forward from earlier tax years in pence.
-   * Offset against this year's profit for Income Tax only (not Class 4 NI).
+   * Offset against this year's profit from the same trade: reduces Income
+   * Tax, Class 4 NI and the student loan alike.
    */
   lossesCarriedForwardPence?: number;
   /**
@@ -229,6 +244,8 @@ export interface StudentLoanRepayment {
 
 export interface TaxEstimate {
   taxYearLabel: string;
+  /** Non-null when this year's rates aren't published yet: the year used instead */
+  ratesProvisionalFrom: string | null;
   netProfitPence: number;
   adjustedPersonalAllowancePence: number;
   otherIncomePence: number;
@@ -267,9 +284,10 @@ export interface TaxEstimate {
   /** High Income Child Benefit Charge (0 if ANI ≤ £60,000 or no child benefit) */
   hicbcPence: number;
   /**
-   * Marriage Allowance effect in pence.
-   * Positive = tax saving (receiving the allowance, −£252).
-   * Negative = additional tax cost (giving the allowance, +£252).
+   * Marriage Allowance effect on Income Tax in pence.
+   * Negative = saving (receiving the allowance: −£252).
+   * Positive = extra tax for the giver: up to £252, nil when their reduced
+   * allowance still covers their income.
    */
   marriageAllowancePenceDelta: number;
   /** totalTaxPence + studentLoanTotalPence + hicbcPence */
@@ -405,7 +423,11 @@ export function estimateTax(
   const profit = Math.max(0, rawProfit - wfhAllowancePence);
 
   // ── Losses carried forward ───────────────────────────────────────────────────
-  // Offset against IT profit only (not NI). Capped at available profit.
+  // A loss carried forward against later profits of the same trade relieves
+  // Income Tax AND Class 4 NI (Class 4 has its own mirror relief), and the
+  // student loan is worked out on income after it. (Only a loss set against
+  // other income, e.g. a salary, misses Class 4 — not what this field models.)
+  // Capped at available profit.
   const lossReliefPence = Math.min(Math.max(0, options?.lossesCarriedForwardPence ?? 0), profit);
   const profitForIT = profit - lossReliefPence;
 
@@ -446,10 +468,14 @@ export function estimateTax(
   // ── Marriage Allowance (receiver) ────────────────────────────────────────────
   // Tax reducer of 20% × £1,260 = £252. Applied after band calculation.
   const MA_TAX_REDUCER = Math.round((MA_ALLOWANCE_TRANSFER * 20) / 100); // 25_200 pence
+  // The giver's real cost: tax on their whole income with the smaller
+  // allowance minus without. Nil when the reduced allowance still covers it.
+  const totalIncomeTax = (giving: boolean) =>
+    freelanceIncomeTax(itProfit + otherIncome, 0, extension, bands, scotland, giving).totalPence;
   const marriageAllowancePenceDelta = maReceiving
     ? -MA_TAX_REDUCER // saving (reduces bill)
     : maGiving
-      ? MA_TAX_REDUCER // cost (the giver loses their own PA slice)
+      ? totalIncomeTax(true) - totalIncomeTax(false)
       : 0;
   if (maReceiving) {
     incomeTaxTotalPence = Math.max(0, incomeTaxTotalPence - MA_TAX_REDUCER);
@@ -458,14 +484,19 @@ export function estimateTax(
   // ── Class 4 NI ──────────────────────────────────────────────────────────────
   const niBands: TaxBand[] = [];
 
-  const niLower = bandTax(profit, bands.niLowerPence, bands.niUpperPence, bands.niLowerRatePct);
+  const niLower = bandTax(
+    profitForIT,
+    bands.niLowerPence,
+    bands.niUpperPence,
+    bands.niLowerRatePct
+  );
   if (niLower)
     niBands.push({
       ...niLower,
       label: `Class 4 NI ${bands.niLowerRatePct}% on ${formatBandLabel(bands.niLowerPence, bands.niUpperPence)}`,
     });
 
-  const niUpper = bandTax(profit, bands.niUpperPence, Infinity, bands.niUpperRatePct);
+  const niUpper = bandTax(profitForIT, bands.niUpperPence, Infinity, bands.niUpperRatePct);
   if (niUpper)
     niBands.push({
       ...niUpper,
@@ -497,32 +528,10 @@ export function estimateTax(
   const totalTaxPence = incomeTaxTotalPence + niTotalPence;
   const effectiveRatePct = profit > 0 ? Math.round((totalTaxPence / profit) * 1000) / 10 : 0;
 
-  // ── Payments on account ──────────────────────────────────────────────────────
-  // POAs apply when the bill is ≥ £1,000.  Each is 50 % of this year's bill.
-  // Both fall in the year AFTER the tax year ends:
-  //   - 1st POA + balancing payment: 31 January (startYear + 2)
-  //   - 2nd POA:                     31 July    (startYear + 2)
-  const POA_THRESHOLD = 100_000; // £1,000 in pence
-  const poaApplies = totalTaxPence >= POA_THRESHOLD;
-  const startYear = parseInt(bands.taxYear.slice(0, 4), 10);
-  const payYear = startYear + 2;
-  const firstPoaPence = Math.round(totalTaxPence / 2);
-  const secondPoaPence = totalTaxPence - firstPoaPence;
-  // januaryPence = balancing payment (this year's tax) + 1st POA for next year
-  const januaryPence = poaApplies ? totalTaxPence + firstPoaPence : totalTaxPence;
-  const julyPence = poaApplies ? secondPoaPence : 0;
-  const paymentSchedule: PaymentSchedule = {
-    poaApplies,
-    januaryPence,
-    julyPence,
-    januaryDate: `31 Jan ${payYear}`,
-    julyDate: `31 Jul ${payYear}`,
-  };
-
   // ── Student loan repayments ─────────────────────────────────────────────────
-  // Self-employed earners repay via Self Assessment on total gross income
-  // (profit + other income) above the plan threshold.
-  const totalGross = profit + otherIncome;
+  // Self-employed earners repay via Self Assessment on total income (profit
+  // after losses brought forward + other income) above the plan threshold.
+  const totalGross = profitForIT + otherIncome;
   const studentLoanRepayments: StudentLoanRepayment[] = (options?.studentLoanPlans ?? []).map(
     (plan) => {
       const cfg = STUDENT_LOAN_PLANS[plan];
@@ -555,8 +564,35 @@ export function estimateTax(
       ? Math.floor((childBenefitPence * hicbcPct) / 100 / 100) * 100
       : 0;
 
+  // ── 31 January and 31 July ───────────────────────────────────────────────────
+  // Both fall in the year AFTER the tax year ends:
+  //   - balancing payment + 1st payment on account: 31 January (startYear + 2)
+  //   - 2nd payment on account:                     31 July    (startYear + 2)
+  // The balancing payment is everything Self Assessment collects: Income Tax,
+  // Class 4, the Child Benefit charge AND the student loan. Payments on
+  // account (each half the year's bill, when it's £1,000 or more) cover
+  // Income Tax — HICBC included — and Class 4, but never the student loan.
+  const POA_THRESHOLD = 100_000; // £1,000 in pence
+  const poaBasePence = totalTaxPence + hicbcPence;
+  const poaApplies = poaBasePence >= POA_THRESHOLD;
+  const startYear = parseInt(bands.taxYear.slice(0, 4), 10);
+  const payYear = startYear + 2;
+  const firstPoaPence = Math.round(poaBasePence / 2);
+  const secondPoaPence = poaBasePence - firstPoaPence;
+  const balancingPence = totalTaxPence + hicbcPence + studentLoanTotalPence;
+  const januaryPence = poaApplies ? balancingPence + firstPoaPence : balancingPence;
+  const julyPence = poaApplies ? secondPoaPence : 0;
+  const paymentSchedule: PaymentSchedule = {
+    poaApplies,
+    januaryPence,
+    julyPence,
+    januaryDate: `31 Jan ${payYear}`,
+    julyDate: `31 Jul ${payYear}`,
+  };
+
   return {
     taxYearLabel: bands.taxYear,
+    ratesProvisionalFrom: bands.provisionalFrom ?? null,
     netProfitPence: rawProfit,
     adjustedPersonalAllowancePence: adjustedPA,
     otherIncomePence: otherIncome,
