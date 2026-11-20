@@ -9,16 +9,13 @@
  *                 VAT to be worked out on the invoice total)
  *   total       = subtotal + VAT
  */
-import { invoiceTotals, type VatProfile } from "./invoice-vat";
+import { invoiceTotals, roundPence, type VatProfile } from "./invoice-vat";
+
+export { roundPence };
 
 export interface InvoiceLineInput {
   quantity: number | string;
   unit_price_pence: number | string;
-}
-
-/** Round to the nearest penny, halves away from zero (−0.5p → −1p, not 0). */
-export function roundPence(x: number): number {
-  return Math.sign(x) * Math.round(Math.abs(x));
 }
 
 export function lineTotalPence(quantity: number | string, unitPricePence: number | string): number {

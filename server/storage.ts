@@ -6,7 +6,13 @@ import { user_blocks, user_reports } from "@shared/schema";
 /** A user as the messaging queries select them — not every column of the row. */
 type MessagingUser = Omit<
   User,
-  "credential_reminders_opt_out" | "help_mode" | "email_suppressed_at" | "email_suppression_reason"
+  | "credential_reminders_opt_out"
+  | "help_mode"
+  | "email_suppressed_at"
+  | "email_suppression_reason"
+  | "pending_email"
+  | "pending_email_token"
+  | "pending_email_expires"
 >;
 import {
   contact_messages,

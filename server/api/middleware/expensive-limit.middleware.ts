@@ -26,6 +26,39 @@ export const expensiveWorkLimiter = rateLimit({
 });
 
 /**
+ * "It's fixed — try again" resumes sending to an address already known to
+ * be bad, and it's the button a frustrated person presses repeatedly. A few
+ * an hour is plenty; the bounce webhook re-suppresses if it's still broken.
+ */
+export const emailResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const id = (req as Request & { user?: { id?: number } }).user?.id;
+    return id ? `user:${id}` : `ip:${ipKeyGenerator(req.ip ?? "")}`;
+  },
+  message: {
+    error:
+      "You've tried this a few times this hour. If emails still aren't arriving, change your address instead.",
+  },
+});
+
+/** Requests to change your email address: each sends an email to a new address. */
+export const emailChangeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const id = (req as Request & { user?: { id?: number } }).user?.id;
+    return id ? `user:${id}` : `ip:${ipKeyGenerator(req.ip ?? "")}`;
+  },
+  message: { error: "Too many address changes this hour — please try again later." },
+});
+
+/**
  * Receipt uploads get their own, roomier allowance: filing a stack of
  * receipts at a desk is a real burst, and shouldn't eat the export budget.
  */

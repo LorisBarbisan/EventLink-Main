@@ -98,6 +98,10 @@ const STATEMENTS = [
   // Migration 0050 — email suppression (bounces / complaints)
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_suppressed_at timestamptz`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_suppression_reason text`,
+  // Migration 0051 — changing your email address
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email_token text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email_expires timestamptz`,
   // Migration 0047 — hot-table indexes. CONCURRENTLY so a boot never blocks
   // writes; each statement runs on its own (not in a transaction), which
   // CONCURRENTLY requires. A no-op once the migration has been run on Neon.

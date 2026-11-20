@@ -17,6 +17,22 @@ export function suppressionFor(event: {
 }
 
 /**
+ * The signature covers the timestamp, so it can't be altered — but without
+ * an age limit a captured genuine event could be replayed for ever (e.g. to
+ * re-suppress an address right after its owner clears it). SendGrid signs
+ * each delivery attempt when it makes it, retries included.
+ */
+export const SENDGRID_MAX_AGE_SECONDS = 600;
+export function isFreshTimestamp(
+  timestamp: string,
+  nowSeconds = Date.now() / 1000,
+  maxAgeSeconds = SENDGRID_MAX_AGE_SECONDS
+): boolean {
+  if (!/^[0-9]+$/.test(timestamp)) return false;
+  return Math.abs(nowSeconds - Number(timestamp)) <= maxAgeSeconds;
+}
+
+/**
  * SendGrid's signed event webhook: ECDSA over (timestamp + raw body), public
  * key from the SendGrid settings page (base64 DER). Fails closed.
  */

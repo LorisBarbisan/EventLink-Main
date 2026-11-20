@@ -69,4 +69,14 @@ describe("invoice arithmetic", () => {
     expect(roundPence(-0.5)).toBe(-1);
     expect(roundPence(0.5)).toBe(1);
   });
+
+  it("VAT on a negative half-penny rounds away from zero too (one rule)", () => {
+    // credit of −10p at 5%: −0.5p → −1p, not −0
+    const r = invoiceAmounts([{ quantity: 1, unit_price_pence: -10 }], {
+      vat_registered: true,
+      vat_rate_pct: 5,
+    });
+    expect(r.vat_pence).toBe(-1);
+    expect(r.total_pence).toBe(-11);
+  });
 });

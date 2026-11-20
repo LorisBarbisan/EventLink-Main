@@ -32,3 +32,14 @@ describe("verifySendgridSignature", () => {
     expect(verifySendgridSignature("nope", body, sig, ts)).toBe(false);
   });
 });
+
+import { isFreshTimestamp } from "./sendgrid-events";
+describe("webhook timestamp freshness", () => {
+  it("accepts within 10 minutes either way, refuses older or malformed", () => {
+    expect(isFreshTimestamp("1000", 1300)).toBe(true);
+    expect(isFreshTimestamp("1000", 1601)).toBe(false);
+    expect(isFreshTimestamp("2000", 1300)).toBe(false);
+    expect(isFreshTimestamp("abc", 1300)).toBe(false);
+    expect(isFreshTimestamp("", 1300)).toBe(false);
+  });
+});

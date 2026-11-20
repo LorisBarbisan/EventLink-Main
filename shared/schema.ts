@@ -41,6 +41,10 @@ export const users = pgTable(
     >(),
     email_verification_token: text("email_verification_token"),
     email_verification_expires: timestamp("email_verification_expires"),
+    // A requested change of address, waiting for the link sent to it
+    pending_email: text("pending_email"),
+    pending_email_token: text("pending_email_token"),
+    pending_email_expires: timestamp("pending_email_expires", { withTimezone: true }),
     password_reset_token: text("password_reset_token"),
     password_reset_expires: timestamp("password_reset_expires", { withTimezone: true }),
     // Social auth fields

@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ChangeEmailDialog } from "@/components/ChangeEmailDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -413,6 +414,15 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 >
                   {showEmail ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
+                {!isOAuthUser && (
+                  <ChangeEmailDialog
+                    trigger={
+                      <Button variant="outline" size="sm" data-testid="button-change-email">
+                        Change
+                      </Button>
+                    }
+                  />
+                )}
               </div>
             </div>
             <div>

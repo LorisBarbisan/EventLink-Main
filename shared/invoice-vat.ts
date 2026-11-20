@@ -22,12 +22,20 @@ export function invoiceVatRate(profile: VatProfile | null | undefined): VatRate 
   return isVatRate(profile.vat_rate_pct) ? profile.vat_rate_pct : 20;
 }
 
+/**
+ * Round to the nearest penny, halves away from zero (−0.5p → −1p, not 0).
+ * The one rounding rule for invoices; re-exported from invoice-math.
+ */
+export function roundPence(x: number): number {
+  return Math.sign(x) * Math.round(Math.abs(x)) + 0; // + 0 turns −0 into 0
+}
+
 export function invoiceTotals(
   subtotalPence: number,
   profile: VatProfile | null | undefined
 ): { vat_pence: number; total_pence: number; rate: VatRate | null } {
   const rate = invoiceVatRate(profile);
-  const vat = rate ? Math.round((subtotalPence * rate) / 100) : 0;
+  const vat = rate ? roundPence((subtotalPence * rate) / 100) : 0;
   return { vat_pence: vat, total_pence: subtotalPence + vat, rate };
 }
 

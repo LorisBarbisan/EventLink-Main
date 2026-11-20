@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { invoiceAmounts } from "@shared/invoice-math";
 import { addDays, ukToday } from "@shared/job-dates";
 import { invoiceTotals } from "@shared/invoice-vat";
@@ -39,6 +39,7 @@ import {
   Settings,
   ChevronDown,
   FilePen,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -79,11 +80,41 @@ async function downloadBlankTemplate(format: "pdf" | "doc", prefix: string) {
 
 // A PDF is built on the server for each request: ignore repeat taps while one
 // is already on its way (a slow connection otherwise builds it several times).
+// The guard is the backstop; usePdfPending lets each button show it's busy.
 const pdfInFlight = new Set<number>();
+const pdfListeners = new Set<() => void>();
+function setPdfInFlight(id: number, on: boolean) {
+  if (on) pdfInFlight.add(id);
+  else pdfInFlight.delete(id);
+  pdfListeners.forEach((l) => l());
+}
+function usePdfPending(invoiceId: number): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      pdfListeners.add(cb);
+      return () => pdfListeners.delete(cb);
+    },
+    () => pdfInFlight.has(invoiceId)
+  );
+}
+
+/** Download button for one invoice's PDF: disabled and labelled while it's built. */
+function PdfButton({
+  invoiceId,
+  invoiceNumber,
+  render,
+}: {
+  invoiceId: number;
+  invoiceNumber: string;
+  render: (p: { pending: boolean; onClick: () => void }) => React.ReactNode;
+}) {
+  const pending = usePdfPending(invoiceId);
+  return <>{render({ pending, onClick: () => downloadInvoicePDF(invoiceId, invoiceNumber) })}</>;
+}
 
 async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
   if (pdfInFlight.has(invoiceId)) return;
-  pdfInFlight.add(invoiceId);
+  setPdfInFlight(invoiceId, true);
   try {
     const token = localStorage.getItem("auth_token");
     const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
@@ -107,7 +138,7 @@ async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
     console.error(err);
     alert("Could not download PDF. Please try again.");
   } finally {
-    pdfInFlight.delete(invoiceId);
+    setPdfInFlight(invoiceId, false);
   }
 }
 
@@ -1358,15 +1389,27 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="mr-auto gap-2"
-            onClick={() => downloadInvoicePDF(invoice.id, invoice.invoice_number)}
-          >
-            <Download className="h-4 w-4" />
-            PDF
-          </Button>
+          <PdfButton
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
+            render={({ pending, onClick }) => (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mr-auto gap-2"
+                onClick={onClick}
+                disabled={pending}
+                aria-busy={pending}
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {pending ? "Building your invoice…" : "PDF"}
+              </Button>
+            )}
+          />
           <Button variant="outline" onClick={onClose}>
             {currentStatus === "draft" ? "Discard changes" : "Close"}
           </Button>
@@ -1533,14 +1576,31 @@ function InvoiceRow({
               <Briefcase className="h-4 w-4" />
             </button>
           )}
-          <button
-            data-help="books.invoices.download"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-            title="Download PDF"
-            onClick={() => downloadInvoicePDF(invoice.id, invoice.invoice_number)}
-          >
-            <Download className="h-4 w-4" />
-          </button>
+          <PdfButton
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
+            render={({ pending, onClick }) => (
+              <button
+                data-help="books.invoices.download"
+                className="text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait"
+                title={pending ? "Building your invoice…" : "Download PDF"}
+                aria-label={
+                  pending
+                    ? `Building ${invoice.invoice_number}…`
+                    : `Download ${invoice.invoice_number} as PDF`
+                }
+                onClick={onClick}
+                disabled={pending}
+                aria-busy={pending}
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </button>
+            )}
+          />
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <Button
               data-help="books.invoices.markPaid"
@@ -2139,14 +2199,30 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                           </td>
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2">
-                              <button
-                                className="text-muted-foreground transition-colors hover:text-foreground"
-                                title="Download PDF"
-                                aria-label={`Download ${inv.invoice_number} as PDF`}
-                                onClick={() => downloadInvoicePDF(inv.id, inv.invoice_number)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </button>
+                              <PdfButton
+                                invoiceId={inv.id}
+                                invoiceNumber={inv.invoice_number}
+                                render={({ pending, onClick }) => (
+                                  <button
+                                    className="text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait"
+                                    title={pending ? "Building your invoice…" : "Download PDF"}
+                                    aria-label={
+                                      pending
+                                        ? `Building ${inv.invoice_number}…`
+                                        : `Download ${inv.invoice_number} as PDF`
+                                    }
+                                    onClick={onClick}
+                                    disabled={pending}
+                                    aria-busy={pending}
+                                  >
+                                    {pending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Download className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                )}
+                              />
                               <button
                                 className="text-muted-foreground transition-colors hover:text-foreground"
                                 title="Unarchive"
