@@ -31,6 +31,37 @@ const entries: HelpEntry[] = [
     version: 1,
   },
 
+  // ── Your business (Overview) ───────────────────────────────────────────────
+  {
+    key: "books.business.details",
+    scope: "field",
+    title: "Your business",
+    body: "Entered once and used on every invoice and on the workbook you send your accountant.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.business.snapshot",
+    scope: "field",
+    body: "Each invoice keeps the details it was sent with, so correcting an old invoice means issuing a replacement.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.business.vat",
+    scope: "field",
+    body: "Turning this on adds VAT to every new invoice; your earnings stay net because the VAT belongs to HMRC.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.business.utr",
+    scope: "field",
+    body: "Your ten-digit Unique Taxpayer Reference from HMRC, printed on your invoices and the workbook.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+
   // ── Earnings ───────────────────────────────────────────────────────────────
   {
     key: "books.section.earnings",

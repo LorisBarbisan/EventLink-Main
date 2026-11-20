@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFreelancerJobs } from "@/hooks/useFreelancerJobs";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { BusinessDetailsCard } from "@/components/BusinessDetailsCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3506,6 +3507,9 @@ function OverviewSection({
 
       {/* ── Set-aside calculator ── */}
       {taxData && taxData.paymentSchedule.januaryPence > 0 && <SetAsideCard taxData={taxData} />}
+
+      {/* ── Your business: who you are, used on invoices and the workbook ── */}
+      <BusinessDetailsCard />
 
       {/* ── Tax settings ── */}
       <Card className="overflow-hidden">

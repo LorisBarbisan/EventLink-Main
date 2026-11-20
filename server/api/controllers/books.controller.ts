@@ -450,15 +450,18 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [entries, clients, roles, expenses, trips, invoices, kit] = await Promise.all([
-      storage.listEarningsEntries(freelancerId, { archived: false }),
-      storage.listEarningsClients(freelancerId),
-      storage.listEarningsRoles(freelancerId),
-      storage.listExpensesForExport(freelancerId, from, to),
-      storage.listMileageTrips(freelancerId, from, to),
-      storage.getInvoicesByFreelancer(freelancerId),
-      storage.listKitItems(freelancerId, true),
-    ]);
+    const [entries, clients, roles, expenses, trips, invoices, kit, business, owner] =
+      await Promise.all([
+        storage.listEarningsEntries(freelancerId, { archived: false }),
+        storage.listEarningsClients(freelancerId),
+        storage.listEarningsRoles(freelancerId),
+        storage.listExpensesForExport(freelancerId, from, to),
+        storage.listMileageTrips(freelancerId, from, to),
+        storage.getInvoicesByFreelancer(freelancerId),
+        storage.listKitItems(freelancerId, true),
+        storage.getBillingProfile(freelancerId),
+        storage.getUser(freelancerId),
+      ]);
 
     const clientMap = new Map(clients.map((c) => [c.id, c.name]));
     const roleMap = new Map(roles.map((r) => [r.id, r.label]));
@@ -568,15 +571,40 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       month: "short",
       year: "numeric",
     });
+    // Whose books these are, so an accountant opening the file needn't ask
+    const personName = [owner?.first_name, owner?.last_name].filter(Boolean).join(" ");
+    const tradingName = business?.trading_name || personName || "";
+    const address = [
+      business?.address_line1,
+      business?.address_line2,
+      business?.city,
+      business?.postcode,
+      business?.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    const whose: Array<{ label: string; value: string; text: true }> = [];
+    if (tradingName) whose.push({ label: "Name", value: tradingName, text: true });
+    if (personName && personName !== tradingName)
+      whose.push({ label: "Proprietor", value: personName, text: true });
+    if (address) whose.push({ label: "Address", value: address, text: true });
+    if (business?.utr) whose.push({ label: "UTR", value: business.utr, text: true });
+    if (business?.company_number)
+      whose.push({ label: "Company number", value: business.company_number, text: true });
+    if (business?.vat_registered && business.vat_number)
+      whose.push({ label: "VAT number", value: business.vat_number, text: true });
+    whose.push({ label: "Tax year", value: taxYearForDate(from).label, text: true });
+
     addSummarySheet(
       wb,
       "Summary",
       {
-        title: "Books summary",
+        title: tradingName ? `Books summary — ${tradingName}` : "Books summary",
         subtitle: `${fmtLongDate(from)} to ${fmtLongDate(to)}`,
         meta: `Generated ${generated}. Cash basis.`,
       },
       [
+        { heading: "Whose books", lines: whose },
         {
           heading: "Income",
           lines: [

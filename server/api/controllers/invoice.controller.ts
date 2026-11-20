@@ -68,8 +68,12 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     }
   }
 
-  // Never log or return raw bank details — accept but don't echo them
-  const data: any = {
+  // Never log or return raw bank details — accept but don't echo them.
+  // Only fields actually sent are written: the Overview saves your business
+  // details and the invoice setup saves bank and numbering, and neither may
+  // blank the other's fields.
+  const data: any = {};
+  const textFields = {
     trading_name,
     address_line1,
     address_line2,
@@ -82,6 +86,9 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     company_number,
     invoice_footer_note,
   };
+  for (const [k, v] of Object.entries(textFields)) {
+    if (v !== undefined) data[k] = typeof v === "string" ? v.trim() || null : v;
+  }
   if (bank_account_name !== undefined) data.bank_account_name = bank_account_name;
   if (bank_sort_code !== undefined)
     data.bank_sort_code = bank_sort_code ? formatSortCode(String(bank_sort_code)) : null;
