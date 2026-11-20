@@ -76,7 +76,13 @@ async function downloadBlankTemplate(format: "pdf" | "doc", prefix: string) {
   }
 }
 
+// A PDF is built on the server for each request: ignore repeat taps while one
+// is already on its way (a slow connection otherwise builds it several times).
+const pdfInFlight = new Set<number>();
+
 async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
+  if (pdfInFlight.has(invoiceId)) return;
+  pdfInFlight.add(invoiceId);
   try {
     const token = localStorage.getItem("auth_token");
     const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
@@ -99,6 +105,8 @@ async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
   } catch (err) {
     console.error(err);
     alert("Could not download PDF. Please try again.");
+  } finally {
+    pdfInFlight.delete(invoiceId);
   }
 }
 
