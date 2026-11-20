@@ -1,7 +1,9 @@
 [build]
 builder = "nixpacks"
-# npm ci installs exactly package-lock.json — the same tree CI tests
-buildCommand = "npm ci && npm run build"
+# Nixpacks already runs `npm ci` (exactly package-lock.json, the tree CI
+# tests) in its install phase. Don't install again here: a second `npm ci`
+# tries to delete the mounted node_modules/.cache and fails with EBUSY.
+buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm run start"
