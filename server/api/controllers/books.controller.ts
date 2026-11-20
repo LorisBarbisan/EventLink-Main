@@ -330,8 +330,12 @@ export async function taxEstimate(req: Request, res: Response) {
     // Determine which tax year bands to use — prefer DB row, fall back to hardcoded
     const ty = taxYearForDate(from);
     const dbRate = await storage.getTaxRate(ty.label);
+    // A stored row overrides the built-in year field by field, so a row saved
+    // before a field existed (Scottish limits, student loan thresholds) still
+    // gets the built-in value instead of undefined.
     const bands = dbRate
       ? ({
+          ...bandsForTaxYear(ty.label),
           ...(dbRate.bands as object),
           taxYear: ty.label,
         } as import("@shared/tax-estimate").TaxBands)

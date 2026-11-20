@@ -2621,6 +2621,7 @@ interface TaxEstimateData {
   studentLoanTotalPence: number;
   pensionGrossPence: number;
   pensionTaxSavingPence: number;
+  pensionExtraReliefPence: number;
   wfhAllowancePence: number;
   giftAidGrossPence: number;
   lossReliefPence: number;
@@ -3367,7 +3368,16 @@ function OverviewSection({
                       <p data-help="tax.pension" className="text-sm text-muted-foreground">
                         Pension contribution (gross {formatPence(taxData.pensionGrossPence)})
                       </p>
-                      <p className="text-xs text-muted-foreground">IT saving — NI unchanged</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatPence(
+                          taxData.pensionTaxSavingPence - taxData.pensionExtraReliefPence
+                        )}{" "}
+                        added to your pot by the provider
+                        {taxData.pensionExtraReliefPence > 0
+                          ? `, ${formatPence(taxData.pensionExtraReliefPence)} off this bill`
+                          : ""}{" "}
+                        — NI unchanged
+                      </p>
                     </div>
                     <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                       saves {formatPence(taxData.pensionTaxSavingPence)}
@@ -3628,7 +3638,8 @@ function OverviewSection({
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Reduces taxable income for IT (not NI) — SIPP, workplace pension, etc.
+              Personal pension or SIPP: what you paid plus the 25% top-up. Leave out a workplace
+              pension taken from your salary.
             </p>
           </div>
           <div className="space-y-1.5">

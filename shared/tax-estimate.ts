@@ -38,6 +38,18 @@ export interface TaxBands {
    * 52 weeks, so the yearly figure is weekly × 52.
    */
   class2WeeklyPence: number;
+  /**
+   * Scottish rate limits, as HMRC and the Scottish Rate Resolution state
+   * them: amounts of income ABOVE the personal allowance, in pence —
+   * [starter, basic, intermediate, higher, advanced]. The advanced limit is
+   * £125,140 (the same as the rUK higher rate limit), above which the top
+   * rate applies. Set by the Scottish Budget each winter.
+   */
+  scottishLimitsPence: [number, number, number, number, number];
+  /** Scottish rates for [starter, basic, intermediate, higher, advanced, top] */
+  scottishRatesPct: [number, number, number, number, number, number];
+  /** Student loan repayment thresholds for the year (pence). Updated each April. */
+  studentLoanThresholdsPence: Record<StudentLoanPlan, number>;
 }
 
 /** 2024/25 rates — update each April */
@@ -56,23 +68,53 @@ export const BANDS_2024_25: TaxBands = {
   niUpperRatePct: 2,
   smallProfitsThresholdPence: 672_500, // £6,725
   class2WeeklyPence: 345, // £3.45
+  // Starter to £14,876, basic to £26,561, intermediate to £43,662,
+  // higher to £75,000, advanced to £125,140
+  scottishLimitsPence: [230_600, 1_399_100, 3_109_200, 6_243_000, 12_514_000],
+  scottishRatesPct: [19, 20, 21, 42, 45, 48],
+  studentLoanThresholdsPence: {
+    plan1: 2_499_000, // £24,990
+    plan2: 2_729_500, // £27,295
+    plan4: 3_139_500, // £31,395
+    plan5: 2_500_000, // £25,000
+    postgrad: 2_100_000, // £21,000
+  },
 };
 
-/** 2025/26 — same rates as 2024/25 (thresholds frozen) */
+/** 2025/26 — UK rates as 2024/25 (thresholds frozen) */
 export const BANDS_2025_26: TaxBands = {
   ...BANDS_2024_25,
   taxYear: "2025/26",
   smallProfitsThresholdPence: 684_500, // £6,845
   class2WeeklyPence: 350, // £3.50
+  // Starter to £15,397, basic to £27,491; the rest unchanged
+  scottishLimitsPence: [282_700, 1_492_100, 3_109_200, 6_243_000, 12_514_000],
+  studentLoanThresholdsPence: {
+    plan1: 2_606_500, // £26,065
+    plan2: 2_847_000, // £28,470
+    plan4: 3_274_500, // £32,745
+    plan5: 2_500_000, // £25,000
+    postgrad: 2_100_000, // £21,000
+  },
 };
 
-/** 2026/27 — same rates (thresholds still frozen per current policy) */
+/** 2026/27 — UK rates as before (thresholds still frozen) */
 export const BANDS_2026_27: TaxBands = {
   ...BANDS_2024_25,
   taxYear: "2026/27",
   // Checked against GOV.UK, 17 Nov 2026
   smallProfitsThresholdPence: 710_500, // £7,105
   class2WeeklyPence: 365, // £3.65
+  // Checked against GOV.UK and gov.scot, 20 Nov 2026.
+  // Starter to £16,537, basic to £29,526; the rest unchanged
+  scottishLimitsPence: [396_700, 1_695_600, 3_109_200, 6_243_000, 12_514_000],
+  studentLoanThresholdsPence: {
+    plan1: 2_690_000, // £26,900
+    plan2: 2_938_500, // £29,385 (frozen for three years from 2026/27)
+    plan4: 3_379_500, // £33,795
+    plan5: 2_500_000, // £25,000
+    postgrad: 2_100_000, // £21,000
+  },
 };
 
 const ALL_BANDS: TaxBands[] = [BANDS_2024_25, BANDS_2025_26, BANDS_2026_27];
@@ -81,21 +123,6 @@ const ALL_BANDS: TaxBands[] = [BANDS_2024_25, BANDS_2025_26, BANDS_2026_27];
 export function bandsForTaxYear(label: string): TaxBands {
   return ALL_BANDS.find((b) => b.taxYear === label) ?? BANDS_2026_27;
 }
-
-/**
- * Scottish Income Tax thresholds for 2024/25 (same for 2025/26 and 2026/27
- * pending Scottish Budget — update each December).
- * Format: [bandLowerPence, bandUpperPence, ratePct]
- * The first entry's lower is replaced with adjustedPA inside estimateTax.
- */
-const SCOTLAND_IT_THRESHOLDS: [number, number, number][] = [
-  [1_257_000, 1_487_600, 19], // Starter  (£12,570 – £14,876)
-  [1_487_600, 2_656_100, 20], // Basic    (£14,876 – £26,561)
-  [2_656_100, 4_366_200, 21], // Intermediate (£26,561 – £43,662)
-  [4_366_200, 7_500_000, 42], // Higher   (£43,662 – £75,000)
-  [7_500_000, 12_514_000, 45], // Advanced (£75,000 – £125,140)
-  [12_514_000, Infinity, 48], // Top      (above £125,140)
-];
 
 export interface TaxBand {
   label: string;
@@ -114,16 +141,13 @@ export const WFH_TIERS = {
 /** UK student loan repayment plans available to self-employed earners */
 export type StudentLoanPlan = "plan1" | "plan2" | "plan4" | "plan5" | "postgrad";
 
-/** Thresholds and rates per plan (2024/25 onwards) — pence per year */
-export const STUDENT_LOAN_PLANS: Record<
-  StudentLoanPlan,
-  { label: string; thresholdPence: number; ratePct: number }
-> = {
-  plan1: { label: "Plan 1", thresholdPence: 2_499_000, ratePct: 9 }, // £24,990
-  plan2: { label: "Plan 2", thresholdPence: 2_729_500, ratePct: 9 }, // £27,295
-  plan4: { label: "Plan 4 (Scotland)", thresholdPence: 3_139_500, ratePct: 9 }, // £31,395
-  plan5: { label: "Plan 5", thresholdPence: 2_500_000, ratePct: 9 }, // £25,000
-  postgrad: { label: "Postgraduate", thresholdPence: 2_100_000, ratePct: 6 }, // £21,000
+/** Label and rate per plan. Thresholds change each April: see TaxBands. */
+export const STUDENT_LOAN_PLANS: Record<StudentLoanPlan, { label: string; ratePct: number }> = {
+  plan1: { label: "Plan 1", ratePct: 9 },
+  plan2: { label: "Plan 2", ratePct: 9 },
+  plan4: { label: "Plan 4 (Scotland)", ratePct: 9 },
+  plan5: { label: "Plan 5", ratePct: 9 },
+  postgrad: { label: "Postgraduate", ratePct: 6 },
 };
 
 export interface TaxOptions {
@@ -134,10 +158,16 @@ export interface TaxOptions {
   /** Student loan plan(s) to include in the estimate */
   studentLoanPlans?: StudentLoanPlan[];
   /**
-   * Gross pension contributions (personal + employer/relief-at-source top-up)
-   * in pence for the tax year. Reduces taxable profit for Income Tax purposes
-   * but does NOT reduce Class 4 NI (NI is on trading profits before pension).
-   * Capped internally at net profit so it cannot create a negative IT base.
+   * Gross personal pension contributions (what was paid plus the 25% basic
+   * rate top-up the provider claims) in pence — relief at source, the way a
+   * self-employed person's SIPP or personal pension works. The provider adds
+   * basic rate relief to the pot; the gross amount extends the basic rate
+   * band and every band above it (Scotland: basic and above, not starter) and
+   * reduces adjusted net income, giving any higher rate relief through Self
+   * Assessment. Class 4 NI and student loan repayments are unaffected.
+   * Relief is limited to the greater of £3,600 and relevant earnings.
+   * A workplace pension taken from salary under net pay is not entered here:
+   * the salary entered as other income is already after it.
    */
   pensionGrossPence?: number;
   /**
@@ -219,15 +249,20 @@ export interface TaxEstimate {
   studentLoanTotalPence: number;
   /** Gross pension contribution used in this estimate */
   pensionGrossPence: number;
-  /** Income Tax saved because of the pension contribution */
+  /**
+   * All the tax relief the pension contribution gets: the basic rate relief
+   * the provider adds to the pot, plus pensionExtraReliefPence.
+   */
   pensionTaxSavingPence: number;
+  /** The part of the relief that comes off the Self Assessment bill (higher rates) */
+  pensionExtraReliefPence: number;
   /** WFH flat-rate deduction applied (pence/year) — reduces both IT and NI */
   wfhAllowancePence: number;
   /** Gross Gift Aid amount used (net donations × 100/80); extends basic rate band */
   giftAidGrossPence: number;
   /** Losses brought forward offset against IT profit */
   lossReliefPence: number;
-  /** Adjusted net income (profit + other income − pension − gift aid) */
+  /** Adjusted net income (profit + other income − losses − gross pension − gross Gift Aid) */
   adjustedNetIncomePence: number;
   /** High Income Child Benefit Charge (0 if ANI ≤ £60,000 or no child benefit) */
   hicbcPence: number;
@@ -282,40 +317,33 @@ interface ItInterval {
 }
 
 /**
- * Income Tax bands as intervals of TOTAL income. Every boundary below the
- * additional/top rate threshold (£125,140, which HMRC fixes) sits a fixed
- * width above the personal allowance actually available, so when the
- * allowance tapers or is transferred the bands move down with it. Gift Aid
- * widens the basic band (rUK) or the bands up to intermediate (Scotland).
+ * Income Tax bands as intervals of TOTAL income. HMRC states each rate limit
+ * as an amount of income above the personal allowance actually available,
+ * so when the allowance tapers or is transferred every band moves down with
+ * it. (Above £125,140 the allowance is gone, so the top threshold lands at
+ * £125,140 of income.)
+ *
+ * `extension` is gross Gift Aid plus gross relief-at-source pension
+ * contributions. It raises the basic rate limit and every limit above it —
+ * in Scotland the basic, intermediate, higher and advanced limits, but not
+ * the starter limit (ITA 2007 ss.10, 414; FA 2004 s.192; HMRC PTM044220).
  */
 function itIntervals(
   adjustedPA: number,
-  giftAidGross: number,
+  extension: number,
   bands: TaxBands,
   scotland: boolean
 ): ItInterval[] {
-  const topFixed = bands.higherRatePence; // £125,140 — fixed in both systems
-  const cap = (v: number) => Math.min(v, topFixed);
-  if (scotland) {
-    const basePA = SCOTLAND_IT_THRESHOLDS[0][0];
-    return SCOTLAND_IT_THRESHOLDS.map(([lo, hi, rate], i) => {
-      if (lo >= topFixed) return { lo: topFixed, hi, rate, scottish: true };
-      // Gift Aid extends everything from the intermediate ceiling upwards.
-      const shift = (v: number, idx: number) =>
-        adjustedPA + (v - basePA) + (idx >= 2 ? giftAidGross : 0);
-      const l = i === 0 ? adjustedPA : cap(shift(lo, i - 1));
-      const h = hi >= topFixed ? topFixed : cap(shift(hi, i));
-      return { lo: l, hi: h, rate, scottish: true };
-    });
-  }
-  const basicTop = cap(
-    adjustedPA + (bands.basicRatePence - bands.personalAllowancePence) + giftAidGross
-  );
-  return [
-    { lo: adjustedPA, hi: basicTop, rate: bands.basicRatePct, scottish: false },
-    { lo: basicTop, hi: topFixed, rate: bands.higherRatePct, scottish: false },
-    { lo: topFixed, hi: Infinity, rate: bands.additionalRatePct, scottish: false },
-  ];
+  const limits = scotland
+    ? bands.scottishLimitsPence.map((l, i) => l + (i >= 1 ? extension : 0))
+    : [bands.basicRatePence - bands.personalAllowancePence, bands.higherRatePence].map(
+        (l) => l + extension
+      );
+  const rates = scotland
+    ? bands.scottishRatesPct
+    : [bands.basicRatePct, bands.higherRatePct, bands.additionalRatePct];
+  const edges = [adjustedPA, ...limits.map((l) => adjustedPA + l), Infinity];
+  return rates.map((rate, i) => ({ lo: edges[i], hi: edges[i + 1], rate, scottish: scotland }));
 }
 
 function onInterval(income: number, iv: ItInterval): number {
@@ -335,20 +363,16 @@ function adjustedPersonalAllowance(ani: number, bands: TaxBands, maGiving: boole
 function freelanceIncomeTax(
   profitIT: number,
   otherIncome: number,
-  giftAidGross: number,
+  extension: number,
   bands: TaxBands,
   scotland: boolean,
   maGiving: boolean
 ): { bands: TaxBand[]; totalPence: number; adjustedPA: number } {
   const total = profitIT + otherIncome;
-  const paTotal = adjustedPersonalAllowance(Math.max(0, total - giftAidGross), bands, maGiving);
-  const paOther = adjustedPersonalAllowance(
-    Math.max(0, otherIncome - giftAidGross),
-    bands,
-    maGiving
-  );
-  const withProfit = itIntervals(paTotal, giftAidGross, bands, scotland);
-  const without = itIntervals(paOther, giftAidGross, bands, scotland);
+  const paTotal = adjustedPersonalAllowance(Math.max(0, total - extension), bands, maGiving);
+  const paOther = adjustedPersonalAllowance(Math.max(0, otherIncome - extension), bands, maGiving);
+  const withProfit = itIntervals(paTotal, extension, bands, scotland);
+  const without = itIntervals(paOther, extension, bands, scotland);
   const out: TaxBand[] = [];
   let totalPence = 0;
   withProfit.forEach((iv, i) => {
@@ -385,20 +409,26 @@ export function estimateTax(
   const lossReliefPence = Math.min(Math.max(0, options?.lossesCarriedForwardPence ?? 0), profit);
   const profitForIT = profit - lossReliefPence;
 
-  // ── Pension relief ───────────────────────────────────────────────────────────
-  // Pension contributions reduce taxable income for IT only, not Class 4 NI.
-  // Cap at the IT profit so the base cannot go negative.
-  const pensionGross = Math.min(Math.max(0, options?.pensionGrossPence ?? 0), profitForIT);
-  const itProfit = profitForIT - pensionGross;
+  // ── Pension relief (relief at source) ────────────────────────────────────────
+  // Not deducted from profit: the provider adds basic rate relief to the pot,
+  // and the gross contribution extends the bands (below) for any higher rate
+  // relief. Relief is limited to the greater of £3,600 and relevant earnings
+  // (other income is usually salary, so it counts).
+  const pensionGross = Math.min(
+    Math.max(0, options?.pensionGrossPence ?? 0),
+    Math.max(360_000, profit + otherIncome)
+  );
+  const itProfit = profitForIT;
 
   // ── Gift Aid ─────────────────────────────────────────────────────────────────
   // Gross up net donations by 100/80 (basic rate relief at source = 25%).
-  // The gross amount extends the basic rate band and reduces adjusted net income.
+  // The gross amount extends the bands and reduces adjusted net income.
   const giftAidGrossPence = Math.round((options?.giftAidNetPence ?? 0) * (100 / 80));
+  const extension = giftAidGrossPence + pensionGross;
 
   // ── Adjusted net income ──────────────────────────────────────────────────────
   // Used for: PA taper, HICBC, Marriage Allowance eligibility.
-  const adjustedNetIncomePence = Math.max(0, itProfit + otherIncome - giftAidGrossPence);
+  const adjustedNetIncomePence = Math.max(0, itProfit + otherIncome - extension);
 
   const MA_ALLOWANCE_TRANSFER = 126_000; // £1,260 in pence
   const maGiving = options?.marriageAllowance === "giving";
@@ -407,14 +437,7 @@ export function estimateTax(
   // ── Income Tax ──────────────────────────────────────────────────────────────
   // Personal allowance taper (£1 per £2 of ANI over £100,000) and Marriage
   // Allowance (giver) are applied inside, on total income.
-  const it = freelanceIncomeTax(
-    itProfit,
-    otherIncome,
-    giftAidGrossPence,
-    bands,
-    scotland,
-    maGiving
-  );
+  const it = freelanceIncomeTax(itProfit, otherIncome, extension, bands, scotland, maGiving);
   const adjustedPA = it.adjustedPA;
   const itBands: TaxBand[] = it.bands;
 
@@ -452,13 +475,13 @@ export function estimateTax(
   const niTotalPence = niBands.reduce((s, b) => s + b.taxPence, 0);
 
   // ── Pension tax saving ───────────────────────────────────────────────────────
-  // Saving = IT that would have been due on the pension contribution amount.
-  // Computed as the difference between IT with and without the contribution.
+  // Basic rate relief added to the pot by the provider, plus the extra relief
+  // on this bill: IT without the contribution minus IT with it.
   let pensionTaxSavingPence = 0;
+  let pensionExtraReliefPence = 0;
   if (pensionGross > 0) {
-    // Baseline IT without the pension deduction (profitForIT, not itProfit)
     let baselineIT = freelanceIncomeTax(
-      profitForIT,
+      itProfit,
       otherIncome,
       giftAidGrossPence,
       bands,
@@ -466,7 +489,9 @@ export function estimateTax(
       maGiving
     ).totalPence;
     if (maReceiving) baselineIT = Math.max(0, baselineIT - MA_TAX_REDUCER);
-    pensionTaxSavingPence = Math.max(0, baselineIT - incomeTaxTotalPence);
+    pensionExtraReliefPence = Math.max(0, baselineIT - incomeTaxTotalPence);
+    pensionTaxSavingPence =
+      Math.round((pensionGross * bands.basicRatePct) / 100) + pensionExtraReliefPence;
   }
 
   const totalTaxPence = incomeTaxTotalPence + niTotalPence;
@@ -501,14 +526,15 @@ export function estimateTax(
   const studentLoanRepayments: StudentLoanRepayment[] = (options?.studentLoanPlans ?? []).map(
     (plan) => {
       const cfg = STUDENT_LOAN_PLANS[plan];
+      const thresholdPence = bands.studentLoanThresholdsPence[plan];
       const repaymentPence = Math.max(
         0,
-        Math.round(((totalGross - cfg.thresholdPence) * cfg.ratePct) / 100)
+        Math.round(((totalGross - thresholdPence) * cfg.ratePct) / 100)
       );
       return {
         plan,
         planLabel: cfg.label,
-        thresholdPence: cfg.thresholdPence,
+        thresholdPence,
         ratePct: cfg.ratePct,
         repaymentPence,
       };
@@ -519,15 +545,14 @@ export function estimateTax(
   // ── High Income Child Benefit Charge ─────────────────────────────────────────
   // 1% of Child Benefit for each £200 of ANI above £60,000, capped at 100%
   // at £80,000. Only applies if the user provided a child benefit amount.
+  // HMRC rounds the charge down to whole pounds.
   const HICBC_LOWER = 6_000_000; // £60,000
   const HICBC_STEP = 20_000; // £200 per 1%
   const childBenefitPence = options?.childBenefitAnnualPence ?? 0;
+  const hicbcPct = Math.min(100, Math.floor((adjustedNetIncomePence - HICBC_LOWER) / HICBC_STEP));
   const hicbcPence =
-    childBenefitPence > 0 && adjustedNetIncomePence > HICBC_LOWER
-      ? Math.round(
-          childBenefitPence *
-            (Math.min(100, Math.floor((adjustedNetIncomePence - HICBC_LOWER) / HICBC_STEP)) / 100)
-        )
+    childBenefitPence > 0 && hicbcPct > 0
+      ? Math.floor((childBenefitPence * hicbcPct) / 100 / 100) * 100
       : 0;
 
   return {
@@ -547,6 +572,7 @@ export function estimateTax(
     studentLoanTotalPence,
     pensionGrossPence: pensionGross,
     pensionTaxSavingPence,
+    pensionExtraReliefPence,
     wfhAllowancePence,
     giftAidGrossPence,
     lossReliefPence,
