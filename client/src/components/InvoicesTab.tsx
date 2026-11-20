@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { invoiceAmounts } from "@shared/invoice-math";
 import { addDays, ukToday } from "@shared/job-dates";
 import { invoiceTotals } from "@shared/invoice-vat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -880,10 +881,8 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     }
   };
 
-  const subtotalPence = lineItems.reduce(
-    (s, li) => s + Math.round(li.quantity * li.unit_price_pence),
-    0
-  );
+  // Same rule as the server and the PDF: each line rounded, subtotal = their sum
+  const subtotalPence = invoiceAmounts(lineItems, null).subtotal_pence;
   const { data: editorBillingProfile } = useQuery<BillingProfile | null>({
     queryKey: ["/api/billing-profile"],
   });
@@ -1831,13 +1830,10 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
         if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
         if (prefillBooking.jobId) patch.job_id = prefillBooking.jobId;
         if (prefillBooking.lineItems && prefillBooking.lineItems.length > 0) {
-          patch.line_items = prefillBooking.lineItems;
-          const total = prefillBooking.lineItems.reduce(
-            (s, l) => s + l.unit_price_pence * l.quantity,
-            0
-          );
-          patch.subtotal_pence = total;
-          patch.total_pence = total;
+          // The server works the amounts out from the lines (shared/invoice-math)
+          const a = invoiceAmounts(prefillBooking.lineItems, null);
+          patch.line_items = a.lines;
+          patch.subtotal_pence = a.subtotal_pence;
         } else if (prefillBooking.lineDescription || prefillBooking.ratePence) {
           patch.line_items = [
             {

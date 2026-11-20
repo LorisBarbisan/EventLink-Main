@@ -1,4 +1,5 @@
 import { formatSortCode } from "@shared/invoice-vat";
+import { lineTotalPence } from "@shared/invoice-math";
 import { ukToday } from "@shared/job-dates";
 import { fmtDate } from "@shared/dates";
 import PDFDocument from "pdfkit";
@@ -158,7 +159,7 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
       const rateLabel = RATE_LABELS[item.rate_type ?? ""] ?? "";
       const qty = Number(item.quantity ?? 1);
       const unitPence = Number(item.unit_price_pence ?? 0);
-      const totalPence = Number(item.total_pence ?? qty * unitPence);
+      const totalPence = Number(item.total_pence ?? lineTotalPence(qty, unitPence));
       const confident = item.confident !== false;
 
       const descH = doc.heightOfString(desc, { width: cRate - cDesc - 10 });

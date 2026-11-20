@@ -1,4 +1,5 @@
 import { fmtDate } from "@shared/dates";
+import { invoiceAmounts, lineTotalPence } from "@shared/invoice-math";
 import { addDays, ukDate, ukToday } from "@shared/job-dates";
 import { formatSortCode, invoiceTotals, isVatRate } from "@shared/invoice-vat";
 import type { Request, Response } from "express";
@@ -278,7 +279,7 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
     const qty = job ? deriveQuantity(job) : { quantity: 1, unit: "job" as const, confident: false };
 
     const unitPence = parsed.pence;
-    const totalPence = unitPence != null ? Math.round(unitPence * qty.quantity) : null;
+    const totalPence = unitPence != null ? lineTotalPence(qty.quantity, unitPence) : null;
 
     const lineItem = {
       description: job?.title ?? "Freelance services",
@@ -447,7 +448,16 @@ export async function updateInvoice(req: Request, res: Response) {
     // rate in invoice settings — never taken from the client.
     void vat_pence;
     void total_pence;
-    if (subtotal_pence !== undefined) {
+    if (Array.isArray(line_items)) {
+      // The lines decide the amounts: each line rounded to the penny, the
+      // subtotal their sum, VAT on the subtotal. The client's own subtotal
+      // and total are ignored.
+      const a = invoiceAmounts(line_items, await storage.getBillingProfile(user.id));
+      updates.line_items = a.lines;
+      updates.subtotal_pence = a.subtotal_pence;
+      updates.vat_pence = a.vat_pence;
+      updates.total_pence = a.total_pence;
+    } else if (subtotal_pence !== undefined) {
       const net = Math.max(0, Math.round(Number(subtotal_pence) || 0));
       const t = invoiceTotals(net, await storage.getBillingProfile(user.id));
       updates.subtotal_pence = net;
