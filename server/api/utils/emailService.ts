@@ -6,7 +6,8 @@ const SENDGRID_FROM_EMAIL = (() => {
   if (raw && EMAIL_RE.test(raw)) return raw;
   if (raw)
     console.warn(
-      `⚠️ SENDGRID_FROM_EMAIL "${raw}" is not a valid address — falling back to noreply@eventlink.one`
+      // Never echo the value: a misplaced secret here would land in the deploy log
+      `⚠️ SENDGRID_FROM_EMAIL is not a valid address (${raw.length} chars, starts "${raw.slice(0, 4)}") — falling back to noreply@eventlink.one`
     );
   return "noreply@eventlink.one";
 })();
