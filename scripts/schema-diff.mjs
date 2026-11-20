@@ -87,52 +87,68 @@ async function referenceData(src, tgtTables) {
           : typeof v === "object"
             ? `'${JSON.stringify(v).replace(/'/g, "''")}'::jsonb`
             : `'${String(v).replace(/'/g, "''")}'`;
-  const copy = async (table, where, cols, conflict) => {
+  /**
+   * Copy reference rows. `guard` names the columns that identify a row: the
+   * insert is skipped when a row with those values already exists, so a
+   * second run adds nothing even where no unique index backs it.
+   */
+  const copy = async (table, where, cols, guard) => {
     let rows;
     try {
       rows = await src.unsafe(`SELECT ${cols.map(q).join(", ")} FROM ${q(table)} ${where}`);
     } catch {
       return;
     }
-    if (!rows.length) return;
+    if (!rows.length || !cols.length) return;
     out.push(`-- ${table}: ${rows.length} reference row(s) from the source`);
     for (const r of rows) {
+      const match = guard
+        .map((c) => (r[c] === null ? `${q(c)} IS NULL` : `${q(c)} = ${lit(r[c])}`))
+        .join(" AND ");
       out.push(
-        `INSERT INTO ${q(table)} (${cols.map(q).join(", ")}) VALUES (${cols
+        `INSERT INTO ${q(table)} (${cols.map(q).join(", ")}) SELECT ${cols
           .map((c) => lit(r[c]))
-          .join(", ")}) ON CONFLICT ${conflict};`
+          .join(", ")} WHERE NOT EXISTS (SELECT 1 FROM ${q(table)} WHERE ${match});`
       );
     }
     out.push("");
+  };
+  const columnsOf = async (table) => {
+    try {
+      const cols = await src`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema='public' AND table_name=${table}
+          AND column_name NOT IN ('id','created_at','updated_at')
+        ORDER BY ordinal_position`;
+      return cols.map((c) => c.column_name);
+    } catch {
+      return [];
+    }
   };
   await copy(
     "mileage_rates",
     "ORDER BY vehicle_type, effective_from",
     ["vehicle_type", "rate_pence", "threshold_miles", "rate_above_pence", "effective_from"],
-    "(vehicle_type, effective_from) DO NOTHING"
+    ["vehicle_type", "effective_from"]
   );
   await copy(
     "tax_rates",
     "ORDER BY tax_year",
     ["tax_year", "effective_from", "bands"],
-    "(tax_year) DO NOTHING"
+    ["tax_year"]
   );
+  // System rows (no owner) seeded by 0023 and 0022
   await copy(
     "expense_categories",
     "WHERE freelancer_id IS NULL ORDER BY id",
-    await (async () => {
-      try {
-        const cols = await src`
-          SELECT column_name FROM information_schema.columns
-          WHERE table_schema='public' AND table_name='expense_categories'
-            AND column_name NOT IN ('id','created_at','updated_at')
-          ORDER BY ordinal_position`;
-        return cols.map((c) => c.column_name);
-      } catch {
-        return [];
-      }
-    })(),
-    "DO NOTHING"
+    await columnsOf("expense_categories"),
+    ["freelancer_id", "name"]
+  );
+  await copy(
+    "earnings_roles",
+    "WHERE freelancer_id IS NULL ORDER BY id",
+    await columnsOf("earnings_roles"),
+    ["freelancer_id", "label"]
   );
   void tgtTables;
   return out;
