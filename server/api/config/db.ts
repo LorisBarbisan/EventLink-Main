@@ -10,6 +10,15 @@ if (!connectionString) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
+// Which database this instance is on — host only, never the credentials. Makes
+// "staging is still on the old database" visible in the first line of the logs.
+try {
+  const u = new URL(connectionString);
+  console.log(`🗄️  Database: ${u.hostname}${u.pathname}`);
+} catch {
+  console.log("🗄️  Database: (unparseable DATABASE_URL)");
+}
+
 const client = postgres(connectionString, {
   max: 20, // Maximum connections in the pool
   idle_timeout: 20, // Close idle connections after 20 seconds
