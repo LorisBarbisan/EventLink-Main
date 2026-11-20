@@ -19,6 +19,8 @@ const rootDb = db;
 import { bookings, bookingStatusHistory, jobs } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import { jobHasFinished } from "@shared/job-dates";
+import { bookingNeedsEarningsEntry } from "../utils/booking-earnings";
+export { bookingNeedsEarningsEntry };
 
 type PipelineStatus = "enquired" | "confirmed" | "briefed" | "completed";
 
@@ -30,6 +32,14 @@ const STATUS_RANK: Record<string, number> = {
   briefed: 2,
   completed: 3,
 };
+
+/** What a sync left behind, so the caller can seed earnings after its transaction commits. */
+export interface BookingSyncResult {
+  bookingId: number;
+  status: string;
+  /** At confirmed or beyond: needs an earnings entry (seeding is idempotent) */
+  needsSeed: boolean;
+}
 
 /**
  * Create the booking for a (job, freelancer) pair, or advance it forward to at
@@ -43,6 +53,10 @@ const STATUS_RANK: Record<string, number> = {
  *
  * Non-fatal: failures are logged and swallowed so the caller's main action
  * (invite, hire, message, …) still succeeds.
+ *
+ * Does NOT seed the earnings entry: under a caller's transaction the booking
+ * isn't visible to the root connection seeding uses. The result says whether
+ * one is needed; the caller seeds once its transaction has committed.
  */
 export async function syncBookingForApplication(params: {
   jobId: number;
@@ -54,7 +68,12 @@ export async function syncBookingForApplication(params: {
   tx?: typeof rootDb;
   /** Throw instead of swallowing, so the caller's transaction rolls back */
   strict?: boolean;
-}): Promise<void> {
+}): Promise<BookingSyncResult | null> {
+  const result = (bookingId: number, status: string): BookingSyncResult => ({
+    bookingId,
+    status,
+    needsSeed: bookingNeedsEarningsEntry(status),
+  });
   const { jobId, freelancerId, changedById } = params;
   const db: typeof rootDb = params.tx ?? rootDb;
   try {
@@ -81,7 +100,7 @@ export async function syncBookingForApplication(params: {
       // Under strict (a hire), a skip must be loud: it would leave "hired"
       // with no booking. Otherwise (e.g. external listings) skipping is right.
       if (params.strict) throw new Error(`No party to attribute the booking to (job ${jobId})`);
-      return;
+      return null;
     }
 
     let targetStatus: PipelineStatus = params.targetStatus;
@@ -122,11 +141,11 @@ export async function syncBookingForApplication(params: {
         changedById,
         note: params.note ?? "Booking created from application activity",
       });
-      return;
+      return result(created.id, targetStatus);
     }
 
     // Never overwrite a manually cancelled booking, and never regress status.
-    if (existing.status === "cancelled") return;
+    if (existing.status === "cancelled") return null;
     const currentRank = STATUS_RANK[existing.status] ?? 0;
     const targetRank = STATUS_RANK[targetStatus] ?? 0;
 
@@ -138,7 +157,7 @@ export async function syncBookingForApplication(params: {
           .set({ employerId: employerId, updatedAt: new Date() })
           .where(eq(bookings.id, existing.id));
       }
-      return;
+      return result(existing.id, existing.status);
     }
 
     await db
@@ -153,9 +172,11 @@ export async function syncBookingForApplication(params: {
       changedById,
       note: params.note ?? "Booking advanced from application activity",
     });
+    return result(existing.id, targetStatus);
   } catch (err) {
     if (params.strict) throw err;
     console.error("syncBookingForApplication failed (non-fatal):", err);
+    return null;
   }
 }
 

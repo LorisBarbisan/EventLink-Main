@@ -28,6 +28,7 @@ export const LOCK = {
   JOB_AUTO_CLOSE: 7103, // 10:00 close expired jobs + closure emails
   JOB_AUTO_COMPLETE: 7104, // 10:30 complete finished jobs
   JOB_CLOSE_REMINDERS: 7105, // 08:00 48h-before-close reminders
+  EARNINGS_INVARIANT: 7106, // 10:45 seed earnings for bookings missing one
   // other schedulers
   CREDENTIAL_REMINDERS: 7201, // credential expiry reminder emails
   GUEST_JOB_NUDGE: 7202, // hourly guest-job nudges

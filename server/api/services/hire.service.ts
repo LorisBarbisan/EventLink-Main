@@ -2,7 +2,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { job_applications, jobs } from "@shared/schema";
 import { FILLED_STATUSES, fillsLastPosition, hireRefusal } from "@shared/hiring";
 import { db } from "../config/db";
-import { syncBookingForApplication } from "./booking-lifecycle.service";
+import { syncBookingForApplication, type BookingSyncResult } from "./booking-lifecycle.service";
+import { seedEntryForBookingId } from "./earnings.service";
 
 export type HireResult =
   | { kind: "hired"; filled: number; positions: number; jobClosed: boolean }
@@ -40,7 +41,8 @@ export async function hireApplication(params: {
   freelancerId: number;
   changedById: number;
 }): Promise<HireResult> {
-  return db.transaction(async (txRaw) => {
+  let sync: BookingSyncResult | null = null;
+  const result: HireResult = await db.transaction(async (txRaw) => {
     const tx = txRaw as unknown as typeof db;
     // Lock the job row: concurrent hires on the same job wait here
     const locked = (await tx.execute(
@@ -71,7 +73,7 @@ export async function hireApplication(params: {
       .set({ status: "hired", freelancer_deleted: false, updated_at: sql`now()` })
       .where(eq(job_applications.id, params.applicationId));
 
-    await syncBookingForApplication({
+    sync = await syncBookingForApplication({
       jobId: params.jobId,
       freelancerId: params.freelancerId,
       targetStatus: "confirmed",
@@ -91,4 +93,14 @@ export async function hireApplication(params: {
     }
     return { kind: "hired", filled: filledAfter, positions, jobClosed } as const;
   });
+
+  // The earnings entry, once the hire has committed: seeding reads the booking
+  // through the root connection, which can't see it before then. A job whose
+  // last day has passed is hired straight to completed, so nothing later would
+  // seed it. Never fails the hire (seedEntryForBookingId doesn't throw).
+  const synced = sync as BookingSyncResult | null;
+  if (result.kind === "hired" && synced?.needsSeed) {
+    await seedEntryForBookingId(synced.bookingId);
+  }
+  return result;
 }

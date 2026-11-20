@@ -1,9 +1,10 @@
 import { db } from "../config/db";
 import { ukDate, ukToday } from "@shared/job-dates";
 import { netOfInvoice } from "@shared/invoice-vat";
-import { bookings, jobs, job_applications } from "@shared/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { bookings, earnings_entries, jobs, job_applications } from "@shared/schema";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { storage } from "../../storage";
+import { EARNING_BOOKING_STATUSES, bookingNeedsEarningsEntry } from "../utils/booking-earnings";
 import type { Booking, Invoice } from "@shared/schema";
 
 interface JobRow {
@@ -378,4 +379,61 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
     total: allBookings.length,
     error_bookings,
   };
+}
+
+/**
+ * Seed the earnings entry for one booking by id, loading the booking and its
+ * job. For callers that only have the id — notably a hire, which seeds after
+ * its transaction commits. Never throws: a missing earnings row must not fail
+ * the action that caused it (the nightly sweep and the Books screen retry).
+ */
+export async function seedEntryForBookingId(bookingId: number): Promise<boolean> {
+  try {
+    const [row] = await db
+      .select({
+        booking: bookings,
+        job: {
+          id: jobs.id,
+          title: jobs.title,
+          company: jobs.company,
+          recruiter_id: jobs.recruiter_id,
+          currency: jobs.currency,
+          event_date: jobs.event_date,
+          end_date: jobs.end_date,
+          status: jobs.status,
+          rate: jobs.rate,
+        },
+      })
+      .from(bookings)
+      .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+      .where(eq(bookings.id, bookingId));
+    if (!row || !bookingNeedsEarningsEntry(row.booking.status)) {
+      return false;
+    }
+    await seedEntryFromBooking(row.booking, row.job);
+    return true;
+  } catch (err) {
+    console.error(`seedEntryForBookingId failed for booking ${bookingId} (non-fatal):`, err);
+    return false;
+  }
+}
+
+/**
+ * The invariant: every booking at confirmed or beyond has an earnings entry.
+ * Finds the ones that don't and seeds them — the safety net for any path that
+ * moves a booking forward without seeding (there were three; one didn't).
+ */
+export async function seedMissingEarningsEntries(): Promise<{ missing: number; seeded: number }> {
+  const missing = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .leftJoin(earnings_entries, eq(earnings_entries.booking_id, bookings.id))
+    .where(
+      and(inArray(bookings.status, [...EARNING_BOOKING_STATUSES]), isNull(earnings_entries.id))
+    );
+  let seeded = 0;
+  for (const { id } of missing) {
+    if (await seedEntryForBookingId(id)) seeded++;
+  }
+  return { missing: missing.length, seeded };
 }

@@ -1,5 +1,6 @@
 import { autoCompleteFinishedJobs } from "./job-completion.service";
-import { reportError } from "../utils/error-reporting";
+import { seedMissingEarningsEntries } from "./earnings.service";
+import { reportError, reportInfo } from "../utils/error-reporting";
 import { LOCK, scheduleExclusive } from "../utils/scheduled-lock";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
@@ -384,6 +385,28 @@ export function registerJobNotificationScheduler(): void {
         reportError(err, {
           tags: { kind: "scheduled-job" },
           extra: { where: "❌ Auto-complete scheduler error:" },
+        });
+      }
+    },
+    { timezone: "Europe/London" }
+  );
+
+  // Daily at 10:45 UK time, after auto-complete — every booking at confirmed
+  // or beyond must have an earnings entry. Seeds any that don't, and reports
+  // them: a non-zero count means some path advanced a booking without seeding.
+  scheduleExclusive(
+    LOCK.EARNINGS_INVARIANT,
+    "45 10 * * *",
+    async () => {
+      try {
+        const { missing, seeded } = await seedMissingEarningsEntries();
+        if (missing > 0) {
+          reportInfo("earnings entries were missing", { missing, seeded });
+        }
+      } catch (err) {
+        reportError(err, {
+          tags: { kind: "scheduled-job" },
+          extra: { where: "❌ Earnings invariant sweep error:" },
         });
       }
     },
