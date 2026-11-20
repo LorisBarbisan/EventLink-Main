@@ -30,7 +30,10 @@ export function initErrorReporting(): boolean {
   }
   Sentry.init({
     dsn,
-    environment: import.meta.env.MODE,
+    // Same as the server (SENTRY_ENVIRONMENT): set VITE_SENTRY_ENVIRONMENT=staging
+    // on the staging service so its errors aren't tagged "production".
+    environment:
+      (import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) || import.meta.env.MODE,
     release: (import.meta.env.VITE_RELEASE as string | undefined) || undefined,
     tracesSampleRate: 0,
     beforeSend(event) {
