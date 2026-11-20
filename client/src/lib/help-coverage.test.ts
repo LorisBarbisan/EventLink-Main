@@ -23,9 +23,18 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-const source = sourceFiles(CLIENT)
-  .map((f) => readFileSync(f, "utf8"))
-  .join("\n");
+const files = sourceFiles(CLIENT).map((f) => readFileSync(f, "utf8"));
+const source = files.join("\n");
+
+// Keys declared in a field table and rendered through a property, e.g.
+// { key: "utr", help: "books.business.utr" } … data-help={f.help}. Counted
+// only from a file that renders data-help from a `.help` property, so a stray
+// `help:` elsewhere doesn't pass for a marker.
+const fieldTableMarkers = new Set(
+  files
+    .filter((text) => /data-help=\{[A-Za-z_$][\w$]*\.help\}/.test(text))
+    .flatMap((text) => [...text.matchAll(/\bhelp:\s*["'`]([A-Za-z0-9_.]+)["'`]/g)].map((m) => m[1]))
+);
 
 const literalMarkers = new Set(
   [...source.matchAll(/(?:data-help|helpKey|\bk)=\{?["'`]([A-Za-z0-9_.]+)["'`]/g)].map((m) => m[1])
@@ -53,7 +62,9 @@ const NOT_YET: Record<string, string> = {
 describe("help coverage", () => {
   const keys = [...jobs, ...profile, ...dashboard, ...bookings, ...books, ...tax].map((e) => e.key);
   const reachable = (k: string) =>
-    literalMarkers.has(k) || computedPrefixes.some((p) => k.startsWith(p));
+    literalMarkers.has(k) ||
+    fieldTableMarkers.has(k) ||
+    computedPrefixes.some((p) => k.startsWith(p));
 
   it("every registry entry has a marker in the client", () => {
     const missing = keys.filter((k) => !reachable(k) && !(k in NOT_YET));
