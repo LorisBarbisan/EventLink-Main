@@ -96,6 +96,8 @@ if (process.env.NODE_ENV === "production") {
             "https://analytics.google.com",
             "https://region1.google-analytics.com",
             "https://px.ads.linkedin.com",
+            // Sentry browser SDK sends error envelopes here (our org is on the EU region)
+            "https://*.ingest.de.sentry.io",
             "wss://localhost:*",
             "wss://*.up.railway.app",
             "wss://eventlink.one",
