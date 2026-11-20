@@ -1,6 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build"
+# npm ci installs exactly package-lock.json — the same tree CI tests
+buildCommand = "npm ci && npm run build"
 
 [deploy]
 startCommand = "npm run start"
