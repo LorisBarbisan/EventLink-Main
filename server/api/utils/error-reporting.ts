@@ -34,6 +34,7 @@ export function initErrorReporting(): void {
   }
   Sentry.init({
     dsn,
+    debug: process.env.SENTRY_DEBUG === "true",
     environment:
       process.env.SENTRY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || "development",
     release: process.env.RAILWAY_GIT_COMMIT_SHA || undefined,
@@ -57,8 +58,14 @@ export function initErrorReporting(): void {
       return b;
     },
   });
-  enabled = true;
-  console.log("✅ Error reporting on");
+  // A malformed DSN still yields a client (Sentry 11), just one without a DSN
+  // that silently drops every event, so check the DSN parsed.
+  enabled = Sentry.getClient()?.getDsn() !== undefined;
+  console.log(
+    enabled
+      ? "✅ Error reporting on"
+      : "⚠️  Error reporting failed to initialise — check SENTRY_DSN"
+  );
 }
 
 /** Report an error, with optional (scrubbed) context and tags. Never throws. */
