@@ -36,3 +36,21 @@ nslookup -type=TXT s1._domainkey.eventlink.one
 - Health check path: `/health` (runs `SELECT 1`; 503 if the database can't answer).
 - Error reporting: `SENTRY_DSN`, and `VITE_SENTRY_DSN` available **at build time**.
 - Database: Neon. Restores: `docs/restore-runbook.md`.
+
+## Bounces and spam complaints (SendGrid event webhook)
+
+Hard bounces and spam complaints mark the user's address as suppressed
+(`users.email_suppressed_at`): EventLink stops emailing it — except
+verification and password-reset emails the person has just asked for — and
+their dashboard shows a banner with a "try again" button.
+
+Setup, once, in SendGrid → Settings → Mail Settings → **Event Webhook**:
+
+1. HTTP POST URL: `https://eventlink.one/api/webhooks/sendgrid`
+   (staging: `https://eventlink-card-branch.up.railway.app/api/webhooks/sendgrid`)
+2. Events: tick **Bounced**, **Dropped** and **Spam Reports** (others are ignored).
+3. Turn on **Signed Event Webhook** and copy the **verification key**.
+4. In Railway, set `SENDGRID_WEBHOOK_PUBLIC_KEY` to that key.
+
+Without the key the endpoint answers 503 and records nothing; with a bad or
+missing signature it answers 403.

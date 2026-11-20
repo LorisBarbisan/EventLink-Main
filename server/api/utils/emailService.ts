@@ -40,6 +40,9 @@ interface EmailParams {
   text?: string;
   html?: string;
   attachments?: EmailAttachment[];
+  /** Send even if the address is marked as bouncing — only for emails the
+   *  person has just asked for (verification, password reset). */
+  ignoreSuppression?: boolean;
 }
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB of base64-encoded content
@@ -62,6 +65,21 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     const error = new Error(`Invalid email address: ${params.to}`);
     console.error(`❌ ${error.message}`);
     throw error;
+  }
+
+  // An address that hard-bounced or complained gets no more email
+  if (!params.ignoreSuppression) {
+    try {
+      const { isSuppressed } = await import("../services/email-suppression.service");
+      if (await isSuppressed(params.to)) {
+        console.log(
+          `[sendEmail] skipped: recipient is suppressed (subject="${params.subject?.slice(0, 40)}")`
+        );
+        return false;
+      }
+    } catch (err) {
+      console.error("[sendEmail] suppression check failed (sending anyway):", err);
+    }
   }
 
   try {
@@ -353,6 +371,7 @@ The EventLink Team
   `;
 
   return await sendEmail({
+    ignoreSuppression: true,
     to: email,
     subject: "Complete Your EventLink Registration - Verification Required",
     html: htmlContent,
@@ -561,6 +580,7 @@ The EventLink Team
   `;
 
   return await sendEmail({
+    ignoreSuppression: true,
     to: email,
     subject: "Password Reset Request – EventLink",
     html: htmlContent,

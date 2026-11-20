@@ -33,6 +33,12 @@ export const users = pgTable(
     first_name: text("first_name"),
     last_name: text("last_name"),
     email_verified: boolean("email_verified").default(false).notNull(),
+    // Set when SendGrid reports a hard bounce or spam complaint: email to this
+    // address stops (except verification / password reset) until cleared.
+    email_suppressed_at: timestamp("email_suppressed_at", { withTimezone: true }),
+    email_suppression_reason: text("email_suppression_reason").$type<
+      "bounced" | "spam_complaint"
+    >(),
     email_verification_token: text("email_verification_token"),
     email_verification_expires: timestamp("email_verification_expires"),
     password_reset_token: text("password_reset_token"),

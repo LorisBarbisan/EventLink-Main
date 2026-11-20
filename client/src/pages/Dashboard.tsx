@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { EmailStatusBanner } from "@/components/EmailStatusBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsPro } from "@/hooks/useIsPro";
@@ -125,6 +126,7 @@ export default function Dashboard() {
   return (
     <Layout dark={darkHeader}>
       <div className="container mx-auto px-4 py-8">
+        <EmailStatusBanner />
         <Suspense fallback={<Skeleton className="h-64 w-full" />}>
           {showFreelancerDashboard ? (
             <FreelancerDashboard />

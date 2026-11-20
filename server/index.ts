@@ -1,4 +1,5 @@
 import cors from "cors";
+import { sendgridEventWebhook } from "./api/routes/email-events.route";
 import { LOCK, runExclusive, scheduleExclusive } from "./api/utils/scheduled-lock";
 import { allowedOrigins, isAllowedOrigin } from "./api/utils/cors-origins";
 import dotenv from "dotenv";
@@ -138,6 +139,12 @@ if (process.env.NODE_ENV === "production") {
 
 // Stripe webhook must receive raw body — register BEFORE express.json()
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
+// SendGrid event webhook: signed over the raw body, so also before express.json()
+app.post(
+  "/api/webhooks/sendgrid",
+  express.raw({ type: "application/json", limit: "5mb" }),
+  sendgridEventWebhook
+);
 
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
