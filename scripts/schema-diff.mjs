@@ -77,16 +77,11 @@ function columnDDL(col, newTable) {
 
 async function referenceData(src, tgtTables) {
   const out = [];
+  // Values are read as Postgres's own text form (::text below), so a date
+  // stays '2026-04-06' whatever the local time zone, and the target column
+  // casts the quoted literal back to its type.
   const lit = (v) =>
-    v === null || v === undefined
-      ? "NULL"
-      : typeof v === "number" || typeof v === "boolean"
-        ? String(v)
-        : v instanceof Date
-          ? `'${v.toISOString()}'`
-          : typeof v === "object"
-            ? `'${JSON.stringify(v).replace(/'/g, "''")}'::jsonb`
-            : `'${String(v).replace(/'/g, "''")}'`;
+    v === null || v === undefined ? "NULL" : `'${String(v).replace(/'/g, "''")}'`;
   /**
    * Copy reference rows. `guard` names the columns that identify a row: the
    * insert is skipped when a row with those values already exists, so a
@@ -95,7 +90,9 @@ async function referenceData(src, tgtTables) {
   const copy = async (table, where, cols, guard) => {
     let rows;
     try {
-      rows = await src.unsafe(`SELECT ${cols.map(q).join(", ")} FROM ${q(table)} ${where}`);
+      rows = await src.unsafe(
+        `SELECT ${cols.map((c) => `${q(c)}::text AS ${q(c)}`).join(", ")} FROM ${q(table)} ${where}`
+      );
     } catch {
       return;
     }
