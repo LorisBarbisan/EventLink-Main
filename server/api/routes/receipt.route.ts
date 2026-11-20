@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { receiptUploadLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { requireUkFreelancer, requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
@@ -18,7 +19,7 @@ export function registerReceiptRoutes(app: Express) {
   const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
   const ownRecords = [authenticateJWT, requireRole("freelancer"), requireUkOrOwnRecords];
 
-  app.post("/api/receipts", ...auth, uploadReceipt);
+  app.post("/api/receipts", ...auth, receiptUploadLimiter, uploadReceipt);
   app.get("/api/receipts/unattached", ...ownRecords, listUnattachedReceipts);
   app.get("/api/receipts/unattached/count", ...ownRecords, countUnattachedReceipts);
   app.get("/api/expenses/:expenseId/receipts", ...ownRecords, listReceiptsForExpense);

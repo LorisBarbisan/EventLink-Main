@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { storage } from "../../storage";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
@@ -26,9 +27,9 @@ export function registerBooksRoutes(app: Express) {
   const ownRecords = [authenticateJWT, requireRole("freelancer"), requireUkOrOwnRecords];
 
   // workbook export registered before the CSV path so the more specific path wins
-  app.get("/api/books/export.xlsx", ...ownRecords, booksExportWorkbook);
+  app.get("/api/books/export.xlsx", ...ownRecords, expensiveWorkLimiter, booksExportWorkbook);
   // export must be registered before summary to avoid any future path conflicts
-  app.get("/api/books/export", ...ownRecords, booksExport);
+  app.get("/api/books/export", ...ownRecords, expensiveWorkLimiter, booksExport);
   app.get("/api/books/summary", ...auth, booksSummary);
   app.get("/api/books/tax-estimate", ...auth, taxEstimate);
   app.get("/api/books/monthly", ...auth, booksMonthly);

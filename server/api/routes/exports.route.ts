@@ -12,6 +12,7 @@
  */
 
 import { Router } from "express";
+import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { ukToday } from "@shared/job-dates";
 import type { Request, Response } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
@@ -46,7 +47,7 @@ function sendCsv(res: Response, filename: string, csv: string) {
 //
 // We emit ALL columns so accountants can filter as needed.
 
-router.get("/earnings.csv", auth, async (req: Request, res: Response) => {
+router.get("/earnings.csv", auth, expensiveWorkLimiter, async (req: Request, res: Response) => {
   try {
     const freelancerId = req.user!.id;
     const basis = (req.query.basis as "cash" | "accruals") ?? "cash";
@@ -147,7 +148,7 @@ router.get("/earnings.csv", auth, async (req: Request, res: Response) => {
 // Designed for insurance schedules and accountant capital-allowances workings.
 // Columns also align with FreeAgent asset register expectations.
 
-router.get("/kit.csv", auth, async (req: Request, res: Response) => {
+router.get("/kit.csv", auth, expensiveWorkLimiter, async (req: Request, res: Response) => {
   try {
     const freelancerId = req.user!.id;
     const includeDisposed = req.query.includeDisposed === "true";
@@ -212,7 +213,7 @@ router.get("/kit.csv", auth, async (req: Request, res: Response) => {
 // FreeAgent:  Date, Reference, Total, Tax Amount, Currency, Status
 // We include all relevant fields; importers pick their columns.
 
-router.get("/invoices.csv", auth, async (req: Request, res: Response) => {
+router.get("/invoices.csv", auth, expensiveWorkLimiter, async (req: Request, res: Response) => {
   try {
     const freelancerId = req.user!.id;
     const from = req.query.from as string | undefined;

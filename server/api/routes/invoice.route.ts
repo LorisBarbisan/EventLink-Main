@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { requireUkFreelancer, requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
@@ -52,7 +53,7 @@ export function registerInvoiceRoutes(app: Express) {
   app.post("/api/invoices/:id/correct", ...freelancer, correctInvoice);
 
   // PDF
-  app.get("/api/invoices/:id/pdf", ...freelancer, getInvoicePDF);
+  app.get("/api/invoices/:id/pdf", ...freelancer, expensiveWorkLimiter, getInvoicePDF);
 
   // Sending
   app.get("/api/invoices/:id/message-draft", ...freelancer, getMessageDraft);

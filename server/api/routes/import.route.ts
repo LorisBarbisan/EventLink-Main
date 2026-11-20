@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
@@ -31,7 +32,7 @@ router.use(authenticateJWT);
 router.use(requireRole("freelancer"));
 router.use(requireUkFreelancer);
 
-router.post("/", uploadImport);
+router.post("/", expensiveWorkLimiter, uploadImport);
 router.get("/", listImports);
 router.get("/:id", getImport);
 router.patch("/:id", patchImportBatch);
@@ -48,7 +49,7 @@ router.post("/:id/rows/bulk", bulkSetDecision);
 router.patch("/:id/rows/:rowId", setRowDecision);
 
 // Commit / rollback
-router.post("/:id/commit", commitImport);
+router.post("/:id/commit", expensiveWorkLimiter, commitImport);
 router.post("/:id/rollback", rollbackImport);
 router.get("/:id/impact", importImpactHandler);
 
