@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { addDays, addMonths, startOfMonth, ukToday } from "@shared/job-dates";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enGB } from "date-fns/locale";
@@ -849,11 +850,10 @@ export function CalendarTab({
   });
 
   // Availability: load a wide range (±3 months) using proper Date arithmetic so month overflow is handled
-  const now = new Date();
-  const rangeStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const rangeEndDate = new Date(now.getFullYear(), now.getMonth() + 4, 0); // day 0 = last day of previous month
-  const rangeStart = rangeStartDate.toISOString().slice(0, 10);
-  const rangeEnd = rangeEndDate.toISOString().slice(0, 10);
+  // Calendar dates throughout: start of last month to the end of three months ahead
+  const thisMonth = startOfMonth(ukToday());
+  const rangeStart = addMonths(thisMonth, -1);
+  const rangeEnd = addDays(addMonths(thisMonth, 4), -1);
 
   const { data: availData = [] } = useQuery<AvailabilityEntry[]>({
     queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
@@ -874,9 +874,7 @@ export function CalendarTab({
   const shownButEmpty = (() => {
     if (!ownProfile?.show_calendar_publicly || !ownProfile.public_availability) return false;
     const from = ownProfile.public_availability.from;
-    const d = new Date(`${from}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 30);
-    const to = d.toISOString().slice(0, 10);
+    const to = addDays(from, 30);
     return !ownProfile.public_availability.days.some((x) => x.date >= from && x.date < to);
   })();
 

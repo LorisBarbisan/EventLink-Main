@@ -1,4 +1,5 @@
 import { AdminGuard } from "@/components/AdminGuard";
+import { ukToday } from "@shared/job-dates";
 import { pressable } from "@/lib/a11y";
 import { Layout } from "@/components/Layout";
 import { ModerationTable } from "@/components/ModerationTable";
@@ -373,7 +374,7 @@ function AdminDashboardContent() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = ukToday();
       a.download = `eventlink_admin_export_${today}.xlsx`;
       document.body.appendChild(a);
       a.click();

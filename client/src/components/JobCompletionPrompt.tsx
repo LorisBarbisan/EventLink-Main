@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addDays, ukToday } from "@shared/job-dates";
 import { CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -7,10 +8,7 @@ import { Button } from "@/components/ui/button";
 type DueJob = { id: number; title: string; last_day: string };
 
 function whenFinished(lastDay: string): string {
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-  const y = new Date(`${today}T00:00:00Z`);
-  y.setUTCDate(y.getUTCDate() - 1);
-  if (lastDay === y.toISOString().slice(0, 10)) return "finished yesterday";
+  if (lastDay === addDays(ukToday(), -1)) return "finished yesterday";
   return `finished on ${new Date(`${lastDay}T00:00:00Z`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",

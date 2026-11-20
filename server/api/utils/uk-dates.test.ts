@@ -15,24 +15,30 @@ const ALLOWED = new Set([
   "api/services/import-parse-utils.ts", // Excel serial → date: defined in UTC
   "api/services/import-parser.service.ts", // spreadsheet cell dates arrive as UTC midnight
   "api/services/outlookCalendar.service.ts", // retired integration
+  // The calendar grid builds its own dates at UTC midnight (Date.UTC) and
+  // formats them back in UTC — a closed loop, never "today".
+  "client/components/PublicAvailability.tsx",
 ]);
 
 const ROOT = join(__dirname, "../..");
 const SHARED = join(__dirname, "../../../shared");
+const CLIENT = join(__dirname, "../../../client/src");
 const walk = (d: string): string[] =>
   readdirSync(d).flatMap((n) => {
     const p = join(d, n);
     if (statSync(p).isDirectory()) return n === "node_modules" ? [] : walk(p);
-    return p.endsWith(".ts") && !p.endsWith(".test.ts") ? [p] : [];
+    return /\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p) ? [p] : [];
   });
 
-describe("UK calendar dates on the server", () => {
+describe("UK calendar dates (server, shared and browser)", () => {
   it("no UTC 'today' or timestamp→date outside the allowed files", () => {
     const offenders: string[] = [];
     // server/ and shared/ (shared code runs on the server too: tax years live there)
     const files = [
       ...walk(ROOT).map((f) => [f, relative(ROOT, f)] as const),
       ...walk(SHARED).map((f) => [f, "shared/" + relative(SHARED, f)] as const),
+      // the browser pre-fills the dates the server then stores
+      ...walk(CLIENT).map((f) => [f, "client/" + relative(CLIENT, f)] as const),
     ];
     for (const [file, relRaw] of files) {
       const rel = relRaw.split("\\").join("/");

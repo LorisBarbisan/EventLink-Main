@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { addMonths } from "@shared/job-dates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,12 +23,8 @@ function typeLabel(doc: IncompleteDoc): string {
   return doc.document_type;
 }
 
-function addMonthsISO(iso: string, months: number): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
-}
+// Calendar-date month arithmetic, shared (clamps 31 Jan + 1 month to Feb's end)
+const addMonthsISO = addMonths;
 
 // Query key shared with the dashboard banner so both refresh together.
 export const INCOMPLETE_CREDENTIALS_KEY = "/api/documents/incomplete";

@@ -1,4 +1,5 @@
 import { fmtDate as fmtSharedDate } from "@shared/dates";
+import { ukToday } from "@shared/job-dates";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -489,7 +490,7 @@ function KitAccountsPanel({ item }: { item: KitItem }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selling, setSelling] = useState(false);
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDate, setSaleDate] = useState(ukToday());
   const [saleAmount, setSaleAmount] = useState("");
 
   const refresh = () => {

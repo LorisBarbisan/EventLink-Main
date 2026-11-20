@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   addDays,
+  addMonths,
   daysBetween,
   endOfFollowingMonth,
   jobHasFinished,
@@ -117,5 +118,16 @@ describe("UK dates from instants", () => {
     expect(endOfFollowingMonth("2027-12-05")).toBe("2028-01-31");
     expect(endOfFollowingMonth("2027-11-05")).toBe("2027-12-31");
     expect(endOfFollowingMonth("2028-01-10")).toBe("2028-02-29");
+  });
+});
+
+describe("addMonths", () => {
+  it("clamps to the end of shorter months and crosses years", () => {
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addMonths("2028-01-31", 1)).toBe("2028-02-29");
+    expect(addMonths("2026-11-15", 3)).toBe("2027-02-15");
+    expect(addMonths("2026-03-31", -1)).toBe("2026-02-28");
+    expect(addMonths("2026-11-20", -24)).toBe("2024-11-20");
+    expect(addMonths("garbage", 1)).toBe("");
   });
 });

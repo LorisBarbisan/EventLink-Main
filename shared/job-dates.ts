@@ -124,3 +124,24 @@ export function endOfFollowingMonth(iso: string): string {
   const m2 = ((m + 1) % 12) + 1;
   return addDays(`${String(y2).padStart(4, "0")}-${String(m2).padStart(2, "0")}-01`, -1);
 }
+
+/**
+ * Add whole months to a YYYY-MM-DD date, clamping to the month's last day
+ * (31 Jan + 1 month = 28/29 Feb). Returns "" for an unusable input.
+ */
+export function addMonths(iso: string, months: number): string {
+  const valid = parseCalendarDate(iso);
+  if (!valid) return "";
+  const [y, m, d] = valid.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const first = `${String(ny).padStart(4, "0")}-${String(nm).padStart(2, "0")}-01`;
+  const lastDay = Number(endOfFollowingMonth(addDays(first, -1)).slice(8)); // days in month nm
+  return `${first.slice(0, 8)}${String(Math.min(d, lastDay)).padStart(2, "0")}`;
+}
+
+/** First day of the month of a YYYY-MM-DD date. */
+export function startOfMonth(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
+}

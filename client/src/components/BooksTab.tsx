@@ -1,4 +1,5 @@
 import { fmtDate as fmtSharedDate } from "@shared/dates";
+import { addMonths, ukToday } from "@shared/job-dates";
 import { keyActivate, pressable } from "@/lib/a11y";
 import type { BookingStatus } from "@shared/schema";
 import React, { useEffect, useRef, useState } from "react";
@@ -438,7 +439,7 @@ interface ExpenseForm {
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return ukToday();
 }
 
 function emptyExpenseForm(lastCategoryId?: string): ExpenseForm {
@@ -1581,7 +1582,7 @@ interface TripForm {
 }
 
 const EMPTY_TRIP: TripForm = {
-  trip_date: new Date().toISOString().slice(0, 10),
+  trip_date: ukToday(),
   from_place: "",
   to_place: "",
   miles: "",
@@ -1626,7 +1627,7 @@ function TripDialog({
         notes: editing.notes ?? "",
       });
     } else {
-      setForm({ ...EMPTY_TRIP, trip_date: new Date().toISOString().slice(0, 10) });
+      setForm({ ...EMPTY_TRIP, trip_date: ukToday() });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing?.id]);
@@ -1817,7 +1818,7 @@ function TimeSection() {
   });
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [dayForm, setDayForm] = useState({
-    work_date: new Date().toISOString().slice(0, 10),
+    work_date: ukToday(),
     start_time: "09:00",
     finish_time: "18:00",
     break_minutes: "60",
@@ -1899,7 +1900,7 @@ function TimeSection() {
 
   function openAddDay() {
     setDayForm({
-      work_date: new Date().toISOString().slice(0, 10),
+      work_date: ukToday(),
       start_time: "09:00",
       finish_time: "18:00",
       break_minutes: "60",
@@ -2904,7 +2905,7 @@ function OverviewSection({
   });
 
   // Which MTD quarter is today in? (inline — no shared import needed)
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = ukToday();
   const currentQuarter = (() => {
     const q = quarterlyData?.quarters.find((q) => todayIso >= q.from && todayIso <= q.to);
     return q?.quarter ?? null;
@@ -4214,7 +4215,7 @@ export function BooksTab() {
       setInvoicePrefill({
         toName: entry.client_name ?? "",
         lineItems,
-        issueDate: new Date().toISOString().slice(0, 10),
+        issueDate: ukToday(),
         earningsEntryId: earningsEntryId,
       });
       setSection("invoices");
@@ -4252,16 +4253,8 @@ export function BooksTab() {
   }, [hasUnlogged]);
 
   // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
-  const gigsFrom = (() => {
-    const d = new Date(today);
-    d.setFullYear(d.getFullYear() - 2);
-    return d.toISOString().slice(0, 10);
-  })();
-  const gigsTo = (() => {
-    const d = new Date(today);
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().slice(0, 10);
-  })();
+  const gigsFrom = addMonths(ukToday(), -24);
+  const gigsTo = addMonths(ukToday(), 12);
   const { data: scheduledJobs = [] } = useQuery<EarningsEntry[]>({
     queryKey: ["/api/earnings/gigs", gigsFrom, gigsTo],
     queryFn: () => apiRequest(`/api/earnings/gigs?from=${gigsFrom}&to=${gigsTo}`),
@@ -4451,7 +4444,7 @@ export function BooksTab() {
             : "expected";
     setStatusEditForm({
       status: derivedStatus,
-      datePaid: entry.paid_date ?? new Date().toISOString().slice(0, 10),
+      datePaid: entry.paid_date ?? ukToday(),
       amount:
         entry.paid_amount_pence != null
           ? (entry.paid_amount_pence / 100).toFixed(2)
@@ -4850,7 +4843,7 @@ export function BooksTab() {
                 client_name: fromBooking.company_name ?? "",
                 work_date: fromBooking.event_date?.slice(0, 10) ?? "",
                 status: "paid",
-                paid_date: new Date().toISOString().slice(0, 10),
+                paid_date: ukToday(),
               }
             : undefined
         }
@@ -5111,7 +5104,7 @@ export function BooksTab() {
               <Briefcase className="h-4 w-4 text-indigo-600" />
               <p className="font-semibold">My jobs</p>
               {(() => {
-                const todayStr = new Date().toISOString().slice(0, 10);
+                const todayStr = ukToday();
                 const count =
                   upcomingHired.length + scheduledJobs.filter((g) => g.work_date > todayStr).length;
                 return count > 0 ? (
@@ -5173,7 +5166,7 @@ export function BooksTab() {
                 | { kind: "booking"; date: string; data: (typeof upcomingHired)[0] }
                 | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
 
-              const todayStr = new Date().toISOString().slice(0, 10);
+              const todayStr = ukToday();
               const items: JobItem[] = [
                 ...upcomingHired.map((b) => ({
                   kind: "booking" as const,
@@ -5355,7 +5348,7 @@ export function BooksTab() {
 
       {/* ── Section 3: Earnings ── */}
       {(() => {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = ukToday();
         const completedEntries = entries.filter((e) => e.work_date <= today);
         const filteredEntries = (
           earningsFilter === "all"

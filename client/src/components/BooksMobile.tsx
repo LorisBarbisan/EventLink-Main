@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ukToday } from "@shared/job-dates";
 import { Camera, Monitor } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ export function BooksMobile() {
     onError: () => toast({ title: "Couldn't mark it paid", variant: "destructive" }),
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ukToday();
   const owed = invoices
     .filter((i) => !i.archived && (i.status === "sent" || i.status === "overdue"))
     .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));

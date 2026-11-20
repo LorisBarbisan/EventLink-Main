@@ -1,3 +1,4 @@
+import { addMonths } from "@shared/job-dates";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,12 +59,8 @@ const STATUS_CLASS: Record<CredentialStatus, string> = {
   incomplete: "bg-muted text-muted-foreground",
 };
 
-function addMonthsISO(iso: string, months: number): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
-}
+// Calendar-date month arithmetic, shared (clamps 31 Jan + 1 month to Feb's end)
+const addMonthsISO = addMonths;
 
 interface DocumentUploaderProps {
   userId: number;

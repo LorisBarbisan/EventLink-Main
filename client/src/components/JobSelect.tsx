@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { ukToday } from "@shared/job-dates";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Label } from "@/components/ui/label";
@@ -70,7 +71,7 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
 
   // Keeps the server's order: future confirmed work first, then most recent.
   const options = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ukToday();
     return jobOptions.map((j) => toJobOption(j, today));
   }, [jobOptions]);
 

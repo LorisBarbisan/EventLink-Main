@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { addDays, ukToday } from "@shared/job-dates";
 import { invoiceTotals } from "@shared/invoice-vat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -768,9 +769,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
       vat_number: c.vat_number ?? "",
     }));
     if (c.payment_terms_days && issueDate) {
-      const d = new Date(issueDate);
-      d.setDate(d.getDate() + c.payment_terms_days);
-      setDueDate(d.toISOString().slice(0, 10));
+      setDueDate(addDays(issueDate.slice(0, 10), c.payment_terms_days));
     }
   };
 
@@ -1819,7 +1818,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             name: prefillBooking.toName ?? "",
             company: prefillBooking.toCompany ?? "",
           },
-          issue_date: prefillBooking.issueDate || new Date().toISOString().slice(0, 10),
+          issue_date: prefillBooking.issueDate || ukToday(),
         };
         if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
         if (prefillBooking.jobId) patch.job_id = prefillBooking.jobId;

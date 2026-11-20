@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ukToday } from "@shared/job-dates";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -85,7 +86,7 @@ function DashLogPaymentDialog({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ukToday();
   const digits = (job.booking.agreedRate ?? "").match(/\d+(?:\.\d+)?/);
 
   const [form, setForm] = useState<DashLogPaymentForm>({
