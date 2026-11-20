@@ -617,7 +617,7 @@ export function estimateTax(
     marriageAllowancePenceDelta,
     totalDeductionsPence: totalTaxPence + studentLoanTotalPence + hicbcPence,
     class2Voluntary:
-      profit < bands.smallProfitsThresholdPence
+      profitForIT < bands.smallProfitsThresholdPence
         ? {
             annualPence: bands.class2WeeklyPence * 52,
             weeklyPence: bands.class2WeeklyPence,

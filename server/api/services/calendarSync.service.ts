@@ -7,12 +7,13 @@ import {
   fetchGoogleDelta,
   upsertGoogleAvailability,
 } from "./googleCalendar.service";
-import {
-  upsertOutlookEvent,
-  deleteOutlookEvent,
-  fetchOutlookDelta,
-  upsertOutlookAvailability,
-} from "./outlookCalendar.service";
+
+/**
+ * Only Google Calendar is synced. Outlook was retired: a connection row that
+ * still says "outlook" is left alone (the Calendar tab asks the person to
+ * disconnect it), and disconnecting just deletes the row.
+ */
+const isGoogle = (conn: { provider: string }) => conn.provider === "google";
 
 const SYNCABLE_STATUSES = ["enquired", "confirmed", "briefed", "completed"];
 
@@ -26,7 +27,7 @@ export async function syncAllBookings(userId: number): Promise<void> {
     )
     .limit(1);
 
-  if (!conn) return;
+  if (!conn || !isGoogle(conn)) return;
 
   const rows = await db
     .select({
@@ -56,14 +57,7 @@ export async function syncAllBookings(userId: number): Promise<void> {
 
     try {
       const existing = eventIds[String(booking.id)] ?? null;
-      let eventId: string;
-
-      if (conn.provider === "google") {
-        eventId = await upsertGoogleEvent(userId, payload, existing);
-      } else {
-        eventId = await upsertOutlookEvent(userId, payload, existing);
-      }
-
+      const eventId = await upsertGoogleEvent(userId, payload, existing);
       eventIds[String(booking.id)] = eventId;
     } catch (err) {
       console.error(`[calendarSync] Failed to sync booking ${booking.id} for user ${userId}:`, err);
@@ -114,25 +108,16 @@ export async function syncSingleBooking(userId: number, bookingId: number): Prom
     },
   };
 
-  try {
-    let eventId: string;
+  if (!isGoogle(conn)) return;
 
+  try {
     if (row.booking.status === "cancelled") {
       if (existing) {
-        if (conn.provider === "google") {
-          await deleteGoogleEvent(userId, existing);
-        } else {
-          await deleteOutlookEvent(userId, existing);
-        }
+        await deleteGoogleEvent(userId, existing);
         delete eventIds[String(bookingId)];
       }
     } else if (SYNCABLE_STATUSES.includes(row.booking.status)) {
-      if (conn.provider === "google") {
-        eventId = await upsertGoogleEvent(userId, payload, existing);
-      } else {
-        eventId = await upsertOutlookEvent(userId, payload, existing);
-      }
-      eventIds[String(bookingId)] = eventId!;
+      eventIds[String(bookingId)] = await upsertGoogleEvent(userId, payload, existing);
     }
 
     await db
@@ -161,14 +146,10 @@ export async function syncAvailabilityDay(
     )
     .limit(1);
 
-  if (!conn) return null;
+  if (!conn || !isGoogle(conn)) return null;
 
   try {
-    if (conn.provider === "google") {
-      return await upsertGoogleAvailability(userId, date, existingEventId);
-    } else {
-      return await upsertOutlookAvailability(userId, date, existingEventId);
-    }
+    return await upsertGoogleAvailability(userId, date, existingEventId);
   } catch (err) {
     console.error(`[calendarSync] Failed to push availability for ${date}, user ${userId}:`, err);
     return null;
@@ -183,14 +164,10 @@ export async function deleteAvailabilityEvent(userId: number, eventId: string): 
     .where(eq(calendar_connections.user_id, userId))
     .limit(1);
 
-  if (!conn) return;
+  if (!conn || !isGoogle(conn)) return;
 
   try {
-    if (conn.provider === "google") {
-      await deleteGoogleEvent(userId, eventId);
-    } else {
-      await deleteOutlookEvent(userId, eventId);
-    }
+    await deleteGoogleEvent(userId, eventId);
   } catch (err) {
     console.error(`[calendarSync] Failed to delete availability event ${eventId}:`, err);
   }
@@ -206,10 +183,10 @@ export async function readExternalEvents(userId: number): Promise<void> {
     )
     .limit(1);
 
-  if (!conn) return;
+  if (!conn || !isGoogle(conn)) return;
 
   try {
-    if (conn.provider === "google") {
+    {
       const { events, nextSyncToken } = await fetchGoogleDelta(userId, conn.sync_token ?? null);
       // Skip our own events; store external ones as busy time (future: external_busy_times table)
       const external = events.filter((e: any) => {
@@ -221,19 +198,6 @@ export async function readExternalEvents(userId: number): Promise<void> {
         await db
           .update(calendar_connections)
           .set({ sync_token: nextSyncToken, last_read_sync_at: new Date() })
-          .where(eq(calendar_connections.user_id, userId));
-      }
-    } else {
-      const { events, nextDeltaLink } = await fetchOutlookDelta(userId, conn.delta_link);
-      const external = events.filter((e: any) => {
-        const exts: any[] = e.singleValueExtendedProperties ?? [];
-        return !exts.some((x: any) => x.id?.includes("eventlink_kind"));
-      });
-      console.log(`[calendarSync] Outlook: ${external.length} external events for user ${userId}`);
-      if (nextDeltaLink) {
-        await db
-          .update(calendar_connections)
-          .set({ delta_link: nextDeltaLink, last_read_sync_at: new Date() })
           .where(eq(calendar_connections.user_id, userId));
       }
     }
@@ -254,15 +218,15 @@ export async function disconnectCalendar(userId: number): Promise<void> {
 
   const eventIds: Record<string, string> = (conn.booking_event_ids as Record<string, string>) ?? {};
 
-  for (const eventId of Object.values(eventIds)) {
-    try {
-      if (conn.provider === "google") {
+  // A retired Outlook connection: we can no longer reach that calendar, so
+  // just forget the connection
+  if (isGoogle(conn)) {
+    for (const eventId of Object.values(eventIds)) {
+      try {
         await deleteGoogleEvent(userId, eventId);
-      } else {
-        await deleteOutlookEvent(userId, eventId);
+      } catch {
+        // Best effort — calendar may already not have the event
       }
-    } catch {
-      // Best effort — calendar may already not have the event
     }
   }
 

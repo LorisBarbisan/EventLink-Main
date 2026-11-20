@@ -14,7 +14,6 @@ const ALLOWED = new Set([
   "api/routes/seo.route.ts", // sitemap lastmod: W3C dates, UTC is fine
   "api/services/import-parse-utils.ts", // Excel serial → date: defined in UTC
   "api/services/import-parser.service.ts", // spreadsheet cell dates arrive as UTC midnight
-  "api/services/outlookCalendar.service.ts", // retired integration
   // The calendar grid builds its own dates at UTC midnight (Date.UTC) and
   // formats them back in UTC — a closed loop, never "today".
   "client/components/PublicAvailability.tsx",

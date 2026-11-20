@@ -124,10 +124,10 @@ export default function PrivacyPolicy() {
               appears on your profile and on your shareable card, and shows only whether each date
               is free, tentative or busy. Days you are booked through EventLink show as busy
               automatically. It never shows the notes you write against a date, never shows anything
-              from a calendar you have connected from Google or Outlook, and never shows who you are
-              working for. Bear in mind that a card link can be forwarded: if you share your card
-              and later wonder who can see your availability, the answer is anyone who has been
-              given that link.
+              from a Google Calendar you have connected, and never shows who you are working for.
+              Bear in mind that a card link can be forwarded: if you share your card and later
+              wonder who can see your availability, the answer is anyone who has been given that
+              link.
             </p>
 
             <h3 className="mb-1 mt-3 font-semibold">3.3 Activity &amp; Transactional Data</h3>
@@ -296,7 +296,7 @@ export default function PrivacyPolicy() {
                     ["Sending platform notifications and messages", "Contract (Art. 6(1)(b))"],
                     ["Processing subscription payments via Stripe", "Contract (Art. 6(1)(b))"],
                     [
-                      "Syncing your calendar (Google / Outlook)",
+                      "Syncing your Google Calendar",
                       "Consent (Art. 6(1)(a)) — you can withdraw at any time",
                     ],
                     [

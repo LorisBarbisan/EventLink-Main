@@ -37,7 +37,6 @@ export const LOCK = {
   PROFILE_NUDGE_3: 7206, // Tue 15:30 profile nudge, stage 3
   // calendarScheduler.service.ts
   CAL_GOOGLE_RENEW: 7301, // 6-hourly Google webhook renewal
-  CAL_OUTLOOK_RENEW: 7302, // 6-hourly Outlook webhook renewal (existing connections)
   CAL_RECONCILE: 7303, // 03:00 daily calendar reconcile
 } as const;
 

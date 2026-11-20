@@ -8,7 +8,6 @@ import {
   disconnect,
   updatePreferences,
   googleWebhookHandler,
-  outlookWebhookHandler,
   listAvailability,
   setAvailability,
   deleteAvailability,
@@ -27,9 +26,8 @@ calendarRouter.delete("/disconnect", authenticateJWT, disconnect);
 calendarRouter.get("/google/connect", authenticateJWT, initiateGoogleConnect);
 calendarRouter.get("/google/callback", googleCallback);
 
-// Webhooks (unauthenticated — Google/Microsoft push notifications)
+// Webhooks (unauthenticated — Google push notifications)
 calendarRouter.post("/webhook/google", googleWebhookHandler);
-calendarRouter.post("/webhook/outlook", outlookWebhookHandler);
 
 // External calendar events (opt-in read)
 calendarRouter.get("/external-events", authenticateJWT, getExternalEvents);

@@ -8,7 +8,6 @@ import {
   connectGoogleCalendar,
   fetchExternalGoogleEvents,
 } from "../services/googleCalendar.service";
-import { getOutlookAuthUrl, connectOutlookCalendar } from "../services/outlookCalendar.service";
 import {
   syncAllBookings,
   disconnectCalendar,
@@ -73,38 +72,6 @@ export async function googleCallback(req: Request, res: Response): Promise<void>
   } catch (err) {
     console.error("[calendar] Google connect failed:", err);
     res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=google_connect`);
-  }
-}
-
-// ── Outlook OAuth ───────────────────────────────────────────────────────────
-
-export function initiateOutlookConnect(req: Request, res: Response): void {
-  const userId = (req as any).user?.id;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const state = createOAuthState(res, { uid: userId, purpose: "calendar" });
-  res.redirect(getOutlookAuthUrl(state));
-}
-
-export async function outlookCallback(req: Request, res: Response): Promise<void> {
-  const { ok, payload } = verifyOAuthState(req, res);
-  const code = req.query.code as string | undefined;
-
-  if (!ok || !code || payload.purpose !== "calendar") {
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=invalid_state`);
-    return;
-  }
-
-  try {
-    await connectOutlookCalendar(payload.uid as number, code);
-    await syncAllBookings(payload.uid as number);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calSuccess=outlook`);
-  } catch (err) {
-    console.error("[calendar] Outlook connect failed:", err);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=outlook_connect`);
   }
 }
 
@@ -195,30 +162,6 @@ export async function googleWebhookHandler(req: Request, res: Response): Promise
     await readExternalEvents(conn.user_id);
   } catch (err) {
     console.error("[calendar] Google webhook read failed:", err);
-  }
-}
-
-export async function outlookWebhookHandler(req: Request, res: Response): Promise<void> {
-  // Graph requires validation token echo on subscription creation
-  const validationToken = req.query.validationToken as string | undefined;
-  if (validationToken) {
-    res.status(200).contentType("text/plain").send(validationToken);
-    return;
-  }
-
-  res.status(202).send();
-
-  const notifications: any[] = req.body?.value ?? [];
-  for (const n of notifications) {
-    const clientState: string = n.clientState ?? "";
-    const uid = parseInt(clientState.replace("el-", ""), 10);
-    if (!uid) continue;
-    try {
-      const { readExternalEvents } = await import("../services/calendarSync.service");
-      await readExternalEvents(uid);
-    } catch (err) {
-      console.error("[calendar] Outlook webhook read failed:", err);
-    }
   }
 }
 
