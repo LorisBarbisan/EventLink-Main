@@ -83,7 +83,17 @@ export async function applyToJob(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 
-    const application = await storage.createJobApplication(result.data);
+    // The unique (job_id, freelancer_id) index catches a double submit that
+    // slips past the check above (two tabs, a retry)
+    let application;
+    try {
+      application = await storage.createJobApplication(result.data);
+    } catch (err) {
+      if ((err as { code?: string })?.code === "23505") {
+        return res.status(409).json({ error: "You have already applied to this job." });
+      }
+      throw err;
+    }
 
     try {
       await notifyJobPosterOfNewApplication({
@@ -662,7 +672,19 @@ export async function inviteFreelancer(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 
-    const application = await storage.createJobApplication(result.data);
+    // The unique (job_id, freelancer_id) index catches a double submit that
+    // slips past the check above (two tabs, a retry)
+    let application;
+    try {
+      application = await storage.createJobApplication(result.data);
+    } catch (err) {
+      if ((err as { code?: string })?.code === "23505") {
+        return res.status(409).json({
+          error: "This freelancer already has an application or invitation for this job.",
+        });
+      }
+      throw err;
+    }
 
     // Add the invited freelancer to the employer booking pipeline as Enquired
     await syncBookingForApplication({

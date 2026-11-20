@@ -283,6 +283,11 @@ export const job_applications = pgTable(
     // Its leftmost prefix also serves lookups by job_id alone. Migration 0047.
     jobStatusIdx: index("job_applications_job_status_idx").on(t.job_id, t.status),
     freelancerIdx: index("job_applications_freelancer_idx").on(t.freelancer_id),
+    // One application per freelancer per job (migration 0049)
+    jobFreelancerUnique: uniqueIndex("job_applications_job_freelancer_unique").on(
+      t.job_id,
+      t.freelancer_id
+    ),
   })
 );
 
