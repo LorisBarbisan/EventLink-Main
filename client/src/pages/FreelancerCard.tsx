@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { BADGE_CONFIG } from "@/components/ReferenceBadges";
 
 // Brand palette
 const C = {
@@ -436,7 +437,7 @@ export default function FreelancerCard() {
                   {ref.referee_name || "Reference"}
                 </div>
                 <div style={{ fontSize: 10, color: "#999" }}>
-                  {ref.referee_organisation || ref.badge_result?.replace(/_/g, " ") || ""}
+                  {ref.referee_organisation || BADGE_CONFIG[ref.badge_result]?.label || ""}
                 </div>
               </div>
             </div>
@@ -1447,7 +1448,7 @@ export default function FreelancerCard() {
                         iconBg={C.purpleLight}
                         icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
                         label={ref.referee_name || "Reference"}
-                        sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
+                        sub={ref.referee_organisation || BADGE_CONFIG[ref.badge_result]?.label}
                       />
                     ))}
                     {(references as any[]).length === 0 && !isVerified && (
