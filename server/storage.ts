@@ -1,4 +1,5 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
+import { NON_PUBLIC_BADGE_RESULTS } from "@shared/references";
 import { ukToday } from "@shared/job-dates";
 import { messagingAllowed } from "@shared/safety";
 import { user_blocks, user_reports } from "@shared/schema";
@@ -150,6 +151,7 @@ import {
   ilike,
   inArray,
   isNotNull,
+  notInArray,
   isNull,
   lt,
   lte,
@@ -5871,7 +5873,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(freelancer_references.freelancer_id, freelancerId),
           eq(freelancer_references.is_flagged, false),
-          sql`${freelancer_references.badge_result} != 'flagged'`
+          notInArray(freelancer_references.badge_result, [...NON_PUBLIC_BADGE_RESULTS])
         )
       )
       .orderBy(desc(freelancer_references.created_at));
