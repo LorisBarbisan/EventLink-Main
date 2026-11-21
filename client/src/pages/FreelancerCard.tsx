@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { BADGE_CONFIG } from "@/components/ReferenceBadges";
 
 // Brand palette
 const C = {
@@ -41,8 +42,137 @@ const C = {
   border2: "rgba(0,0,0,0.18)",
 };
 
-type Detail = "about" | "credentials" | "files" | "calendar" | null;
-type RightTab = "about" | "credentials" | "files" | "calendar";
+type Detail = "about" | "references" | "files" | "calendar" | null;
+type RightTab = "about" | "references" | "files" | "calendar";
+
+/**
+ * The structured answers that survived the star rating, spelled out in words.
+ * Only the publishable combinations reach here (verified_private is withheld
+ * server-side), so "mixed" / "unlikely" never produce a chip.
+ */
+function reviewChips(r: {
+  q2_rating?: string | null;
+  q3_would_work_again?: string | null;
+}): string[] {
+  const chips: string[] = [];
+  if (r.q3_would_work_again === "absolutely" || r.q3_would_work_again === "yes") {
+    chips.push("Would work with them again");
+  }
+  if (r.q2_rating === "excellent") chips.push("Rated the work excellent");
+  else if (r.q2_rating === "good") chips.push("Rated the work good");
+  return chips;
+}
+
+type ReviewColors = {
+  main: string;
+  attr: string;
+  chipBg: string;
+  chipText: string;
+  divider: string;
+  iconBg: string;
+  iconColor: string;
+};
+
+const REVIEW_TRUNCATE = 150;
+
+/**
+ * One written reference on the card. The comment is the content; the referee's
+ * name and organisation are attribution beneath it. A reference with no comment
+ * keeps the old name + organisation/badge row, because an empty quotation looks
+ * like a fault. Long comments truncate with a Read more toggle so four reviews
+ * still fit a phone-width card.
+ */
+function ReviewRow({ data, colors }: { data: any; colors: ReviewColors }) {
+  const [expanded, setExpanded] = useState(false);
+  const comment: string = (data.comment || "").trim();
+  const name = data.referee_name || "Reference";
+  const org = data.referee_organisation || BADGE_CONFIG[data.badge_result]?.label || "";
+
+  if (!comment) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          padding: "10px 0",
+          borderBottom: `1px solid ${colors.divider}`,
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            background: colors.iconBg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Award style={{ width: 14, height: 14, color: colors.iconColor }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: colors.main }}>{name}</div>
+          {org && <div style={{ fontSize: 10, color: colors.attr }}>{org}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  const isLong = comment.length > REVIEW_TRUNCATE + 20;
+  const shown = expanded || !isLong ? comment : comment.slice(0, REVIEW_TRUNCATE).trimEnd() + "…";
+  const chips = reviewChips(data);
+
+  return (
+    <div style={{ padding: "12px 0", borderBottom: `1px solid ${colors.divider}` }}>
+      <p style={{ fontSize: 13, lineHeight: 1.5, color: colors.main, margin: 0 }}>
+        “{shown}”
+        {isLong && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            style={{
+              border: "none",
+              background: "none",
+              padding: 0,
+              marginLeft: 4,
+              font: "inherit",
+              fontWeight: 600,
+              color: colors.chipText,
+              cursor: "pointer",
+            }}
+          >
+            {expanded ? "Show less" : "Read more"}
+          </button>
+        )}
+      </p>
+      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: colors.attr }}>
+        — {name}
+        {org ? `, ${org}` : ""}
+      </div>
+      {chips.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+          {chips.map((c) => (
+            <span
+              key={c}
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: colors.chipBg,
+                color: colors.chipText,
+              }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FreelancerCard() {
   const { userId } = useParams();
@@ -368,7 +498,7 @@ export default function FreelancerCard() {
         </div>
       );
     }
-    if (type === "credentials") {
+    if (type === "references") {
       return (
         <div>
           {isVerified && (
@@ -407,42 +537,22 @@ export default function FreelancerCard() {
             </div>
           )}
           {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
-            <div
+            <ReviewRow
               key={ref.id ?? i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 9,
-                padding: "8px 0",
-                borderBottom: "1px solid #f4f4f8",
+              data={ref}
+              colors={{
+                main: "#333",
+                attr: "#999",
+                chipBg: C.purpleLight,
+                chipText: C.purpleDark,
+                divider: "#f4f4f8",
+                iconBg: C.purpleLight,
+                iconColor: C.purple,
               }}
-            >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 7,
-                  background: C.purpleLight,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Award style={{ width: 14, height: 14, color: C.purple }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#111" }}>
-                  {ref.referee_name || "Reference"}
-                </div>
-                <div style={{ fontSize: 10, color: "#999" }}>
-                  {ref.referee_organisation || ref.badge_result?.replace(/_/g, " ") || ""}
-                </div>
-              </div>
-            </div>
+            />
           ))}
           {(references as any[]).length === 0 && !isVerified && (
-            <p style={{ fontSize: 12, color: C.text3 }}>No credentials added yet.</p>
+            <p style={{ fontSize: 12, color: C.text3 }}>No references yet.</p>
           )}
         </div>
       );
@@ -669,7 +779,7 @@ export default function FreelancerCard() {
 
   const DETAIL_PANELS: Detail[] = [
     "about",
-    "credentials",
+    "references",
     "files",
     ...(freelancer?.public_availability ? (["calendar"] as Detail[]) : []),
   ];
@@ -794,7 +904,7 @@ export default function FreelancerCard() {
                     }}
                   />
                   <div style={{ marginBottom: 14 }}>
-                    <Avatar size={96} />
+                    <Avatar size={120} />
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: DM.text1, marginBottom: 4 }}>
                     {fullName}
@@ -962,9 +1072,9 @@ export default function FreelancerCard() {
                         sub="Overview & intro"
                       />
                       <SectionBtn
-                        id="credentials"
+                        id="references"
                         icon={<ShieldCheck style={{ width: 18, height: 18 }} />}
-                        label="Credentials"
+                        label="References"
                         sub="Verified & endorsed"
                       />
                       <SectionBtn
@@ -1333,7 +1443,7 @@ export default function FreelancerCard() {
                 {(
                   [
                     "about",
-                    "credentials",
+                    "references",
                     "files",
                     ...(freelancer.public_availability ? ["calendar"] : []),
                   ] as RightTab[]
@@ -1431,7 +1541,7 @@ export default function FreelancerCard() {
                   </div>
                 )}
 
-                {rightTab === "credentials" && (
+                {rightTab === "references" && (
                   <div>
                     {isVerified && (
                       <DRow
@@ -1442,16 +1552,22 @@ export default function FreelancerCard() {
                       />
                     )}
                     {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
-                      <DRow
+                      <ReviewRow
                         key={ref.id ?? i}
-                        iconBg={C.purpleLight}
-                        icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
-                        label={ref.referee_name || "Reference"}
-                        sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
+                        data={ref}
+                        colors={{
+                          main: DM.text1,
+                          attr: DM.text2,
+                          chipBg: DM.pillBg,
+                          chipText: DM.pillText,
+                          divider: DM.divider,
+                          iconBg: C.purpleLight,
+                          iconColor: C.purple,
+                        }}
                       />
                     ))}
                     {(references as any[]).length === 0 && !isVerified && (
-                      <p style={{ fontSize: 13, color: C.text3 }}>No credentials yet.</p>
+                      <p style={{ fontSize: 13, color: C.text3 }}>No references yet.</p>
                     )}
                   </div>
                 )}
