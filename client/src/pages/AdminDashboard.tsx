@@ -1301,13 +1301,17 @@ function AdminDashboardContent() {
               <SelectItem value="teams">Teams</SelectItem>
               <SelectItem value="documents">Documents</SelectItem>
               <SelectItem value="admin-management">Admin</SelectItem>
+              <SelectItem value="user-reports">Reports</SelectItem>
+              <SelectItem value="books-usage">Books usage</SelectItem>
               <SelectItem value="tax-rates">Tax rates</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Desktop: tab bar */}
-        <TabsList className="hidden w-full grid-cols-10 gap-1 p-1 sm:grid">
+        {/* flex-wrap, not a fixed column count: the row reflows as tabs are
+            added, so a new TabsTrigger can never fall off the end again. */}
+        <TabsList className="hidden w-full flex-wrap gap-1 p-1 sm:flex [&>*]:grow [&>*]:basis-32">
           <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4" />
             Overview
