@@ -31,8 +31,7 @@ const TABLES: Record<BooksArea, string> = {
 
 type RawRow = {
   user_id: number;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
   signed_up: Date | string;
   area: BooksArea | null;
   n: number | string | null;
@@ -49,15 +48,30 @@ export async function booksUsage(now: Date = new Date()): Promise<BooksUsageResp
       `SELECT freelancer_id, '${a}' AS area, COUNT(*) AS n, MIN(created_at) AS first_at, MAX(created_at) AS last_at FROM ${TABLES[a]} GROUP BY freelancer_id`
   ).join(" UNION ALL ");
 
+  // A freelancer's name may live on the users row or on their profile: social
+  // sign-ups can land with an empty users.first_name while the profile they
+  // filled in holds the real name. Prefer users, fall back to the profile, and
+  // only then to "User <id>". DISTINCT ON keeps the join one-row-per-user so it
+  // can't multiply the per-area counts (user_id is not unique on profiles).
   const raw = (await db.execute(
     sql.raw(`
-      WITH per_area AS (${unions})
-      SELECT u.id AS user_id, u.first_name, u.last_name, u.created_at AS signed_up,
+      WITH per_area AS (${unions}),
+           profile AS (
+             SELECT DISTINCT ON (user_id) user_id, first_name, last_name
+             FROM freelancer_profiles
+             ORDER BY user_id, id
+           )
+      SELECT u.id AS user_id, u.created_at AS signed_up,
+             COALESCE(
+               NULLIF(TRIM(CONCAT_WS(' ', u.first_name,  u.last_name)),  ''),
+               NULLIF(TRIM(CONCAT_WS(' ', fp.first_name, fp.last_name)), '')
+             ) AS name,
              p.area, p.n, p.first_at, p.last_at,
              EXISTS (SELECT 1 FROM books_usage_events e
                      WHERE e.user_id = u.id AND e.event = 'workbook.downloaded') AS workbook
       FROM users u
       LEFT JOIN per_area p ON p.freelancer_id = u.id
+      LEFT JOIN profile  fp ON fp.user_id = u.id
       WHERE u.role = 'freelancer'
     `)
   )) as unknown as RawRow[];
@@ -68,7 +82,7 @@ export async function booksUsage(now: Date = new Date()): Promise<BooksUsageResp
     if (!row) {
       row = {
         user_id: r.user_id,
-        name: [r.first_name, r.last_name].filter(Boolean).join(" ") || `User ${r.user_id}`,
+        name: r.name || `User ${r.user_id}`,
         signed_up: iso(r.signed_up)!,
         counts: Object.fromEntries(BOOKS_AREAS.map((a) => [a, 0])) as Record<BooksArea, number>,
         total_records: 0,
