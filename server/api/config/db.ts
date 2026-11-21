@@ -22,7 +22,7 @@ try {
 const client = postgres(connectionString, {
   max: 20, // Maximum connections in the pool
   idle_timeout: 20, // Close idle connections after 20 seconds
-  connect_timeout: 5, // Reduced connection timeout for faster failure detection
+  connect_timeout: 20, // Neon suspends idle computes; a cold start can take several seconds
   prepare: false, // Disable prepared statements to reduce memory usage
   transform: {
     undefined: null, // Transform undefined to null for better SQL compatibility
