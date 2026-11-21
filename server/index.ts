@@ -188,14 +188,6 @@ app.get("/health", async (_req, res) => {
   }
 });
 
-// TEMPORARY: proves Sentry receives server errors. Exists only where
-// ALLOW_DEBUG_ERRORS=true (staging); remove once reporting is confirmed.
-if (process.env.ALLOW_DEBUG_ERRORS === "true") {
-  app.get("/api/debug/boom", () => {
-    throw new Error("Sentry check");
-  });
-}
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
