@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
   Award,
+  Building2,
   ChevronLeft,
   CalendarDays,
   ChevronRight,
@@ -45,130 +46,117 @@ const C = {
 type Detail = "about" | "references" | "files" | "calendar" | null;
 type RightTab = "about" | "references" | "files" | "calendar";
 
-/**
- * The structured answers that survived the star rating, spelled out in words.
- * Only the publishable combinations reach here (verified_private is withheld
- * server-side), so "mixed" / "unlikely" never produce a chip.
- */
-function reviewChips(r: {
-  q2_rating?: string | null;
-  q3_would_work_again?: string | null;
-}): string[] {
-  const chips: string[] = [];
-  if (r.q3_would_work_again === "absolutely" || r.q3_would_work_again === "yes") {
-    chips.push("Would work with them again");
-  }
-  if (r.q2_rating === "excellent") chips.push("Rated the work excellent");
-  else if (r.q2_rating === "good") chips.push("Rated the work good");
-  return chips;
-}
-
 type ReviewColors = {
   main: string;
   attr: string;
-  chipBg: string;
-  chipText: string;
   divider: string;
-  iconBg: string;
+  link: string;
   iconColor: string;
 };
 
 const REVIEW_TRUNCATE = 150;
 
 /**
- * One written reference on the card. The comment is the content; the referee's
- * name and organisation are attribution beneath it. A reference with no comment
- * keeps the old name + organisation/badge row, because an empty quotation looks
- * like a fault. Long comments truncate with a Read more toggle so four reviews
- * still fit a phone-width card.
+ * Inline-styled, theme-aware equivalents of BADGE_CONFIG.colour (which holds
+ * Tailwind classes the card can't use). Label and icon still come from
+ * BADGE_CONFIG so the card and the profile can't drift; only the colour is
+ * restated here. verified_private / flagged have no entry — they're withheld.
+ */
+const CARD_BADGE_STYLE: Record<string, { bg: string; text: string }> = {
+  highly_recommended: { bg: C.successLight, text: C.success },
+  recommended: { bg: "hsl(160,58%,93%)", text: "hsl(160,55%,28%)" },
+  work_history_confirmed: { bg: "hsl(210,80%,94%)", text: "hsl(210,68%,40%)" },
+};
+
+/**
+ * One written reference on the card, in the shape the profile already uses:
+ * the organisation (with a building icon) as the heading, the BADGE_CONFIG
+ * pill beside it, and the comment beneath as the body. A reference with no
+ * comment keeps the heading and badge — still says something — without an
+ * empty quotation. Long comments truncate with a Read more toggle so four
+ * reviews still fit a phone-width card.
  */
 function ReviewRow({ data, colors }: { data: any; colors: ReviewColors }) {
   const [expanded, setExpanded] = useState(false);
   const comment: string = (data.comment || "").trim();
-  const name = data.referee_name || "Reference";
-  const org = data.referee_organisation || BADGE_CONFIG[data.badge_result]?.label || "";
-
-  if (!comment) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 9,
-          padding: "10px 0",
-          borderBottom: `1px solid ${colors.divider}`,
-        }}
-      >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 7,
-            background: colors.iconBg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <Award style={{ width: 14, height: 14, color: colors.iconColor }} />
-        </div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: colors.main }}>{name}</div>
-          {org && <div style={{ fontSize: 10, color: colors.attr }}>{org}</div>}
-        </div>
-      </div>
-    );
-  }
+  const name: string = data.referee_name || "";
+  const org: string = data.referee_organisation || "";
+  const heading = org || name || "Reference";
+  const secondaryName = org && name ? name : "";
+  const badge = BADGE_CONFIG[data.badge_result];
+  const badgeStyle = CARD_BADGE_STYLE[data.badge_result];
 
   const isLong = comment.length > REVIEW_TRUNCATE + 20;
   const shown = expanded || !isLong ? comment : comment.slice(0, REVIEW_TRUNCATE).trimEnd() + "…";
-  const chips = reviewChips(data);
 
   return (
     <div style={{ padding: "12px 0", borderBottom: `1px solid ${colors.divider}` }}>
-      <p style={{ fontSize: 13, lineHeight: 1.5, color: colors.main, margin: 0 }}>
-        “{shown}”
-        {isLong && (
-          <button
-            onClick={() => setExpanded((e) => !e)}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          {org ? (
+            <Building2 style={{ width: 14, height: 14, color: colors.iconColor, flexShrink: 0 }} />
+          ) : (
+            <Award style={{ width: 14, height: 14, color: colors.iconColor, flexShrink: 0 }} />
+          )}
+          <span
             style={{
-              border: "none",
-              background: "none",
-              padding: 0,
-              marginLeft: 4,
-              font: "inherit",
+              fontSize: 12,
               fontWeight: 600,
-              color: colors.chipText,
-              cursor: "pointer",
+              color: colors.main,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            {expanded ? "Show less" : "Read more"}
-          </button>
+            {heading}
+          </span>
+        </div>
+        {badge && badgeStyle && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "2px 8px",
+              borderRadius: 999,
+              background: badgeStyle.bg,
+              color: badgeStyle.text,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span aria-hidden="true">{badge.icon}</span>
+            {badge.label}
+          </span>
         )}
-      </p>
-      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: colors.attr }}>
-        — {name}
-        {org ? `, ${org}` : ""}
       </div>
-      {chips.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-          {chips.map((c) => (
-            <span
-              key={c}
+      {secondaryName && (
+        <div style={{ fontSize: 10, color: colors.attr, marginTop: 2, marginLeft: 21 }}>
+          {secondaryName}
+        </div>
+      )}
+      {comment && (
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: colors.main, margin: "7px 0 0" }}>
+          “{shown}”
+          {isLong && (
+            <button
+              onClick={() => setExpanded((e) => !e)}
               style={{
-                fontSize: 10,
+                border: "none",
+                background: "none",
+                padding: 0,
+                marginLeft: 4,
+                font: "inherit",
                 fontWeight: 600,
-                padding: "2px 8px",
-                borderRadius: 999,
-                background: colors.chipBg,
-                color: colors.chipText,
+                color: colors.link,
+                cursor: "pointer",
               }}
             >
-              {c}
-            </span>
-          ))}
-        </div>
+              {expanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </p>
       )}
     </div>
   );
@@ -543,10 +531,8 @@ export default function FreelancerCard() {
               colors={{
                 main: "#333",
                 attr: "#999",
-                chipBg: C.purpleLight,
-                chipText: C.purpleDark,
                 divider: "#f4f4f8",
-                iconBg: C.purpleLight,
+                link: C.purpleDark,
                 iconColor: C.purple,
               }}
             />
@@ -1558,10 +1544,8 @@ export default function FreelancerCard() {
                         colors={{
                           main: DM.text1,
                           attr: DM.text2,
-                          chipBg: DM.pillBg,
-                          chipText: DM.pillText,
                           divider: DM.divider,
-                          iconBg: C.purpleLight,
+                          link: darkMode ? C.purple : C.purpleDark,
                           iconColor: C.purple,
                         }}
                       />
