@@ -5,8 +5,7 @@ import { sendEmail } from "../utils/emailService";
 import { getOrigin } from "../utils/auth.util";
 import { SESSION_SECRET } from "../config/env";
 import crypto from "crypto";
-
-const FRONTEND_BASE = process.env.FRONTEND_URL || "https://app.eventlink.one";
+import { SITE_URL } from "../config/site";
 
 const HIGH_TRUST_DOMAINS = [
   "aeg.com",
@@ -210,7 +209,7 @@ export async function submitReference(req: Request, res: Response) {
 
     if (referee_email && verification_type !== "eventlink_member") {
       try {
-        const verifyUrl = `${FRONTEND_BASE}/api/references/verify-email?token=${verificationToken}`;
+        const verifyUrl = `${SITE_URL}/api/references/verify-email?token=${verificationToken}`;
         await sendEmail({
           to: referee_email,
           subject: `Verify your reference for ${freelancer.firstName || "a freelancer"} on EventLink`,
@@ -284,7 +283,7 @@ export async function submitReference(req: Request, res: Response) {
                   Verification status: <strong>${verificationLabel}</strong>
                 </p>
                 ${publicBadge}
-                <a href="${FRONTEND_BASE}/profile/${freelancer.userId}"
+                <a href="${SITE_URL}/profile/${freelancer.userId}"
                    style="display:inline-block;background:linear-gradient(135deg,#D8690E,#f59e0b);color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">
                   View My Profile
                 </a>
@@ -612,7 +611,7 @@ export async function createReferenceRequest(req: Request, res: Response) {
     });
 
     try {
-      const referenceUrl = `${FRONTEND_BASE}/reference/${token}`;
+      const referenceUrl = `${SITE_URL}/reference/${token}`;
       const freelancerName =
         [user.first_name, user.last_name].filter(Boolean).join(" ") || "A colleague";
       await sendEmail({
@@ -713,7 +712,7 @@ export async function sendReferenceReminder(req: Request, res: Response) {
 
     const user = await storage.getUser(userId);
     const token = await storage.getOrCreateReferenceToken(userId);
-    const referenceUrl = `https://eventlink.one/reference/${token}`;
+    const referenceUrl = `${SITE_URL}/reference/${token}`;
     const freelancerName =
       [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "A colleague";
 

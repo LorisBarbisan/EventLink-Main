@@ -2,8 +2,7 @@ import { db } from "../config/db";
 import { jobs, users, teamMembers, job_applications } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
-
-const SITE = "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 type ReminderJob = {
   id: number;
@@ -129,7 +128,7 @@ async function sendCloseReminderEmail(
         year: "numeric",
       })
     : "its event date";
-  const dashboardLink = `${SITE}/dashboard`;
+  const dashboardLink = `${SITE_URL}/dashboard`;
 
   const subject = `Reminder: "${job.title}" closes on ${eventDateStr}`;
 
@@ -223,7 +222,7 @@ eventlink.one
               <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">
                 Thanks,<br/>
                 <strong>The EventLink Team</strong><br/>
-                <a href="${SITE}" style="color:#D8690E;text-decoration:none;">eventlink.one</a>
+                <a href="${SITE_URL}" style="color:#D8690E;text-decoration:none;">eventlink.one</a>
               </p>
             </td>
           </tr>

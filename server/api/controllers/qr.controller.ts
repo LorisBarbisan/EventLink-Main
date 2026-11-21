@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-
-const FRONTEND_BASE = process.env.FRONTEND_URL || "https://app.eventlink.one";
+import { SITE_URL } from "../config/site";
 
 export async function getProfileQR(req: Request, res: Response) {
   try {
@@ -13,8 +12,8 @@ export async function getProfileQR(req: Request, res: Response) {
     const profile = await storage.getFreelancerProfile(userId);
     const effectiveSlug = (profile as any)?.custom_slug || profile?.slug;
     const profileUrl = effectiveSlug
-      ? `${FRONTEND_BASE}/profile/${effectiveSlug}`
-      : `${FRONTEND_BASE}/profile/${userId}`;
+      ? `${SITE_URL}/profile/${effectiveSlug}`
+      : `${SITE_URL}/profile/${userId}`;
 
     // Dynamic import so the server still starts even if qrcode isn't installed yet
     let QRCode: typeof import("qrcode");

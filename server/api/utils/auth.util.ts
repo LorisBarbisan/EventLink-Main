@@ -2,6 +2,7 @@ import { Request } from "express";
 import jwt from "jsonwebtoken";
 import { storage } from "server/storage";
 import { JWT_SECRET } from "../config/env";
+import { SITE_URL } from "../config/site";
 
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
   ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
@@ -50,7 +51,7 @@ export const blacklistToken = (token: string): void => {
 // Helper function to get the correct origin for redirects and email links
 export function getOrigin(req: Request): string {
   if (process.env.NODE_ENV === "production") {
-    return "https://eventlink.one";
+    return SITE_URL;
   }
   const protocol = req.headers["x-forwarded-proto"]?.includes("https") ? "https" : req.protocol;
   const host = req.get("host");

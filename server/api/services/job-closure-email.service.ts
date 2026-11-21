@@ -3,6 +3,7 @@ import { jobs, job_applications, users } from "@shared/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
+import { SITE_URL } from "../config/site";
 
 export async function sendJobClosureEmails(jobId: number): Promise<void> {
   // Guard: skip if closure emails already sent for this job
@@ -79,8 +80,8 @@ export async function sendJobClosureEmails(jobId: number): Promise<void> {
     if (!(await emailService.canSendEmail(freelancer.id, "application_update"))) continue;
 
     const firstName = freelancer.first_name || "there";
-    const reputationLink = `https://eventlink.one/dashboard`;
-    const unsubscribeLink = `https://eventlink.one/unsubscribe?token=${
+    const reputationLink = `${SITE_URL}/dashboard`;
+    const unsubscribeLink = `${SITE_URL}/unsubscribe?token=${
       freelancer.unsubscribe_token ?? freelancer.id
     }`;
 
@@ -186,7 +187,7 @@ Unsubscribe: ${unsubscribeLink}
               <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">
                 Best of luck,<br/>
                 <strong>The EventLink Team</strong><br/>
-                <a href="https://eventlink.one" style="color:#D8690E;text-decoration:none;">eventlink.one</a>
+                <a href="${SITE_URL}" style="color:#D8690E;text-decoration:none;">eventlink.one</a>
               </p>
 
             </td>

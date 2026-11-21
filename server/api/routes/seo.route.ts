@@ -1,8 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../../storage";
 import { CREW_LANDING_PAGES } from "@shared/crewLandingPages";
-
-const BASE_URL = "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 export function registerSeoRoutes(app: Express) {
   // Dynamic sitemap.xml — helps Google discover all pages on the site
@@ -19,19 +18,19 @@ export function registerSeoRoutes(app: Express) {
       const now = new Date().toISOString().split("T")[0];
 
       const staticPages = [
-        { url: `${BASE_URL}/`, priority: "1.0" },
-        { url: `${BASE_URL}/jobs`, priority: "0.9" },
-        { url: `${BASE_URL}/freelancers`, priority: "0.9" },
-        { url: `${BASE_URL}/post-job`, priority: "0.8" },
-        { url: `${BASE_URL}/how-it-works`, priority: "0.7" },
-        { url: `${BASE_URL}/about`, priority: "0.6" },
-        { url: `${BASE_URL}/faq`, priority: "0.5" },
-        { url: `${BASE_URL}/contact-us`, priority: "0.4" },
+        { url: `${SITE_URL}/`, priority: "1.0" },
+        { url: `${SITE_URL}/jobs`, priority: "0.9" },
+        { url: `${SITE_URL}/freelancers`, priority: "0.9" },
+        { url: `${SITE_URL}/post-job`, priority: "0.8" },
+        { url: `${SITE_URL}/how-it-works`, priority: "0.7" },
+        { url: `${SITE_URL}/about`, priority: "0.6" },
+        { url: `${SITE_URL}/faq`, priority: "0.5" },
+        { url: `${SITE_URL}/contact-us`, priority: "0.4" },
       ];
 
       // SEO role×city landing pages (e.g. /freelance-crew/av-technician-london)
       const crewLandingPages = CREW_LANDING_PAGES.map((p) => ({
-        url: `${BASE_URL}${p.path}`,
+        url: `${SITE_URL}${p.path}`,
         priority: "0.8",
       }));
 
@@ -39,14 +38,14 @@ export function registerSeoRoutes(app: Express) {
       const jobPages = allJobs
         .filter((j) => j.status === "active" && j.type !== "external")
         .map((j) => ({
-          url: j.slug ? `${BASE_URL}/jobs/${j.slug}` : `${BASE_URL}/jobs/${j.id}`,
+          url: j.slug ? `${SITE_URL}/jobs/${j.slug}` : `${SITE_URL}/jobs/${j.id}`,
           priority: "0.8",
           lastmod: j.updated_at ? new Date(j.updated_at).toISOString().split("T")[0] : now,
         }));
 
       // Individual freelancer profile pages — use canonical /profile/:userId URL
       const profilePages = sitemapProfiles.map((p) => ({
-        url: `${BASE_URL}/profile/${p.user_id}`,
+        url: `${SITE_URL}/profile/${p.user_id}`,
         priority: "0.7",
         lastmod: p.updated_at ? new Date(p.updated_at).toISOString().split("T")[0] : now,
       }));

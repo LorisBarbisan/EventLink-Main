@@ -2,6 +2,7 @@ import { storage } from "../../storage";
 import { sendEmail } from "./emailService";
 import * as emailTemplates from "./emailTemplates";
 import { isWithinRadius } from "./uk-coordinates";
+import { SITE_URL } from "../config/site";
 
 /**
  * Email notification service
@@ -130,7 +131,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages&conversationId=${params.conversationId}`;
+    const conversationUrl = `${SITE_URL}/dashboard?tab=messages&conversationId=${params.conversationId}`;
     const { subject, html } = emailTemplates.messageNotificationEmail({
       recipientName: params.recipientName,
       senderName: params.senderName,
@@ -170,7 +171,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const applicationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=jobs`;
+    const applicationUrl = `${SITE_URL}/dashboard?tab=jobs`;
     const { subject, html } = emailTemplates.applicationUpdateEmail({
       recipientName: params.recipientName,
       jobTitle: params.jobTitle,
@@ -210,7 +211,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const applicationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=applications`;
+    const applicationUrl = `${SITE_URL}/dashboard?tab=applications`;
     const { subject, html } = emailTemplates.newApplicationEmail({
       recipientName: params.recipientName,
       jobTitle: params.jobTitle,
@@ -460,7 +461,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const jobUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/jobs?jobId=${params.jobId}`;
+    const jobUrl = `${SITE_URL}/jobs?jobId=${params.jobId}`;
     const { subject, html } = emailTemplates.jobAlertEmail({
       recipientName: params.recipientName,
       jobTitle: params.jobTitle,
@@ -499,7 +500,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const ratingUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/ratings`;
+    const ratingUrl = `${SITE_URL}/ratings`;
     const { subject, html } = emailTemplates.ratingRequestEmail({
       recipientName: params.recipientName,
       requesterName: params.requesterName,
@@ -574,7 +575,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const jobUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=jobs`;
+    const jobUrl = `${SITE_URL}/dashboard?tab=jobs`;
     const { subject, html } = emailTemplates.invitationEmail({
       recipientName: params.recipientName,
       recruiterName: params.recruiterName,
@@ -614,7 +615,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const base = process.env.FRONTEND_URL || "https://eventlink.one";
+    const base = SITE_URL;
     const jobUrl = params.jobSlug
       ? `${base}/jobs/${params.jobSlug}`
       : `${base}/jobs?jobId=${params.jobId}`;

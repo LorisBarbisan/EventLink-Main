@@ -7,8 +7,7 @@ import type { CredentialReminderStage, DocumentType } from "@shared/schema";
 import { DOCUMENT_TYPE_META } from "@shared/schema";
 import { sendEmail } from "../utils/emailService";
 import { storage } from "../../storage";
-
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 // First-run safety: never email more than this many freelancers in one run, so
 // the very first run (315 freelancers, several docs each, all suddenly in scope)
@@ -212,10 +211,10 @@ async function sendReminderEmail(batch: FreelancerBatch): Promise<boolean> {
     count === 1
       ? `Reminder: your ${batch.due[0].typeLabel} ${STAGE_PHRASE[batch.due[0].stage]}`
       : `Reminder: ${count} of your certificates need renewing`;
-  const link = `${BASE_URL}/dashboard`;
+  const link = `${SITE_URL}/dashboard`;
   // Unsubscribe points at the credential preference, NOT marketing — this is a
   // service message about the freelancer's own data.
-  const unsubscribe = `${BASE_URL}/unsubscribe?type=credentials${
+  const unsubscribe = `${SITE_URL}/unsubscribe?type=credentials${
     batch.unsubscribeToken ? `&token=${batch.unsubscribeToken}` : ""
   }`;
 
@@ -272,7 +271,7 @@ Turn these reminders off: ${unsubscribe}
         <table cellpadding="0" cellspacing="0" style="margin:8px 0 20px 0;"><tr><td style="background-color:#D8690E;border-radius:8px;">
           <a href="${link}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">&#8594; Update my certificates</a>
         </td></tr></table>
-        <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">Thanks,<br/><strong>The EventLink Team</strong><br/><a href="${BASE_URL}" style="color:#D8690E;text-decoration:none;">eventlink.one</a></p>
+        <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">Thanks,<br/><strong>The EventLink Team</strong><br/><a href="${SITE_URL}" style="color:#D8690E;text-decoration:none;">eventlink.one</a></p>
       </td></tr>
       <tr><td style="background-color:#F9FAFB;padding:20px 36px;border-top:1px solid #E5E7EB;">
         <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;">

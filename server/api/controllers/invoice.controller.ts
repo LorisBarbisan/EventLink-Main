@@ -21,6 +21,7 @@ import { ObjectStorageService } from "../utils/object-storage";
 import { insertMessageSchema, bookings, invoices as invoicesTable, jobs } from "@shared/schema";
 import { db } from "../config/db";
 import { and, desc, eq } from "drizzle-orm";
+import { SITE_URL } from "../config/site";
 
 // ── Billing profile ────────────────────────────────────────────────────────────
 
@@ -742,7 +743,7 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
         try {
           const { sendEmail } = await import("../utils/emailService");
           const tmpl = await import("../utils/emailTemplates");
-          const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages&conversationId=${conversation.id}`;
+          const conversationUrl = `${SITE_URL}/dashboard?tab=messages&conversationId=${conversation.id}`;
 
           // Resolve job title for the email body
           let jobTitle: string | undefined;

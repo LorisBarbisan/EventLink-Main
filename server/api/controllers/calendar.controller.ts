@@ -13,8 +13,7 @@ import {
   disconnectCalendar,
   syncAvailabilityDay,
 } from "../services/calendarSync.service";
-
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 // ── Status ─────────────────────────────────────────────────────────────────
 
@@ -61,17 +60,17 @@ export async function googleCallback(req: Request, res: Response): Promise<void>
   const code = req.query.code as string | undefined;
 
   if (!ok || !code || payload.purpose !== "calendar") {
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=invalid_state`);
+    res.redirect(`${SITE_URL}/dashboard?tab=books&section=calendar&calError=invalid_state`);
     return;
   }
 
   try {
     await connectGoogleCalendar(payload.uid as number, code);
     await syncAllBookings(payload.uid as number);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calSuccess=google`);
+    res.redirect(`${SITE_URL}/dashboard?tab=books&section=calendar&calSuccess=google`);
   } catch (err) {
     console.error("[calendar] Google connect failed:", err);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=google_connect`);
+    res.redirect(`${SITE_URL}/dashboard?tab=books&section=calendar&calError=google_connect`);
   }
 }
 

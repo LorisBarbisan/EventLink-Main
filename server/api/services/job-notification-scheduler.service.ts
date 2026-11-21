@@ -11,8 +11,7 @@ import { jobs } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { sendJobClosureEmails } from "./job-closure-email.service";
 import { sendDueCloseReminders } from "./job-close-reminder.service";
-
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 /**
  * Determines if a job matches a freelancer's alert filters.
@@ -90,7 +89,7 @@ async function sendBatchEmail(params: {
         ? job.description.slice(0, 120).replace(/\s+\S*$/, "") +
           (job.description.length > 120 ? "…" : "")
         : "";
-      const jobUrl = job.slug ? `${BASE_URL}/jobs/${job.slug}` : `${BASE_URL}/jobs?jobId=${job.id}`;
+      const jobUrl = job.slug ? `${SITE_URL}/jobs/${job.slug}` : `${SITE_URL}/jobs?jobId=${job.id}`;
       return {
         title: job.title,
         employerName: job.company,
@@ -105,8 +104,8 @@ async function sendBatchEmail(params: {
     const { subject, html } = emailTemplates.batchJobNotifyEmail({
       recipientFirstName: params.recipientFirstName,
       jobs: jobsData,
-      dashboardUrl: `${BASE_URL}/dashboard`,
-      unsubscribeUrl: `${BASE_URL}/notification-settings`,
+      dashboardUrl: `${SITE_URL}/dashboard`,
+      unsubscribeUrl: `${SITE_URL}/notification-settings`,
       isUrgent: params.isUrgent,
     });
 

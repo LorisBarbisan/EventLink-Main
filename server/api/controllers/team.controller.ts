@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { canManageTeam, resolveTeamContextForUser } from "../utils/team.util";
 import { computeUserRole, generateJWTToken } from "../utils/auth.util";
 import { storage } from "../../storage";
+import { SITE_URL } from "../config/site";
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -105,10 +106,7 @@ export async function inviteTeamMember(req: Request, res: Response) {
       .select()
       .from(teamMembers)
       .where(
-        and(
-          eq(teamMembers.companyId, companyId),
-          eq(teamMembers.invitedEmail, email.toLowerCase())
-        )
+        and(eq(teamMembers.companyId, companyId), eq(teamMembers.invitedEmail, email.toLowerCase()))
       )
       .limit(1);
 
@@ -147,7 +145,7 @@ export async function inviteTeamMember(req: Request, res: Response) {
     }
 
     // Send invitation email
-    const inviteUrl = `https://eventlink.one/join-team?token=${token}`;
+    const inviteUrl = `${SITE_URL}/join-team?token=${token}`;
     const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
 
     const html = `
@@ -183,7 +181,7 @@ export async function inviteTeamMember(req: Request, res: Response) {
       <p style="color:#999;font-size:13px;">This invitation expires in 7 days.</p>
     </div>
     <div class="footer">
-      <p>The EventLink Team &middot; <a href="https://eventlink.one">eventlink.one</a></p>
+      <p>The EventLink Team &middot; <a href="${SITE_URL}">eventlink.one</a></p>
       <p>You received this because someone at ${companyName} invited you to EventLink.</p>
     </div>
   </div>
@@ -272,7 +270,8 @@ export async function acceptInvitation(req: Request, res: Response) {
     if (acceptingUser.role === "freelancer") {
       return res.status(403).json({
         error: "freelancer_cannot_join_team",
-        message: "Your account is registered as a freelancer. Team invitations are for employer accounts only. If you need to join a company team, please register with a new employer account.",
+        message:
+          "Your account is registered as a freelancer. Team invitations are for employer accounts only. If you need to join a company team, please register with a new employer account.",
       });
     }
 
@@ -374,7 +373,8 @@ export async function registerTeamMember(req: Request, res: Response) {
     if (existingUser) {
       return res.status(409).json({
         error: "account_exists",
-        message: "An account with this email already exists. Please sign in to accept the invitation.",
+        message:
+          "An account with this email already exists. Please sign in to accept the invitation.",
       });
     }
 
@@ -448,7 +448,8 @@ export async function registerTeamMember(req: Request, res: Response) {
     if (message.includes("unique") || message.includes("duplicate")) {
       return res.status(409).json({
         error: "account_exists",
-        message: "An account with this email already exists. Please sign in to accept the invitation.",
+        message:
+          "An account with this email already exists. Please sign in to accept the invitation.",
       });
     }
     return res.status(500).json({

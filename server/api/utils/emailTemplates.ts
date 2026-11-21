@@ -1,3 +1,4 @@
+import { SITE_URL } from "../config/site";
 /**
  * Master email template with EventLink branding
  * Features: Orange gradient header, consistent footer, responsive design
@@ -95,8 +96,8 @@ function masterTemplate(content: string): string {
     <div class="footer">
       <p>© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections</p>
       <p>
-        <a href="https://eventlink.one">Visit EventLink</a> |
-        <a href="https://eventlink.one/notification-settings">Notification Settings</a>
+        <a href="${SITE_URL}">Visit EventLink</a> |
+        <a href="${SITE_URL}/notification-settings">Notification Settings</a>
       </p>
     </div>
   </div>
@@ -518,7 +519,7 @@ export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl
   </ul>
 
   <p style="margin: 24px 0;">
-    <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
+    <a href="${SITE_URL}/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
       Complete My Profile Now →
     </a>
   </p>
@@ -586,7 +587,7 @@ export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: 
   </a>
 
   <p style="margin: 24px 0;">
-    <a href="https://eventlink.one/post-job" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
+    <a href="${SITE_URL}/post-job" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
       Post My First Job Now →
     </a>
   </p>
@@ -607,7 +608,7 @@ export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: 
 
   <p>Loris<br>
   Founder, EventLink<br>
-  <a href="https://eventlink.one" style="color:#4F46E5;">eventlink.one</a></p>
+  <a href="${SITE_URL}" style="color:#4F46E5;">eventlink.one</a></p>
 
   <p style="font-size:13px; color:#6B7280;">
     P.S. If you have a crew call coming up and want us to match you with the right freelancers directly, just reply with the details — happy to help personally while the platform is in its early stages.
@@ -659,7 +660,7 @@ function profileNudgeEmail(opts: {
   ${opts.bodyHtml}
 
   <p style="margin: 24px 0;">
-    <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
+    <a href="${SITE_URL}/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
       Create your profile →
     </a>
   </p>

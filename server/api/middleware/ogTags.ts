@@ -6,6 +6,7 @@ import {
   getRelatedCrewPages,
   type CrewLandingPage,
 } from "@shared/crewLandingPages";
+import { SITE_URL } from "../config/site";
 
 const CRAWLER_USER_AGENTS = [
   // Social / link unfurlers
@@ -517,7 +518,7 @@ function buildProfilePageHtml(opts: {
 </head>
 <body>
   <header>
-    <nav><a href="https://eventlink.one">EventLink — Event Industry Professional Network</a></nav>
+    <nav><a href="${SITE_URL}">EventLink — Event Industry Professional Network</a></nav>
   </header>
   <main>
     <article>
@@ -534,7 +535,7 @@ function buildProfilePageHtml(opts: {
   </main>
   <footer>
     <p>EventLink connects event professionals with opportunities across the UK events industry.</p>
-    <a href="https://eventlink.one">Find event professionals on EventLink</a>
+    <a href="${SITE_URL}">Find event professionals on EventLink</a>
   </footer>
 </body>
 </html>`;
@@ -763,7 +764,7 @@ function buildNotFoundHtml(): string {
 <body>
   <h1>Profile Not Found</h1>
   <p>This profile does not exist or is no longer available on EventLink.</p>
-  <a href="https://eventlink.one/freelancers">Browse freelancers on EventLink</a>
+  <a href="${SITE_URL}/freelancers">Browse freelancers on EventLink</a>
 </body>
 </html>`;
 }
@@ -777,7 +778,7 @@ function buildFallbackHtml(): string {
   <meta property="og:type" content="website" />
   <meta property="og:title" content="EventLink - Event Industry Professional Network" />
   <meta property="og:description" content="Connect with top event professionals. Find crew, post jobs, and grow your network in the UK events industry." />
-  <meta property="og:image" content="https://eventlink.one/og-image.png" />
+  <meta property="og:image" content="${SITE_URL}/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 </head>

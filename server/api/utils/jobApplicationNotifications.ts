@@ -3,8 +3,8 @@ import type { Job } from "@shared/schema";
 import { storage } from "../../storage";
 import { emailService } from "./emailNotificationService";
 import { sendGuestApplicationNotification } from "../services/guest-job-email.service";
+import { SITE_URL } from "../config/site";
 
-const BASE_URL = process.env.BASE_URL || "https://eventlink.one";
 const GUEST_TOKEN_TTL_DAYS = 30;
 
 type JobWithPoster = Pick<
@@ -124,7 +124,7 @@ export async function notifyJobPosterOfNewApplication(params: {
         expires_at: expiresAt,
       });
 
-      const viewUrl = `${BASE_URL}/applications/guest-view?token=${rawToken}`;
+      const viewUrl = `${SITE_URL}/applications/guest-view?token=${rawToken}`;
 
       // Generate set-password token so the guest can claim their account
       let setPasswordToken: string | undefined;

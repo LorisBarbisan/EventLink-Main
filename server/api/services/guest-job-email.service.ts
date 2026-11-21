@@ -5,8 +5,7 @@ import {
   guestJobNudgeEmail,
   guestApplicationNotificationEmail,
 } from "../utils/emailTemplates";
-
-const BASE_URL = process.env.BASE_URL || "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 export async function sendGuestJobMagicLink({
   to,
@@ -19,7 +18,7 @@ export async function sendGuestJobMagicLink({
   jobTitle: string;
   token: string;
 }): Promise<void> {
-  const confirmUrl = `${BASE_URL}/confirm-job?token=${token}`;
+  const confirmUrl = `${SITE_URL}/confirm-job?token=${token}`;
   const { subject, html } = guestJobConfirmEmail({ contactName, jobTitle, confirmUrl });
   await sendEmail({
     to,
@@ -42,10 +41,10 @@ export async function sendGuestJobPublishedConfirmation({
   jobId: number;
   setPasswordToken?: string;
 }): Promise<void> {
-  const jobUrl = `${BASE_URL}/jobs/${jobId}`;
+  const jobUrl = `${SITE_URL}/jobs/${jobId}`;
   const setPasswordUrl = setPasswordToken
-    ? `${BASE_URL}/reset-password?token=${setPasswordToken}&mode=set`
-    : `${BASE_URL}/auth`;
+    ? `${SITE_URL}/reset-password?token=${setPasswordToken}&mode=set`
+    : `${SITE_URL}/auth`;
   const { subject, html } = guestJobPublishedEmail({
     contactName,
     jobTitle,
@@ -72,7 +71,7 @@ export async function sendGuestJobNudge({
   jobTitle: string;
   token: string;
 }): Promise<void> {
-  const confirmUrl = `${BASE_URL}/confirm-job?token=${token}`;
+  const confirmUrl = `${SITE_URL}/confirm-job?token=${token}`;
   const { subject, html } = guestJobNudgeEmail({ contactName, jobTitle, confirmUrl });
   await sendEmail({
     to,
@@ -102,8 +101,8 @@ export async function sendGuestApplicationNotification({
   setPasswordToken?: string;
 }): Promise<void> {
   const setPasswordUrl = setPasswordToken
-    ? `${BASE_URL}/reset-password?token=${setPasswordToken}&mode=set`
-    : `${BASE_URL}/auth?tab=signup`;
+    ? `${SITE_URL}/reset-password?token=${setPasswordToken}&mode=set`
+    : `${SITE_URL}/auth?tab=signup`;
   const { subject, html } = guestApplicationNotificationEmail({
     contactName,
     jobTitle,

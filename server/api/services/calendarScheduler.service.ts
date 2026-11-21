@@ -5,9 +5,9 @@ import { calendar_connections } from "@shared/schema";
 import { and, eq, lt, isNotNull } from "drizzle-orm";
 import { registerGoogleWebhook, stopGoogleWebhook } from "./googleCalendar.service";
 import { syncAllBookings, readExternalEvents } from "./calendarSync.service";
+import { SITE_URL } from "../config/site";
 
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
-const GOOGLE_WEBHOOK_URL = `${BASE_URL}/api/calendar/webhook/google`;
+const GOOGLE_WEBHOOK_URL = `${SITE_URL}/api/calendar/webhook/google`;
 
 /** Renew Google watch channels expiring within the next 24 hours. */
 async function renewGoogleWebhooks(): Promise<void> {

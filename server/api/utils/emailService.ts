@@ -1,4 +1,5 @@
 import sgMail from "@sendgrid/mail";
+import { SITE_URL } from "../config/site";
 
 const SENDGRID_FROM_EMAIL = (() => {
   const raw = process.env.SENDGRID_FROM_EMAIL?.trim();
@@ -741,7 +742,7 @@ export async function sendWelcomeEmail(params: {
 
   const { freelancerWelcomeEmail, employerWelcomeEmail } = await import("./emailTemplates");
 
-  const baseUrl = "https://eventlink.one";
+  const baseUrl = SITE_URL;
   const unsubscribeUrl = params.unsubscribeToken
     ? `${baseUrl}/unsubscribe?token=${params.unsubscribeToken}`
     : `${baseUrl}/unsubscribe`;

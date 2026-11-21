@@ -4,14 +4,14 @@ import { db } from "../config/db";
 import { calendar_connections } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { encryptToken, decryptToken } from "./crypto.service";
+import { SITE_URL } from "../config/site";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events", "openid", "email"];
 
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
 const GOOGLE_API = "https://www.googleapis.com/calendar/v3";
 
 export function getRedirectUri(): string {
-  return `${BASE_URL}/api/calendar/google/callback`;
+  return `${SITE_URL}/api/calendar/google/callback`;
 }
 
 export function makeOAuthClient(): OAuth2Client {
@@ -147,7 +147,7 @@ export function buildGoogleEvent(booking: BookingForCalendar): object {
     booking.agreedRate ? `Agreed rate: ${booking.agreedRate}` : null,
     `Status: ${booking.status}`,
     ``,
-    `EventLink booking: ${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=bookings`,
+    `EventLink booking: ${SITE_URL}/dashboard?tab=bookings`,
   ]
     .filter(Boolean)
     .join("\n");

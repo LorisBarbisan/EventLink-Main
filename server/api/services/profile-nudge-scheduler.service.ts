@@ -9,8 +9,7 @@ import {
   profileNudgeEmail2,
   profileNudgeEmail3,
 } from "../utils/emailTemplates";
-
-const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
+import { SITE_URL } from "../config/site";
 
 type NudgeStage = 1 | 2 | 3;
 
@@ -79,8 +78,8 @@ async function runNudgeStage(stage: NudgeStage): Promise<void> {
 
   for (const row of rows) {
     const unsubscribeUrl = row.unsubscribe_token
-      ? `${BASE_URL}/unsubscribe?token=${row.unsubscribe_token}`
-      : `${BASE_URL}/unsubscribe`;
+      ? `${SITE_URL}/unsubscribe?token=${row.unsubscribe_token}`
+      : `${SITE_URL}/unsubscribe`;
 
     const template = TEMPLATE[stage]({ unsubscribeUrl });
 

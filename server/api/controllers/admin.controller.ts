@@ -13,6 +13,7 @@ import { emailService } from "../utils/emailNotificationService";
 import { db } from "../config/db";
 import { teamMembers, users } from "../../../shared/schema";
 import { eq } from "drizzle-orm";
+import { SITE_URL } from "../config/site";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -911,7 +912,7 @@ function escapeHtml(value: string): string {
 // Renders an admin broadcast as a full branded EventLink email (same navy/orange
 // template as the automatic emails), carrying the whole message — not a preview.
 function buildBroadcastEmailHtml(recipientName: string, body: string): string {
-  const site = "https://eventlink.one";
+  const site = SITE_URL;
   const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br/>");
   return `
 <!DOCTYPE html>
