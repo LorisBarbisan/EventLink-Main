@@ -901,7 +901,9 @@ export async function signin(req: Request, res: Response) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const user = await storage.getUserByEmail(email.toLowerCase().trim());
+    // Fresh read: the password must be checked against the database, never a
+    // cached copy that predates a reset.
+    const user = await storage.getUserByEmail(email.toLowerCase().trim(), { fresh: true });
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }

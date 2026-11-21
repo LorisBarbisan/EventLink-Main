@@ -181,7 +181,7 @@ export type SafeUser = Omit<
 export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByEmail(email: string, opts?: { fresh?: boolean }): Promise<User | undefined>;
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   createUser(
     user: InsertUser & { email_verification_token?: string; email_verification_expires?: Date }
@@ -1071,10 +1071,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getUserByEmail(email: string): Promise<User | undefined> {
+  async getUserByEmail(email: string, opts?: { fresh?: boolean }): Promise<User | undefined> {
     const normalizedEmail = email.toLowerCase();
     const cacheKey = `user:email:${normalizedEmail}`;
-    const cached = cache.get<User>(cacheKey);
+    // fresh: skip the cache (sign-in checks the password against the database)
+    const cached = opts?.fresh ? undefined : cache.get<User>(cacheKey);
     if (cached) return cached;
 
     // Case-insensitive email comparison using SQL lower function
@@ -1355,18 +1356,26 @@ export class DatabaseStorage implements IStorage {
     cache.clearPattern(`user:${userId}`);
   }
 
+  /** Drop every cached copy of a user: by id, by email and with profile. */
+  private forgetUser(userId: number, email?: string | null): void {
+    cache.delete(`user:${userId}`);
+    cache.delete(`user_with_profile:${userId}`);
+    if (email) cache.delete(`user:email:${email.toLowerCase()}`);
+  }
+
   async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
-    await db
+    const [row] = await db
       .update(users)
       .set({
         password: hashedPassword,
         updated_at: new Date(),
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning({ email: users.email });
 
-    // Clear the user cache so getUser() returns fresh data with new password
-    const cacheKey = `user:${userId}`;
-    cache.delete(cacheKey);
+    // Sign-in looks users up by email, so that copy must go too, or the old
+    // password keeps working (and the new one fails) until the cache expires.
+    this.forgetUser(userId, row?.email);
   }
 
   async setPasswordResetToken(email: string, token: string, expires: Date): Promise<boolean> {
@@ -1425,14 +1434,15 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date(),
       };
       if (role) updates.role = role;
-      await db
+      const [row] = await db
         .update(users)
         .set(updates as any)
-        .where(eq(users.id, userId));
+        .where(eq(users.id, userId))
+        .returning({ email: users.email });
 
-      // Clear the user cache so getUser() returns fresh data with new password
-      const cacheKey = `user:${userId}`;
-      cache.delete(cacheKey);
+      // Including the by-email copy sign-in reads, or the old password keeps
+      // working until the cache expires.
+      this.forgetUser(userId, row?.email);
 
       return true;
     } catch (error) {
