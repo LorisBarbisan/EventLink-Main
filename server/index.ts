@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
 import helmet from "helmet";
 import { ogTagMiddleware } from "./api/middleware/ogTags";
+import { canonicalHost } from "./api/middleware/canonical-host";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
@@ -59,6 +60,10 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
   console.log("✅ Trust proxy enabled for development");
 }
+
+// app.eventlink.one → SITE_URL (301, GET/HEAD only). First, so nothing renders
+// on the old host. Needs trust proxy above to read the forwarded host.
+app.use(canonicalHost);
 
 // Security headers — the ONE helmet configuration (routes-modular.ts has none)
 if (process.env.NODE_ENV === "production") {

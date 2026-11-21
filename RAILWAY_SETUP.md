@@ -8,7 +8,7 @@
 | ---------------- | --------------------------------- | ---------------------------------- |
 | `NODE_ENV`       | `production`                      | `production`                       |
 | `PORT`           | (Railway sets this automatically) | (Railway sets this automatically)  |
-| `FRONTEND_URL`   | `https://app.eventlink.one`       | `https://<staging>.up.railway.app` |
+| `FRONTEND_URL`   | `https://eventlink.one`           | `https://<staging>.up.railway.app` |
 | `SESSION_SECRET` | (long random string)              | (different random string)          |
 
 ### Required — Database
