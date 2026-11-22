@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { businessIdErrors } from "@shared/business-ids";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,12 @@ export function BusinessDetailsCard() {
   }, [profile, isLoading]);
 
   const complete = businessDetailsComplete(profile);
+  const idErrors = businessIdErrors({
+    utr: form.utr,
+    company_number: form.company_number,
+    vat_number: form.vat_registered ? form.vat_number : null,
+  });
+  const idInvalid = Object.keys(idErrors).length > 0;
 
   const save = useMutation({
     mutationFn: () => {
@@ -206,7 +213,7 @@ export function BusinessDetailsCard() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              save.mutate();
+              if (!idInvalid) save.mutate();
             }}
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -230,7 +237,14 @@ export function BusinessDetailsCard() {
                               ? "tel"
                               : undefined
                     }
+                    aria-invalid={f.key in idErrors || undefined}
+                    aria-describedby={f.key in idErrors ? `business-${f.key}-error` : undefined}
                   />
+                  {(f.key === "utr" || f.key === "company_number") && idErrors[f.key] && (
+                    <p id={`business-${f.key}-error`} className="text-xs text-destructive">
+                      {idErrors[f.key]}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -259,7 +273,16 @@ export function BusinessDetailsCard() {
                       value={form.vat_number}
                       onChange={(e) => set("vat_number", e.target.value)}
                       placeholder="GB123456789"
+                      aria-invalid={!!idErrors.vat_number || undefined}
+                      aria-describedby={
+                        idErrors.vat_number ? "business-vat-number-error" : undefined
+                      }
                     />
+                    {idErrors.vat_number && (
+                      <p id="business-vat-number-error" className="text-xs text-destructive">
+                        {idErrors.vat_number}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="business-vat-rate">Rate you charge</Label>
@@ -293,7 +316,7 @@ export function BusinessDetailsCard() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending || idInvalid}>
                 {save.isPending ? "Saving…" : "Save details"}
               </Button>
             </div>

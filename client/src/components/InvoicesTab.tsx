@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
+import { businessIdErrors } from "@shared/business-ids";
 import { invoiceAmounts } from "@shared/invoice-math";
 import { addDays, ukToday } from "@shared/job-dates";
 import { invoiceTotals } from "@shared/invoice-vat";
@@ -368,7 +369,9 @@ function BillingProfileModal({
           ...form,
           payment_terms_days: parseInt(form.payment_terms_days) || 30,
           vat_registered: form.vat_registered === "true",
-          vat_number: form.vat_number || null,
+          // Not sent while VAT is off: the field is hidden, so an old value
+          // in it must not block the save
+          vat_number: form.vat_registered === "true" ? form.vat_number || null : null,
           vat_rate_pct: parseInt(form.vat_rate_pct, 10),
           logo_url: form.logo_url || null,
           invoice_footer_note: form.invoice_footer_note || null,
@@ -381,11 +384,22 @@ function BillingProfileModal({
       toast({ title: "Invoice settings saved" });
       onSaved();
     },
-    onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
+    onError: (err: unknown) =>
+      toast({
+        title: "Failed to save settings",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      }),
   });
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const isVat = form.vat_registered === "true";
+  const idErrors = businessIdErrors({
+    utr: form.utr,
+    company_number: form.company_number,
+    vat_number: isVat ? form.vat_number : null,
+  });
+  const idInvalid = Object.keys(idErrors).length > 0;
 
   const handleLogoUpload = async (file: File) => {
     if (!file) return;
@@ -460,7 +474,11 @@ function BillingProfileModal({
                 value={form.company_number}
                 onChange={(e) => set("company_number", e.target.value)}
                 placeholder="12345678"
+                aria-invalid={!!idErrors.company_number || undefined}
               />
+              {idErrors.company_number && (
+                <p className="mt-1 text-xs text-destructive">{idErrors.company_number}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="invoices-utr-420">UTR (sole trader)</Label>
@@ -469,7 +487,9 @@ function BillingProfileModal({
                 value={form.utr}
                 onChange={(e) => set("utr", e.target.value)}
                 placeholder="1234567890"
+                aria-invalid={!!idErrors.utr || undefined}
               />
+              {idErrors.utr && <p className="mt-1 text-xs text-destructive">{idErrors.utr}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -493,7 +513,11 @@ function BillingProfileModal({
                   value={form.vat_number}
                   onChange={(e) => set("vat_number", e.target.value)}
                   placeholder="GB123456789"
+                  aria-invalid={!!idErrors.vat_number || undefined}
                 />
+                {idErrors.vat_number && (
+                  <p className="mt-1 text-xs text-destructive">{idErrors.vat_number}</p>
+                )}
               </div>
             )}
             {isVat && (
@@ -748,7 +772,10 @@ function BillingProfileModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || idInvalid}
+          >
             Save settings
           </Button>
         </DialogFooter>
