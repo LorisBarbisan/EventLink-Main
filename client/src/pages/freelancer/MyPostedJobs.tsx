@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -115,7 +115,7 @@ interface PostJobFormData {
 const EMPTY_FORM: PostJobFormData = {
   title: "",
   location: "",
-  country: "",
+  country: DEFAULT_COUNTRY,
   currency: "GBP",
   rate: "",
   description: "",
@@ -236,7 +236,7 @@ export default function MyPostedJobs() {
     setForm({
       title: job.title,
       location: job.location,
-      country: job.country || "",
+      country: job.country || DEFAULT_COUNTRY,
       currency: (job as any).currency || "GBP",
       rate: job.rate,
       description: job.description,
@@ -398,6 +398,7 @@ export default function MyPostedJobs() {
                     <GlobalLocationInput
                       id="location"
                       value={form.location}
+                      countryCode={countryCodeFor(form.country)}
                       onChange={(v) => setForm((f) => ({ ...f, location: v }))}
                       placeholder="Start typing a city..."
                     />

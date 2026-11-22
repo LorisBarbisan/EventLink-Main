@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,7 +56,8 @@ export default function Jobs() {
   // Initialize search state from URL parameters
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
+  // Starts at the UK; "" means All Countries (written to the URL as country=all)
+  const [countryFilter, setCountryFilter] = useState(DEFAULT_COUNTRY);
   const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
   // On mobile the search/filter panel is collapsed by default so the jobs are
   // the first thing a freelancer sees; it is always open from md up.
@@ -67,14 +68,16 @@ export default function Jobs() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get("search") || "";
     const urlLocation = urlParams.get("location") || "";
-    const urlCountry = urlParams.get("country") || "";
+    const urlCountry = urlParams.get("country");
     const urlPage = parseInt(urlParams.get("page") || "1");
     // Check for jobId to auto-expand
     const urlJobId = urlParams.get("jobId");
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
-    setCountryFilter(urlCountry);
+    setCountryFilter(
+      urlCountry === null ? DEFAULT_COUNTRY : urlCountry === "all" ? "" : urlCountry
+    );
     setCurrentPage(urlPage);
 
     if (urlJobId) {
@@ -89,7 +92,7 @@ export default function Jobs() {
 
     if (searchQuery) urlParams.set("search", searchQuery);
     if (locationFilter) urlParams.set("location", locationFilter);
-    if (countryFilter) urlParams.set("country", countryFilter);
+    if (countryFilter !== DEFAULT_COUNTRY) urlParams.set("country", countryFilter || "all");
 
     if (currentPage > 1) urlParams.set("page", currentPage.toString());
     // Persist expanded job ID in URL
@@ -433,7 +436,7 @@ export default function Jobs() {
                     placeholder="Filter by location..."
                     value={locationFilter}
                     onChange={(value) => setLocationFilter(value)}
-                    countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
+                    countryCode={countryCodeFor(countryFilter)}
                     data-testid="input-location-filter"
                   />
                 </div>
@@ -464,7 +467,10 @@ export default function Jobs() {
               </div>
 
               {/* Clear Filters Button */}
-              {(searchQuery || locationFilter || countryFilter || freelancerPostedFilter) && (
+              {(searchQuery ||
+                locationFilter ||
+                countryFilter !== DEFAULT_COUNTRY ||
+                freelancerPostedFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -472,7 +478,7 @@ export default function Jobs() {
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setCountryFilter("");
+                      setCountryFilter(DEFAULT_COUNTRY);
                       setFreelancerPostedFilter(false);
                       setCurrentPage(1);
                     }}
@@ -521,13 +527,13 @@ export default function Jobs() {
                 <p className="mb-4 text-muted-foreground">
                   Try adjusting your search criteria or removing some filters.
                 </p>
-                {(searchQuery || locationFilter || countryFilter) && (
+                {(searchQuery || locationFilter || countryFilter !== DEFAULT_COUNTRY) && (
                   <Button
                     variant="outline"
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setCountryFilter("");
+                      setCountryFilter(DEFAULT_COUNTRY);
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"

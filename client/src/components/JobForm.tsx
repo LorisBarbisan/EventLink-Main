@@ -1,7 +1,7 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +53,7 @@ export function JobForm({
     {
       title: initialData?.title || "",
       location: initialData?.location || "",
-      country: initialData?.country || "",
+      country: initialData?.country || DEFAULT_COUNTRY,
       currency: initialData?.currency || "GBP",
       rate: initialData?.rate || "",
       description: initialData?.description || "",
@@ -148,6 +148,7 @@ export function JobForm({
           <GlobalLocationInput
             id="job-location"
             label="City / Location *"
+            countryCode={countryCodeFor(formData.country)}
             value={formData.location}
             onChange={(v) => handleInputChange("location", v)}
             placeholder="Start typing a city..."

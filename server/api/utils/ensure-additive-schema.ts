@@ -193,6 +193,22 @@ const STATEMENTS = [
      is_system boolean NOT NULL DEFAULT false,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
+  // VAT return (migration 0053)
+  `ALTER TABLE freelancer_billing_profiles ADD COLUMN IF NOT EXISTS vat_scheme text NOT NULL DEFAULT 'standard'`,
+  `ALTER TABLE freelancer_billing_profiles ADD COLUMN IF NOT EXISTS vat_stagger integer NOT NULL DEFAULT 1`,
+  `ALTER TABLE freelancer_billing_profiles ADD COLUMN IF NOT EXISTS vat_flat_rate_bp integer`,
+  `CREATE TABLE IF NOT EXISTS vat_payments (
+     id serial PRIMARY KEY,
+     freelancer_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     period_start date NOT NULL,
+     period_end date NOT NULL,
+     amount_pence bigint NOT NULL,
+     paid_date date NOT NULL,
+     notes text,
+     created_at timestamptz NOT NULL DEFAULT now(),
+     updated_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS vat_payments_freelancer_period_key ON vat_payments (freelancer_id, period_end)`,
 ];
 
 export async function ensureAdditiveSchema(): Promise<void> {
