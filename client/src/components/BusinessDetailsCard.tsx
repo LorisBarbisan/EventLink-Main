@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Building2 } from "lucide-react";
 
@@ -131,8 +132,9 @@ export function BusinessDetailsCard() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/billing-profile"] });
-      // VAT registration changes the tax estimate's figures
-      qc.invalidateQueries({ queryKey: ["/api/books/tax-estimate"] });
+      // VAT registration changes which expenses count net, so every Books
+      // figure moves, not just the tax estimate
+      invalidateBooks(qc);
       toast({ title: "Business details saved" });
       setOpen(false);
     },

@@ -87,7 +87,7 @@ import { RecentlyRemoved } from "./RecentlyRemoved";
 import { StartAgainCard } from "./StartAgainCard";
 import { matchesOrigin, ORIGIN_OPTIONS, type OriginFilter } from "@/lib/origin";
 import { isBooksCurrency, reclaimsInputVat } from "@shared/expense-totals";
-import { vatTreatmentNote } from "@shared/vat-return";
+import { VAT_SCHEME_LABELS, vatTreatmentNote, type VatScheme } from "@shared/vat-return";
 import { VatReturnCard } from "./VatReturnCard";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
@@ -2608,6 +2608,16 @@ interface BooksSummary {
   /** Which VAT treatment the figures use (see vatTreatmentNote) */
   vat_registered?: boolean;
   vat_scheme?: string | null;
+  /** VAT for the same period, kept out of every figure above. Null when not VAT-registered. */
+  vat?: {
+    scheme: VatScheme;
+    flat_rate_bp: number | null;
+    output_pence: number;
+    input_pence: number;
+    net_pence: number;
+    flat_rate_turnover_pence: number | null;
+    paid_pence: number;
+  } | null;
 }
 
 interface MonthlyRow {
@@ -3334,6 +3344,66 @@ function OverviewSection({
                 {formatPence(data.net_profit_pence)}
               </span>
             </div>
+            {data.vat && (
+              <>
+                <div className="flex items-baseline justify-between border-l-4 border-sky-500 bg-sky-50/60 px-5 py-2.5 dark:bg-sky-950/30">
+                  <p data-help="books.vat.summary" className="text-sm font-semibold">
+                    VAT
+                  </p>
+                  <span className="text-xs text-muted-foreground">
+                    {VAT_SCHEME_LABELS[data.vat.scheme]}
+                    {data.vat.scheme === "flat_rate" && data.vat.flat_rate_bp
+                      ? ` · ${data.vat.flat_rate_bp / 100}%`
+                      : ""}{" "}
+                    · not in profit
+                  </span>
+                </div>
+                {data.vat.scheme === "flat_rate" ? (
+                  <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                    <p className="text-xs text-muted-foreground">
+                      Flat-rate VAT on {formatPence(data.vat.flat_rate_turnover_pence ?? 0)}{" "}
+                      turnover
+                    </p>
+                    <span className="text-xs tabular-nums">
+                      {formatPence(data.vat.output_pence)}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                      <p className="text-xs text-muted-foreground">VAT on sales</p>
+                      <span className="text-xs tabular-nums">
+                        {formatPence(data.vat.output_pence)}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                      <p className="text-xs text-muted-foreground">VAT reclaimable on expenses</p>
+                      <span className="text-xs tabular-nums">
+                        −{formatPence(data.vat.input_pence)}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-baseline justify-between border-l-4 border-sky-500 px-5 py-2.5">
+                  <p className="text-sm">
+                    {data.vat.net_pence >= 0 ? "VAT owed to HMRC" : "VAT repayment due"}
+                  </p>
+                  <span className="font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                    {formatPence(Math.abs(data.vat.net_pence))}
+                  </span>
+                </div>
+                {data.vat.paid_pence !== 0 && (
+                  <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                    <p className="text-xs text-muted-foreground">
+                      {data.vat.paid_pence > 0 ? "Paid to HMRC so far" : "Repaid by HMRC so far"}
+                    </p>
+                    <span className="text-xs tabular-nums">
+                      {formatPence(Math.abs(data.vat.paid_pence))}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
             {taxData && (
               <>
                 {taxData.ratesProvisionalFrom && (

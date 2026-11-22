@@ -151,6 +151,40 @@ export function recentVatQuarters(
   return out;
 }
 
+/**
+ * Every VAT quarter that overlaps `from`–`to` (YYYY-MM-DD), oldest first.
+ * A tax year (6 April to 5 April) never lines up with VAT quarters, so the
+ * first and last quarters usually reach outside it.
+ */
+export function vatQuartersOverlapping(
+  stagger: VatStagger,
+  from: string,
+  to: string
+): VatQuarter[] {
+  if (to < from) return [];
+  const months =
+    (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
+    Number(to.slice(5, 7)) -
+    Number(from.slice(5, 7));
+  return recentVatQuarters(stagger, to, Math.floor(months / 3) + 2)
+    .filter((q) => q.to >= from)
+    .reverse();
+}
+
+/**
+ * What was paid to HMRC on payments dated `from`–`to`, net of any
+ * repayments (stored as negative amounts).
+ */
+export function vatPaidInRange(
+  payments: Array<{ paid_date: string | null; amount_pence: number }>,
+  from: string,
+  to: string
+): number {
+  return payments
+    .filter((p) => !!p.paid_date && p.paid_date >= from && p.paid_date <= to)
+    .reduce((sum, p) => sum + Number(p.amount_pence), 0);
+}
+
 export interface VatInvoiceLike {
   status: string;
   archived?: boolean | null;
