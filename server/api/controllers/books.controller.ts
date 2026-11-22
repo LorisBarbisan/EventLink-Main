@@ -800,7 +800,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
                   ...(vat.uninvoiced_earnings_count > 0
                     ? [
                         {
-                          label: `Not counted: earnings logged by hand (${vat.uninvoiced_earnings_count}). Only invoices raised in EventLink are in the VAT figures — add the VAT charged on these yourself`,
+                          label: `Not counted: earnings logged by hand (${vat.uninvoiced_earnings_count}${vat.scheme === "cash" ? "" : ", dated when invoiced, not when paid"}). Only invoices raised in EventLink are in the VAT figures — add the VAT charged on these yourself`,
                           value: vat.uninvoiced_earnings_pence / 100,
                         },
                       ]

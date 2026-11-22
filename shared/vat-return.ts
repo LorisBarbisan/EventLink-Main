@@ -213,7 +213,7 @@ export function uninvoicedEarnings(
   let pence = 0;
   for (const e of entries) {
     if (e.invoice_id || e.archived) continue;
-    if ((e.currency ?? "GBP") !== "GBP") continue;
+    if (!isBooksCurrency(e.currency)) continue;
     const d = scheme === "cash" ? e.paid_date : (e.invoiced_date ?? e.work_date);
     if (!d || d < from || d > to) continue;
     count++;
