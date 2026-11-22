@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -33,7 +33,9 @@ export default function Freelancers() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
+  // Starts at the UK; "" means All Countries
+  const [countryFilter, setCountryFilter] = useState(DEFAULT_COUNTRY);
+  const countryFiltered = countryFilter !== DEFAULT_COUNTRY;
   // On mobile the search/filter panel is collapsed by default so the freelancer
   // cards are the first thing seen; it is always open from md up.
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -213,7 +215,7 @@ export default function Freelancers() {
                   placeholder="Filter by location..."
                   value={locationFilter}
                   onChange={(value) => setLocationFilter(value)}
-                  countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
+                  countryCode={countryCodeFor(countryFilter)}
                   data-testid="input-location-filter"
                 />
               </div>
@@ -275,18 +277,18 @@ export default function Freelancers() {
                   <User className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="text-xl font-semibold">No Freelancers Found</h3>
                   <p className="mx-auto max-w-md text-muted-foreground">
-                    {searchQuery || locationFilter || countryFilter
+                    {searchQuery || locationFilter || countryFiltered
                       ? `No freelancers match your search criteria. Try adjusting your filters or search terms.`
                       : `There are currently no freelancer profiles available. Freelancers need to complete their profiles before appearing in search results.`}
                   </p>
                   <div className="flex justify-center gap-4 pt-4">
-                    {(searchQuery || locationFilter || countryFilter) && (
+                    {(searchQuery || locationFilter || countryFiltered) && (
                       <Button
                         variant="outline"
                         onClick={() => {
                           setSearchQuery("");
                           setLocationFilter("");
-                          setCountryFilter("");
+                          setCountryFilter(DEFAULT_COUNTRY);
                         }}
                         data-testid="button-clear-filters"
                       >

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import {
   Table,
@@ -101,10 +101,16 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
-  const [crewCountry, setCrewCountry] = useState("");
+  // Starts at the UK, which narrows a search but does not start one: on its
+  // own the default leaves My Crew showing your crew, not every UK freelancer.
+  const [crewCountry, setCrewCountry] = useState(DEFAULT_COUNTRY);
   const [crewSearchPage, setCrewSearchPage] = useState(1);
 
-  const isCrewSearching = !!(crewSearch.trim() || crewLocation.trim() || crewCountry.trim());
+  const isCrewSearching = !!(
+    crewSearch.trim() ||
+    crewLocation.trim() ||
+    (crewCountry.trim() && crewCountry !== DEFAULT_COUNTRY)
+  );
 
   useEffect(() => {
     setCrewSearchPage(1);
@@ -878,7 +884,7 @@ export default function SimplifiedRecruiterDashboard() {
                   placeholder="Filter by location..."
                   value={crewLocation}
                   onChange={(value) => setCrewLocation(value)}
-                  countryCode={COUNTRIES.find((c) => c.name === crewCountry)?.code}
+                  countryCode={countryCodeFor(crewCountry)}
                   data-testid="input-my-crew-location"
                 />
               </div>
@@ -918,7 +924,7 @@ export default function SimplifiedRecruiterDashboard() {
                     onClick={() => {
                       setCrewSearch("");
                       setCrewLocation("");
-                      setCrewCountry("");
+                      setCrewCountry(DEFAULT_COUNTRY);
                     }}
                   >
                     Clear filters

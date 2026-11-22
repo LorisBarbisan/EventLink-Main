@@ -21,7 +21,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import {
   StateProvinceSelect,
   countryNeedsStateProvince,
@@ -156,7 +156,7 @@ export function ProfileForm({
           superpower: freelancerProfile?.superpower || "",
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
-          country: freelancerProfile?.country || "",
+          country: freelancerProfile?.country || DEFAULT_COUNTRY,
           state_province: freelancerProfile?.state_province || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
@@ -176,7 +176,7 @@ export function ProfileForm({
           contact_name: recruiterProfile?.contact_name || "",
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
-          country: recruiterProfile?.country || "",
+          country: recruiterProfile?.country || DEFAULT_COUNTRY,
           state_province: recruiterProfile?.state_province || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
@@ -860,6 +860,7 @@ function FreelancerProfileFields({
           <GlobalLocationInput
             id="location"
             label="City / Location *"
+            countryCode={countryCodeFor(formData.country)}
             value={formData.location}
             onChange={onLocationChange}
             placeholder="Start typing a city..."
@@ -1596,6 +1597,7 @@ function RecruiterFormFields({
           <GlobalLocationInput
             id="location"
             label="City / Location"
+            countryCode={countryCodeFor(formData.country)}
             value={formData.location}
             onChange={onLocationChange}
             placeholder="Start typing a city..."

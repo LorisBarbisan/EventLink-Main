@@ -2269,7 +2269,16 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (country && country !== "all") {
-      conditions.push(ilike(jobs.country, country.trim()));
+      const match = ilike(jobs.country, country.trim());
+      // Jobs posted before the country field have none. EventLink is UK-first
+      // (profiles with no country are backfilled to the UK too), and the jobs
+      // board now starts filtered to the UK, so count them as UK jobs rather
+      // than hide them from the default view.
+      conditions.push(
+        country.trim().toLowerCase() === "united kingdom"
+          ? or(match, isNull(jobs.country), eq(jobs.country, ""))!
+          : match
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import {
   Form,
@@ -75,7 +75,7 @@ export default function PostJob() {
       title: "",
       company: "",
       location: "",
-      country: "",
+      country: DEFAULT_COUNTRY,
       currency: "GBP",
       rate: "",
       description: "",
@@ -249,9 +249,14 @@ export default function PostJob() {
                         <FormControl>
                           <GlobalLocationInput
                             value={field.value}
+                            // Search within the chosen country, so "Perth" with the UK
+                            // selected offers Perth in Scotland
+                            countryCode={countryCodeFor(form.watch("country"))}
                             onChange={(val, locationData) => {
                               field.onChange(val);
-                              if (locationData?.country) {
+                              // Fill the country from the place only when none is chosen
+                              // yet: never overwrite one the user picked deliberately
+                              if (locationData?.country && !form.getValues("country")) {
                                 form.setValue("country", locationData.country, {
                                   shouldValidate: false,
                                 });
