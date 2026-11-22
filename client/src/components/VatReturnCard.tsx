@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Settings2 } from "lucide-react";
 import { fmtDate as fmtSharedDate } from "@shared/dates";
@@ -162,73 +162,81 @@ export function VatReturnCard() {
             </thead>
             <tbody>
               {data.quarters.map((q) => (
-                <tr
-                  key={q.to}
-                  className={`border-b last:border-0 ${q.in_progress ? "bg-emerald-50/60 dark:bg-emerald-950/30" : ""}`}
-                >
-                  <td className="px-4 py-2.5 align-top">
-                    <span className="font-medium">{q.label}</span>
-                    {q.in_progress && (
-                      <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                        so far
-                      </span>
-                    )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">Due {fmtDate(q.due)}</p>
-                    {q.uninvoiced_earnings_count > 0 && (
-                      <p className="mt-1 max-w-[16rem] rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                        {q.invoice_count === 0 && "No sales VAT recorded this quarter. "}
-                        {fmtPence(q.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
-                        {q.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted in{" "}
-                        {isFlat ? "your turnover" : "VAT on sales"}: only invoices raised here are.
-                        Add the VAT you charged on{" "}
-                        {q.uninvoiced_earnings_count === 1 ? "it" : "them"} yourself.
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right align-top tabular-nums">
-                    {fmtPence(q.output_pence)}
-                    {isFlat && q.flat_rate_turnover_pence !== null && (
-                      <p className="text-xs text-muted-foreground">
-                        on {fmtPence(q.flat_rate_turnover_pence)}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right align-top tabular-nums">
-                    {fmtPence(q.input_pence)}
-                  </td>
-                  <td
-                    className={`px-4 py-2.5 text-right align-top font-semibold tabular-nums ${q.net_pence < 0 ? "text-green-700 dark:text-green-300" : ""}`}
+                <Fragment key={q.to}>
+                  <tr
+                    className={`${q.uninvoiced_earnings_count > 0 ? "" : "border-b last:border-0"} ${q.in_progress ? "bg-emerald-50/60 dark:bg-emerald-950/30" : ""}`}
                   >
-                    {fmtPence(Math.abs(q.net_pence))}
-                    {q.net_pence < 0 && (
-                      <p className="text-xs font-normal text-muted-foreground">repayment</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right align-top">
-                    {q.payment ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <button
-                          type="button"
-                          className="tabular-nums underline-offset-2 hover:underline"
-                          onClick={() => setPaying(q)}
-                        >
-                          {q.payment.amount_pence < 0
-                            ? `${fmtPence(-q.payment.amount_pence)} back`
-                            : fmtPence(q.payment.amount_pence)}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          {fmtDate(q.payment.paid_date)}
+                    <td className="px-4 py-2.5 align-top">
+                      <span className="font-medium">{q.label}</span>
+                      {q.in_progress && (
+                        <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                          so far
                         </span>
-                      </div>
-                    ) : q.in_progress ? (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => setPaying(q)}>
-                        Record
-                      </Button>
-                    )}
-                  </td>
-                </tr>
+                      )}
+                      <p className="mt-0.5 text-xs text-muted-foreground">Due {fmtDate(q.due)}</p>
+                    </td>
+                    <td className="px-4 py-2.5 text-right align-top tabular-nums">
+                      {fmtPence(q.output_pence)}
+                      {isFlat && q.flat_rate_turnover_pence !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          on {fmtPence(q.flat_rate_turnover_pence)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right align-top tabular-nums">
+                      {fmtPence(q.input_pence)}
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right align-top font-semibold tabular-nums ${q.net_pence < 0 ? "text-green-700 dark:text-green-300" : ""}`}
+                    >
+                      {fmtPence(Math.abs(q.net_pence))}
+                      {q.net_pence < 0 && (
+                        <p className="text-xs font-normal text-muted-foreground">repayment</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right align-top">
+                      {q.payment ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <button
+                            type="button"
+                            className="tabular-nums underline-offset-2 hover:underline"
+                            onClick={() => setPaying(q)}
+                          >
+                            {q.payment.amount_pence < 0
+                              ? `${fmtPence(-q.payment.amount_pence)} back`
+                              : fmtPence(q.payment.amount_pence)}
+                          </button>
+                          <span className="text-xs text-muted-foreground">
+                            {fmtDate(q.payment.paid_date)}
+                          </span>
+                        </div>
+                      ) : q.in_progress ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setPaying(q)}>
+                          Record
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                  {q.uninvoiced_earnings_count > 0 && (
+                    <tr
+                      className={`border-b last:border-0 ${q.in_progress ? "bg-emerald-50/60 dark:bg-emerald-950/30" : ""}`}
+                    >
+                      <td colSpan={5} className="px-4 pb-2.5 pt-0">
+                        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                          {q.invoice_count === 0 && "No sales VAT recorded this quarter. "}
+                          {fmtPence(q.uninvoiced_earnings_pence)} of earnings logged by hand
+                          {data.vat_scheme === "cash" ? " and paid" : " and invoiced or worked"} in
+                          this quarter {q.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"}{" "}
+                          counted in {isFlat ? "your turnover" : "VAT on sales"}: only invoices
+                          raised here are. Add the VAT you charged on{" "}
+                          {q.uninvoiced_earnings_count === 1 ? "it" : "them"} yourself.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

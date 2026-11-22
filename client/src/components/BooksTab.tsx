@@ -3321,7 +3321,7 @@ function OverviewSection({
           </div>
           <CardContent className="p-0">
             <div className="flex items-baseline justify-between border-l-4 border-blue-500 px-5 py-2.5">
-              <p className="text-sm">Gross earnings</p>
+              <p className="text-sm">Income before expenses</p>
               <span className="font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                 {formatPence(data.earnings_pence)}
               </span>
@@ -3410,6 +3410,8 @@ function OverviewSection({
                   <p className="border-l-4 border-amber-400 bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                     {data.vat.invoice_count === 0 && "No sales VAT recorded. "}
                     {formatPence(data.vat.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
+                    {data.vat.scheme !== "cash" &&
+                      "(dated when invoiced, not when paid, so it can differ from income above) "}
                     {data.vat.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted here:
                     only invoices raised in EventLink are, so this VAT figure is incomplete. Add the
                     VAT you charged on {data.vat.uninvoiced_earnings_count === 1 ? "it" : "them"}{" "}

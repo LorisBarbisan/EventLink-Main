@@ -271,6 +271,12 @@ describe("uninvoicedEarnings", () => {
     expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "standard").count).toBe(0);
   });
 
+  it("reads currency as the rest of Books does: case, spaces and blank are sterling", () => {
+    const entries = ["gbp", "Gbp", " GBP ", "", null].map((currency) => ({ ...base, currency }));
+    expect(uninvoicedEarnings(entries, ...Q2, "standard").count).toBe(5);
+    expect(uninvoicedEarnings([{ ...base, currency: "usd" }], ...Q2, "standard").count).toBe(0);
+  });
+
   it("flat rate follows the invoice date too, as its turnover does", () => {
     expect(uninvoicedEarnings([paidLate], ...Q2, "flat_rate").count).toBe(1);
   });
