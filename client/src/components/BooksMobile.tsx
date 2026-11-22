@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
 import { gbp, monthlySetAside, savedTaxQuery } from "@/lib/books-mobile";
 
 type Invoice = {
@@ -44,7 +45,7 @@ export function BooksMobile() {
     mutationFn: (id: number) => apiRequest(`/api/invoices/${id}/mark-paid`, { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/invoices"] });
-      qc.invalidateQueries({ queryKey: ["/api/books/tax-estimate"] });
+      invalidateBooks(qc);
       toast({ title: "Marked paid" });
     },
     onError: () => toast({ title: "Couldn't mark it paid", variant: "destructive" }),

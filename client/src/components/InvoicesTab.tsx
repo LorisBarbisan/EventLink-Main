@@ -5,6 +5,7 @@ import { invoiceTotals } from "@shared/invoice-vat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -375,6 +376,8 @@ function BillingProfileModal({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/billing-profile"] });
+      // VAT registration is set here too, and it changes every Books figure
+      invalidateBooks(queryClient);
       toast({ title: "Invoice settings saved" });
       onSaved();
     },

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  vatQuartersOverlapping,
+  vatPaidInRange,
   computeVatReturn,
   recentVatQuarters,
   vatTreatmentNote,
@@ -191,5 +193,40 @@ describe("which expenses count net", () => {
     expect(vatTreatmentNote({ vat_registered: true, vat_scheme: "flat_rate" })).toMatch(
       /^Flat Rate Scheme/
     );
+  });
+});
+
+describe("vatQuartersOverlapping", () => {
+  it("covers a whole tax year, reaching outside it at both ends", () => {
+    const qs = vatQuartersOverlapping(1, "2026-04-06", "2027-04-05");
+    expect(qs.map((q) => `${q.from}..${q.to}`)).toEqual([
+      "2026-04-01..2026-06-30",
+      "2026-07-01..2026-09-30",
+      "2026-10-01..2026-12-31",
+      "2027-01-01..2027-03-31",
+      "2027-04-01..2027-06-30",
+    ]);
+  });
+
+  it("follows the stagger", () => {
+    const qs = vatQuartersOverlapping(2, "2026-04-06", "2027-04-05");
+    expect(qs[0].from).toBe("2026-02-01");
+    expect(qs[qs.length - 1].to).toBe("2027-04-30");
+  });
+
+  it("returns nothing for an empty range", () => {
+    expect(vatQuartersOverlapping(1, "2027-01-01", "2026-01-01")).toEqual([]);
+  });
+});
+
+describe("vatPaidInRange", () => {
+  it("nets repayments and ignores payments outside the range", () => {
+    const payments = [
+      { paid_date: "2026-05-07", amount_pence: 120_000 },
+      { paid_date: "2026-08-07", amount_pence: -30_000 },
+      { paid_date: "2027-05-07", amount_pence: 50_000 },
+      { paid_date: null, amount_pence: 999 },
+    ];
+    expect(vatPaidInRange(payments, "2026-04-06", "2027-04-05")).toBe(90_000);
   });
 });

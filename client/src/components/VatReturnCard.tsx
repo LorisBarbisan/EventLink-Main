@@ -11,6 +11,7 @@ import {
   type VatStagger,
 } from "@shared/vat-return";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,13 +73,9 @@ function fmtPence(p: number): string {
 }
 
 /** Changing the scheme changes which expenses count net, so every Books figure refreshes. */
-function invalidateBooks(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({
-    predicate: (q) => {
-      const k = String(q.queryKey[0] ?? "");
-      return k.startsWith("/api/books") || k.startsWith("/api/billing-profile");
-    },
-  });
+function refreshAfterSettings(queryClient: ReturnType<typeof useQueryClient>) {
+  invalidateBooks(queryClient);
+  queryClient.invalidateQueries({ queryKey: ["/api/billing-profile"] });
 }
 
 /**
@@ -100,7 +97,8 @@ export function VatReturnCard() {
 
   const deletePayment = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/books/vat-payments/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/books/vat-return"] }),
+    // The Books summary shows what was paid to HMRC, so refresh it too
+    onSuccess: () => invalidateBooks(queryClient),
     onError: (e: Error) =>
       toast({ title: "Couldn't remove payment", description: e.message, variant: "destructive" }),
   });
@@ -251,7 +249,7 @@ export function VatReturnCard() {
         scheme={data.vat_scheme}
         stagger={data.vat_stagger}
         flatRateBp={data.vat_flat_rate_bp}
-        onSaved={() => invalidateBooks(queryClient)}
+        onSaved={() => refreshAfterSettings(queryClient)}
       />
       <VatPaymentDialog
         quarter={paying}
@@ -450,7 +448,7 @@ function VatPaymentDialog({
         }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/books/vat-return"] });
+      invalidateBooks(queryClient);
       toast({ title: "VAT payment recorded" });
       onClose();
     },
