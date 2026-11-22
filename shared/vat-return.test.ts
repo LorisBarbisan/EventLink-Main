@@ -243,19 +243,41 @@ describe("uninvoicedEarnings", () => {
     gross_amount_pence: 10_000,
   };
 
-  it("counts hand-logged sterling earnings in the period, dated paid, then invoiced, then worked", () => {
+  const Q2 = ["2026-04-01", "2026-06-30"] as const;
+  // Worked and invoiced in the quarter, paid after it
+  const paidLate = { ...base, invoiced_date: "2026-06-15", paid_date: "2026-07-02" };
+
+  it("standard: placed by invoice date, paid or not, else the date worked", () => {
     const r = uninvoicedEarnings(
       [
-        base,
-        { ...base, paid_date: "2026-07-02" }, // paid after the quarter
-        { ...base, invoiced_date: "2026-06-30", gross_amount_pence: 5_000 },
+        base, // never invoiced: work date
+        paidLate,
+        {
+          ...base,
+          work_date: "2026-03-20",
+          invoiced_date: "2026-04-02",
+          gross_amount_pence: 5_000,
+        },
+        { ...base, invoiced_date: "2026-07-01" }, // invoiced in the next quarter
         { ...base, invoice_id: 9 }, // already in Box 1 via its invoice
         { ...base, archived: true },
         { ...base, currency: "EUR" },
       ],
-      "2026-04-01",
-      "2026-06-30"
+      ...Q2,
+      "standard"
     );
-    expect(r).toEqual({ count: 2, pence: 15_000 });
+    expect(r).toEqual({ count: 3, pence: 25_000 });
+    // The late payment belongs to the quarter it was invoiced in, not paid in
+    expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "standard").count).toBe(0);
+  });
+
+  it("flat rate follows the invoice date too, as its turnover does", () => {
+    expect(uninvoicedEarnings([paidLate], ...Q2, "flat_rate").count).toBe(1);
+  });
+
+  it("cash: placed by paid date, and unpaid entries don't count", () => {
+    expect(uninvoicedEarnings([paidLate], ...Q2, "cash").count).toBe(0);
+    expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "cash").count).toBe(1);
+    expect(uninvoicedEarnings([base], ...Q2, "cash").count).toBe(0);
   });
 });

@@ -80,6 +80,7 @@ type InvoiceRow = Awaited<ReturnType<typeof storage.getInvoicesByFreelancer>>[nu
 type BillingRow = NonNullable<Awaited<ReturnType<typeof storage.getBillingProfile>>>;
 type ExpenseRow = Awaited<ReturnType<typeof storage.listExpensesForExport>>[number];
 type VatPaymentRow = Awaited<ReturnType<typeof storage.listVatPayments>>[number];
+type EntryRow = Awaited<ReturnType<typeof storage.listEarningsEntries>>[number];
 
 function toVatInvoices(invoices: InvoiceRow[]): VatInvoiceLike[] {
   return invoices.map((inv) => ({
@@ -119,17 +120,28 @@ function periodVat(
   to: string,
   invoices: InvoiceRow[],
   expenses: ExpenseRow[],
-  payments: VatPaymentRow[]
+  payments: VatPaymentRow[],
+  entries: EntryRow[]
 ):
-  | (VatReturnFigures & { scheme: VatScheme; flat_rate_bp: number | null; paid_pence: number })
+  | (VatReturnFigures & {
+      scheme: VatScheme;
+      flat_rate_bp: number | null;
+      paid_pence: number;
+      uninvoiced_earnings_count: number;
+      uninvoiced_earnings_pence: number;
+    })
   | null {
   if (!billing?.vat_registered) return null;
   const { scheme, flatRateBp } = vatSettings(billing);
+  // Sales the figures can't see: a hand-logged earnings entry has no VAT field
+  const uninvoiced = uninvoicedEarnings(entries, from, to, scheme);
   return {
     scheme,
     flat_rate_bp: flatRateBp,
     ...computeVatReturn({ from, to }, toVatInvoices(invoices), expenses, scheme, flatRateBp),
     paid_pence: vatPaidInRange(payments, from, to),
+    uninvoiced_earnings_count: uninvoiced.count,
+    uninvoiced_earnings_pence: uninvoiced.pence,
   };
 }
 
@@ -192,13 +204,14 @@ export async function booksSummary(req: Request, res: Response) {
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
 
     // VAT is kept out of every figure above, so show it beside them instead
-    const [vatInvoices, vatPayments] = billing?.vat_registered
+    const [vatInvoices, vatPayments, vatEntries] = billing?.vat_registered
       ? await Promise.all([
           storage.getInvoicesByFreelancer(freelancerId),
           storage.listVatPayments(freelancerId),
+          storage.listEarningsEntries(freelancerId, { archived: false }),
         ])
-      : [[], []];
-    const vat = periodVat(billing, from, to, vatInvoices, expensesData, vatPayments);
+      : [[], [], []];
+    const vat = periodVat(billing, from, to, vatInvoices, expensesData, vatPayments, vatEntries);
 
     return res.json({
       from,
@@ -686,7 +699,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const expenseTotals = sumAllowableExpenses(expenses, reclaimsVat);
     const totalExpensesPence = expenseTotals.pence;
     const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
-    const vat = periodVat(business, from, to, invoices, expenses, vatPayments);
+    const vat = periodVat(business, from, to, invoices, expenses, vatPayments, entries);
     const generated = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -784,6 +797,14 @@ export async function booksExportWorkbook(req: Request, res: Response) {
                     label: "Paid to HMRC in period (net of repayments)",
                     value: vat.paid_pence / 100,
                   },
+                  ...(vat.uninvoiced_earnings_count > 0
+                    ? [
+                        {
+                          label: `Not counted: earnings logged by hand (${vat.uninvoiced_earnings_count}). Only invoices raised in EventLink are in the VAT figures — add the VAT charged on these yourself`,
+                          value: vat.uninvoiced_earnings_pence / 100,
+                        },
+                      ]
+                    : []),
                 ],
               },
             ]
@@ -1211,7 +1232,7 @@ export async function vatReturn(req: Request, res: Response) {
       quarters: quarters.map((q) => {
         const p = paymentByEnd.get(q.to);
         // Sales Box 1 can't see: a hand-logged earnings entry has no VAT field
-        const uninvoiced = uninvoicedEarnings(entries, q.from, q.to);
+        const uninvoiced = uninvoicedEarnings(entries, q.from, q.to, scheme);
         return {
           ...q,
           ...computeVatReturn(q, vatInvoices, expenses, scheme, flatRateBp),

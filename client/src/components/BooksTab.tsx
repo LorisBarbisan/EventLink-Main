@@ -2617,6 +2617,10 @@ interface BooksSummary {
     net_pence: number;
     flat_rate_turnover_pence: number | null;
     paid_pence: number;
+    invoice_count: number;
+    /** Hand-logged earnings in the period: their VAT is not in the figures */
+    uninvoiced_earnings_count: number;
+    uninvoiced_earnings_pence: number;
   } | null;
 }
 
@@ -3401,6 +3405,16 @@ function OverviewSection({
                       {formatPence(Math.abs(data.vat.paid_pence))}
                     </span>
                   </div>
+                )}
+                {data.vat.uninvoiced_earnings_count > 0 && (
+                  <p className="border-l-4 border-amber-400 bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {data.vat.invoice_count === 0 && "No sales VAT recorded. "}
+                    {formatPence(data.vat.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
+                    {data.vat.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted here:
+                    only invoices raised in EventLink are, so this VAT figure is incomplete. Add the
+                    VAT you charged on {data.vat.uninvoiced_earnings_count === 1 ? "it" : "them"}{" "}
+                    yourself.
+                  </p>
                 )}
               </>
             )}
