@@ -86,7 +86,9 @@ import { ImportWizard } from "./ImportWizard";
 import { RecentlyRemoved } from "./RecentlyRemoved";
 import { StartAgainCard } from "./StartAgainCard";
 import { matchesOrigin, ORIGIN_OPTIONS, type OriginFilter } from "@/lib/origin";
-import { isBooksCurrency } from "@shared/expense-totals";
+import { isBooksCurrency, reclaimsInputVat } from "@shared/expense-totals";
+import { vatTreatmentNote } from "@shared/vat-return";
+import { VatReturnCard } from "./VatReturnCard";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
@@ -1294,7 +1296,10 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
     queryKey: ["/api/expense-categories"],
   });
 
-  const { data: billingProfile } = useQuery<{ vat_registered?: boolean } | null>({
+  const { data: billingProfile } = useQuery<{
+    vat_registered?: boolean;
+    vat_scheme?: string;
+  } | null>({
     queryKey: ["/api/billing-profile"],
     retry: false,
   });
@@ -1322,6 +1327,8 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
   });
 
   const vatRegistered = Boolean(billingProfile?.vat_registered);
+  // Flat Rate Scheme users are registered but reclaim nothing: their costs count gross
+  const reclaimsVat = reclaimsInputVat(billingProfile);
   const [originFilter, setOriginFilter] = useState<OriginFilter>("all");
   const [currencyFilter, setCurrencyFilter] = useState(initialCurrency);
   const expenses = (expensesData?.expenses ?? [])
@@ -1461,7 +1468,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                     (sum, e) =>
                       e.allowable
                         ? sum +
-                          Math.round((expenseBase(e, vatRegistered) * e.business_use_percent) / 100)
+                          Math.round((expenseBase(e, reclaimsVat) * e.business_use_percent) / 100)
                         : sum,
                     0
                   );
@@ -1477,7 +1484,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                     >
                       {monthExpenses.map((expense, i) => {
                         const allowableAmount = Math.round(
-                          (expenseBase(expense, vatRegistered) * expense.business_use_percent) / 100
+                          (expenseBase(expense, reclaimsVat) * expense.business_use_percent) / 100
                         );
                         const catName = expense.category_id
                           ? categoryMap[expense.category_id]
@@ -2598,12 +2605,10 @@ interface BooksSummary {
   overdue_pence: number;
   other_currency_earnings?: number;
   other_currency_expenses?: number;
-  /** True when the figures exclude VAT (earnings net, expenses net) */
+  /** Which VAT treatment the figures use (see vatTreatmentNote) */
   vat_registered?: boolean;
+  vat_scheme?: string | null;
 }
-
-/** Says which VAT treatment the Books figures use, for a registered freelancer. */
-const VAT_TREATMENT_NOTE = "Figures exclude VAT. Your VAT is accounted for separately.";
 
 interface MonthlyRow {
   month: string;
@@ -2661,6 +2666,7 @@ interface TaxEstimateData {
   marriageAllowancePenceDelta: number;
   totalDeductionsPence: number;
   vatRegistered: boolean;
+  vatScheme: string | null;
   grossEarningsPence: number;
 }
 
@@ -3053,8 +3059,8 @@ function OverviewSection({
       >
         {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
       </p>
-      {data.vat_registered && (
-        <p className="-mt-3 text-xs text-muted-foreground">{VAT_TREATMENT_NOTE}</p>
+      {vatTreatmentNote(data) && (
+        <p className="-mt-3 text-xs text-muted-foreground">{vatTreatmentNote(data)}</p>
       )}
 
       {/* ── Stat tiles ── */}
@@ -3873,9 +3879,20 @@ function OverviewSection({
           </div>
           {taxData?.vatRegistered && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              You are VAT registered, so this estimate excludes VAT on both sides: earnings net of
-              the VAT you charge, expenses net of the VAT you reclaim. Enter any earnings logged by
-              hand ex-VAT, and the VAT on each receipt.
+              {taxData.vatScheme === "flat_rate" ? (
+                <>
+                  You are on the VAT Flat Rate Scheme. Expenses count including VAT, as you
+                  can&apos;t reclaim it. Earnings exclude the VAT you charge, so the difference
+                  between that and the flat-rate VAT you pay (which is taxable income) isn&apos;t in
+                  this estimate: ask your accountant to add it.
+                </>
+              ) : (
+                <>
+                  You are VAT registered, so this estimate excludes VAT on both sides: earnings net
+                  of the VAT you charge, expenses net of the VAT you reclaim. Enter any earnings
+                  logged by hand ex-VAT, and the VAT on each receipt.
+                </>
+              )}
             </p>
           )}
           {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
@@ -3948,6 +3965,9 @@ function OverviewSection({
           </CardContent>
         </Card>
       )}
+
+      {/* ── VAT return (VAT-registered only; renders nothing otherwise) ── */}
+      <VatReturnCard />
 
       {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">
@@ -4088,7 +4108,10 @@ export function BooksTab() {
     queryKey: ["/api/expense-categories"],
     queryFn: () => apiRequest("/api/expense-categories"),
   });
-  const { data: topLevelBillingProfile } = useQuery<{ vat_registered?: boolean } | null>({
+  const { data: topLevelBillingProfile } = useQuery<{
+    vat_registered?: boolean;
+    vat_scheme?: string;
+  } | null>({
     queryKey: ["/api/billing-profile"],
     queryFn: () => apiRequest("/api/billing-profile"),
   });
@@ -5055,8 +5078,10 @@ export function BooksTab() {
               {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
             </span>
           </div>
-          {topLevelVatRegistered && (
-            <p className="mt-1 text-right text-xs text-blue-200">{VAT_TREATMENT_NOTE}</p>
+          {vatTreatmentNote(topLevelBillingProfile) && (
+            <p className="mt-1 text-right text-xs text-blue-200">
+              {vatTreatmentNote(topLevelBillingProfile)}
+            </p>
           )}
         </div>
         <CardContent className="pt-4">

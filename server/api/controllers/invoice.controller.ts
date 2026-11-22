@@ -2,6 +2,7 @@ import { fmtDate } from "@shared/dates";
 import { invoiceAmounts, lineTotalPence } from "@shared/invoice-math";
 import { addDays, ukDate, ukToday } from "@shared/job-dates";
 import { formatSortCode, invoiceTotals, isVatRate } from "@shared/invoice-vat";
+import { isVatScheme, isVatStagger, isFlatRateBp } from "@shared/vat-return";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
@@ -54,11 +55,27 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     vat_registered,
     vat_number,
     vat_rate_pct,
+    vat_scheme,
+    vat_stagger,
+    vat_flat_rate_bp,
     logo_url,
   } = req.body;
 
   if (vat_rate_pct !== undefined && !isVatRate(Number(vat_rate_pct))) {
     return res.status(400).json({ error: "vat_rate_pct must be 20, 5 or 0" });
+  }
+  if (vat_scheme !== undefined && !isVatScheme(vat_scheme)) {
+    return res.status(400).json({ error: "vat_scheme must be standard, cash or flat_rate" });
+  }
+  if (vat_stagger !== undefined && !isVatStagger(Number(vat_stagger))) {
+    return res.status(400).json({ error: "vat_stagger must be 1, 2 or 3" });
+  }
+  if (
+    vat_flat_rate_bp !== undefined &&
+    vat_flat_rate_bp !== null &&
+    !isFlatRateBp(Number(vat_flat_rate_bp))
+  ) {
+    return res.status(400).json({ error: "vat_flat_rate_bp must be between 1 and 1650 (16.5%)" });
   }
 
   // Validate payment_terms_days if present
@@ -100,6 +117,10 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (vat_registered !== undefined) data.vat_registered = Boolean(vat_registered);
   if (vat_number !== undefined) data.vat_number = vat_number ?? null;
   if (vat_rate_pct !== undefined) data.vat_rate_pct = Number(vat_rate_pct);
+  if (vat_scheme !== undefined) data.vat_scheme = vat_scheme;
+  if (vat_stagger !== undefined) data.vat_stagger = Number(vat_stagger);
+  if (vat_flat_rate_bp !== undefined)
+    data.vat_flat_rate_bp = vat_flat_rate_bp === null ? null : Number(vat_flat_rate_bp);
   if (logo_url !== undefined) data.logo_url = logo_url ?? null;
 
   const saved = await storage.upsertBillingProfile(user.id, data);
