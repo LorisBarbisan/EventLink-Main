@@ -1768,7 +1768,7 @@ function TripDialog({
                 value={form.vehicle_type}
                 onChange={set("vehicle_type")}
               >
-                <option value="car">Car</option>
+                <option value="car">Car or van</option>
                 <option value="motorcycle">Motorcycle</option>
                 <option value="bicycle">Bicycle</option>
               </select>

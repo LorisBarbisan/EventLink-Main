@@ -23,6 +23,7 @@ import {
   vatQuartersOverlapping,
   vatPaidInRange,
   uninvoicedEarnings,
+  vatQuarterStatus,
   VAT_SCHEME_LABELS,
   isVatScheme,
   isVatStagger,
@@ -896,18 +897,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         const vatRows = quarters.map((q) => {
           const fig = computeVatReturn(q, vatInvoices, quarterExpenses, scheme, flatRateBp);
           const p = paymentByEnd.get(q.to);
-          const status =
-            today < q.from
-              ? "Not started"
-              : today <= q.to
-                ? "In progress"
-                : p
-                  ? Number(p.amount_pence) < 0
-                    ? "Repaid"
-                    : "Paid"
-                  : today > q.due
-                    ? "Overdue — no payment recorded"
-                    : "Return due";
+          const status = vatQuarterStatus(q, fig.net_pence, p ?? null, today);
           return [
             q.label,
             d(q.from),
