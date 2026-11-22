@@ -53,6 +53,9 @@ interface VatQuarterRow {
   expense_count: number;
   capital_candidates: number;
   other_currency: number;
+  /** Hand-logged earnings in the quarter: their VAT is not in Box 1 */
+  uninvoiced_earnings_count: number;
+  uninvoiced_earnings_pence: number;
   payment: VatPaymentRow | null;
 }
 
@@ -171,6 +174,16 @@ export function VatReturnCard() {
                       </span>
                     )}
                     <p className="mt-0.5 text-xs text-muted-foreground">Due {fmtDate(q.due)}</p>
+                    {q.uninvoiced_earnings_count > 0 && (
+                      <p className="mt-1 max-w-[16rem] rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                        {q.invoice_count === 0 && "No sales VAT recorded this quarter. "}
+                        {fmtPence(q.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
+                        {q.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted in{" "}
+                        {isFlat ? "your turnover" : "VAT on sales"}: only invoices raised here are.
+                        Add the VAT you charged on{" "}
+                        {q.uninvoiced_earnings_count === 1 ? "it" : "them"} yourself.
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right align-top tabular-nums">
                     {fmtPence(q.output_pence)}
@@ -236,9 +249,9 @@ export function VatReturnCard() {
             </p>
           )}
           <p>
-            Estimates from your invoices and expenses, to copy into your Making Tax Digital software
-            (Box 1, Box 4 and Box 5). EventLink doesn&apos;t submit VAT returns. Record what you
-            paid so you can see which quarters are settled.
+            Estimates from invoices raised here and your expenses, to copy into your Making Tax
+            Digital software (Box 1, Box 4 and Box 5). EventLink doesn&apos;t submit VAT returns.
+            Record what you paid so you can see which quarters are settled.
           </p>
         </div>
       </CardContent>

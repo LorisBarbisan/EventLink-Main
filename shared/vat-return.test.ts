@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   vatQuartersOverlapping,
   vatPaidInRange,
+  uninvoicedEarnings,
   computeVatReturn,
   recentVatQuarters,
   vatTreatmentNote,
@@ -228,5 +229,55 @@ describe("vatPaidInRange", () => {
       { paid_date: null, amount_pence: 999 },
     ];
     expect(vatPaidInRange(payments, "2026-04-06", "2027-04-05")).toBe(90_000);
+  });
+});
+
+describe("uninvoicedEarnings", () => {
+  const base = {
+    invoice_id: null,
+    archived: false,
+    currency: "GBP",
+    paid_date: null,
+    invoiced_date: null,
+    work_date: "2026-05-10",
+    gross_amount_pence: 10_000,
+  };
+
+  const Q2 = ["2026-04-01", "2026-06-30"] as const;
+  // Worked and invoiced in the quarter, paid after it
+  const paidLate = { ...base, invoiced_date: "2026-06-15", paid_date: "2026-07-02" };
+
+  it("standard: placed by invoice date, paid or not, else the date worked", () => {
+    const r = uninvoicedEarnings(
+      [
+        base, // never invoiced: work date
+        paidLate,
+        {
+          ...base,
+          work_date: "2026-03-20",
+          invoiced_date: "2026-04-02",
+          gross_amount_pence: 5_000,
+        },
+        { ...base, invoiced_date: "2026-07-01" }, // invoiced in the next quarter
+        { ...base, invoice_id: 9 }, // already in Box 1 via its invoice
+        { ...base, archived: true },
+        { ...base, currency: "EUR" },
+      ],
+      ...Q2,
+      "standard"
+    );
+    expect(r).toEqual({ count: 3, pence: 25_000 });
+    // The late payment belongs to the quarter it was invoiced in, not paid in
+    expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "standard").count).toBe(0);
+  });
+
+  it("flat rate follows the invoice date too, as its turnover does", () => {
+    expect(uninvoicedEarnings([paidLate], ...Q2, "flat_rate").count).toBe(1);
+  });
+
+  it("cash: placed by paid date, and unpaid entries don't count", () => {
+    expect(uninvoicedEarnings([paidLate], ...Q2, "cash").count).toBe(0);
+    expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "cash").count).toBe(1);
+    expect(uninvoicedEarnings([base], ...Q2, "cash").count).toBe(0);
   });
 });

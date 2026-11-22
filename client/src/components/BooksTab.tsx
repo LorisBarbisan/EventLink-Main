@@ -2617,6 +2617,10 @@ interface BooksSummary {
     net_pence: number;
     flat_rate_turnover_pence: number | null;
     paid_pence: number;
+    invoice_count: number;
+    /** Hand-logged earnings in the period: their VAT is not in the figures */
+    uninvoiced_earnings_count: number;
+    uninvoiced_earnings_pence: number;
   } | null;
 }
 
@@ -3402,6 +3406,16 @@ function OverviewSection({
                     </span>
                   </div>
                 )}
+                {data.vat.uninvoiced_earnings_count > 0 && (
+                  <p className="border-l-4 border-amber-400 bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {data.vat.invoice_count === 0 && "No sales VAT recorded. "}
+                    {formatPence(data.vat.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
+                    {data.vat.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted here:
+                    only invoices raised in EventLink are, so this VAT figure is incomplete. Add the
+                    VAT you charged on {data.vat.uninvoiced_earnings_count === 1 ? "it" : "them"}{" "}
+                    yourself.
+                  </p>
+                )}
               </>
             )}
             {taxData && (
@@ -3967,7 +3981,7 @@ function OverviewSection({
           )}
           {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
             <p className="text-xs text-muted-foreground">
-              Trading income is under £1,000 — you may be able to use the{" "}
+              Trading income is £1,000 or less — you may be able to use the{" "}
               <span className="font-medium">Trading Allowance</span> instead of claiming actual
               expenses, making the profit from this source £0.
             </p>
@@ -5167,7 +5181,7 @@ export function BooksTab() {
               <div className="mb-4 grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/40">
                   <p className="text-xs font-medium uppercase tracking-wide text-blue-500">
-                    Gross income
+                    Income before expenses
                   </p>
                   <p className="mt-1 text-xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
                     {formatPence(summary.total_pence)}
