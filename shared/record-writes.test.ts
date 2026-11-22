@@ -28,12 +28,15 @@ describe("a padded currency still counts", () => {
   it("' GBP ' is sterling", () => {
     expect(isBooksCurrency(" GBP ")).toBe(true);
     expect(
-      allowableExpensePence({
-        net_amount_pence: 10000,
-        vat_amount_pence: 2000,
-        business_use_percent: 100,
-        currency: " GBP ",
-      })
+      allowableExpensePence(
+        {
+          net_amount_pence: 10000,
+          vat_amount_pence: 2000,
+          business_use_percent: 100,
+          currency: " GBP ",
+        },
+        false
+      )
     ).toBe(12000);
   });
 });

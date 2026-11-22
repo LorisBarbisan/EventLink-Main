@@ -24,6 +24,7 @@ import {
 } from "../utils/xlsx";
 import { addQuartersSheet } from "../utils/hmrc-quarters-sheet";
 import { logBooksEvent } from "../services/books-usage.service";
+import { netOfInvoice } from "@shared/invoice-vat";
 
 /** "2026-04-06" → "6 April 2026". */
 // timeZone "UTC" is deliberate: do not change it to Europe/London. The
@@ -47,11 +48,22 @@ function taxYearParams(req: Request): { from: string; to: string } {
   };
 }
 
+/**
+ * Whether the freelancer is VAT-registered. Decides whether expenses count
+ * net or gross (see expense-totals.ts), so every total must ask.
+ */
+async function isVatRegistered(freelancerId: number): Promise<boolean> {
+  const billing = await storage.getBillingProfile(freelancerId);
+  return billing?.vat_registered ?? false;
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 // Pence from paid invoices that have no linked earnings_entries row.
 // These arise when a blank invoice was marked paid before the auto-create
 // logic was added, or when the invoice was never tied to a booking.
+// Counted net of VAT, as linked earnings are (netOfInvoice): output VAT
+// belongs to HMRC, not to income.
 async function syntheticInvoicePence(
   freelancerId: number,
   from: string,
@@ -74,7 +86,7 @@ async function syntheticInvoicePence(
             : null;
       return paidDate && paidDate >= from && paidDate <= to;
     })
-    .reduce((sum, inv) => sum + (inv.paid_amount_pence ?? inv.total_pence), 0);
+    .reduce((sum, inv) => sum + netOfInvoice(inv, inv.paid_amount_pence), 0);
 }
 
 export async function booksSummary(req: Request, res: Response) {
@@ -82,17 +94,19 @@ export async function booksSummary(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earnings, expensesData, mileagePence, extraPence, overdueData] = await Promise.all([
-      storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
-      storage.listExpensesForExport(freelancerId, from, to),
-      storage.sumMileagePence(freelancerId, from, to),
-      syntheticInvoicePence(freelancerId, from, to),
-      storage.countOverdueEntries(freelancerId, from, to),
-    ]);
+    const [earnings, expensesData, mileagePence, extraPence, overdueData, vatRegistered] =
+      await Promise.all([
+        storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
+        storage.listExpensesForExport(freelancerId, from, to),
+        storage.sumMileagePence(freelancerId, from, to),
+        syntheticInvoicePence(freelancerId, from, to),
+        storage.countOverdueEntries(freelancerId, from, to),
+        isVatRegistered(freelancerId),
+      ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
 
-    const expenseTotals = sumAllowableExpenses(expensesData);
+    const expenseTotals = sumAllowableExpenses(expensesData, vatRegistered);
     const expenseAllowablePence = expenseTotals.pence;
 
     const expenseCount = expensesData.length;
@@ -115,6 +129,8 @@ export async function booksSummary(req: Request, res: Response) {
       // Records left out of every total because they are not in sterling
       other_currency_earnings: earnings.excluded.other_currency,
       other_currency_expenses: expenseTotals.otherCurrency,
+      // Figures exclude VAT when true, so the screen can say so
+      vat_registered: vatRegistered,
     });
   } catch (err) {
     console.error("booksSummary error:", err);
@@ -129,14 +145,15 @@ export async function booksExport(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [expenses, trips] = await Promise.all([
+    const [expenses, trips, vatRegistered] = await Promise.all([
       storage.listExpensesForExport(freelancerId, from, to),
       storage.listMileageTrips(freelancerId, from, to),
+      isVatRegistered(freelancerId),
     ]);
 
     // Section 1: Expenses
     const expenseRows = expenses.map((e) => {
-      const allowable = allowableExpensePence(e);
+      const allowable = allowableExpensePence(e, vatRegistered);
       return [
         "expense",
         dateToCsvDate(e.expense_date),
@@ -206,13 +223,15 @@ export async function booksMonthly(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earningsGroups, expensesRaw, mileageTrips, allInvoices, allEntries] = await Promise.all([
-      storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
-      storage.listExpensesForExport(freelancerId, from, to),
-      storage.listMileageTrips(freelancerId, from, to),
-      storage.getInvoicesByFreelancer(freelancerId),
-      storage.listEarningsEntries(freelancerId, { archived: false }),
-    ]);
+    const [earningsGroups, expensesRaw, mileageTrips, allInvoices, allEntries, vatRegistered] =
+      await Promise.all([
+        storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
+        storage.listExpensesForExport(freelancerId, from, to),
+        storage.listMileageTrips(freelancerId, from, to),
+        storage.getInvoicesByFreelancer(freelancerId),
+        storage.listEarningsEntries(freelancerId, { archived: false }),
+        isVatRegistered(freelancerId),
+      ]);
 
     // Build month buckets from from/to range
     const months: string[] = [];
@@ -242,14 +261,14 @@ export async function booksMonthly(req: Request, res: Response) {
             : null;
       if (!paidDate || paidDate < from || paidDate > to) continue;
       const m = paidDate.slice(0, 7);
-      earningsMap[m] = (earningsMap[m] ?? 0) + (inv.paid_amount_pence ?? inv.total_pence);
+      earningsMap[m] = (earningsMap[m] ?? 0) + netOfInvoice(inv, inv.paid_amount_pence);
     }
 
     // Expenses per month
     const expensesMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const m = e.expense_date.slice(0, 7);
-      expensesMap[m] = (expensesMap[m] ?? 0) + allowableExpensePence(e);
+      expensesMap[m] = (expensesMap[m] ?? 0) + allowableExpensePence(e, vatRegistered);
     }
 
     // Mileage per month
@@ -284,12 +303,15 @@ export async function booksExpenseCategories(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const expensesRaw = await storage.listExpensesForExport(freelancerId, from, to);
+    const [expensesRaw, vatRegistered] = await Promise.all([
+      storage.listExpensesForExport(freelancerId, from, to),
+      isVatRegistered(freelancerId),
+    ]);
 
     const catMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const cat = e.category_name ?? "Other";
-      catMap[cat] = (catMap[cat] ?? 0) + allowableExpensePence(e);
+      catMap[cat] = (catMap[cat] ?? 0) + allowableExpensePence(e, vatRegistered);
     }
 
     const categories = Object.entries(catMap)
@@ -323,7 +345,8 @@ export async function taxEstimate(req: Request, res: Response) {
     ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence;
-    const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
+    const vatRegistered = billing?.vat_registered ?? false;
+    const expenseAllowablePence = sumAllowableExpenses(expensesData, vatRegistered).pence;
 
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
 
@@ -383,7 +406,7 @@ export async function taxEstimate(req: Request, res: Response) {
 
     return res.json({
       ...estimate,
-      vatRegistered: billing?.vat_registered ?? false,
+      vatRegistered,
       grossEarningsPence: earningsPence,
     });
   } catch (err) {
@@ -400,6 +423,7 @@ export async function booksQuarterly(req: Request, res: Response) {
     const { from } = taxYearParams(req);
     const ty = taxYearForDate(from);
     const quarters = taxQuarters(ty.year);
+    const vatRegistered = await isVatRegistered(freelancerId);
 
     const rows = await Promise.all(
       quarters.map(async (q) => {
@@ -409,7 +433,7 @@ export async function booksQuarterly(req: Request, res: Response) {
           storage.sumMileagePence(freelancerId, q.from, q.to),
         ]);
         const earningsPence = earnings.total_pence - earnings.deductions_pence;
-        const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
+        const expenseAllowablePence = sumAllowableExpenses(expensesData, vatRegistered).pence;
         return {
           quarter: q.quarter,
           label: q.label,
@@ -493,6 +517,8 @@ export async function booksExportWorkbook(req: Request, res: Response) {
             ? ukDate(inv.paid_at)
             : (inv.paid_at as unknown as string).slice(0, 10);
         const workDate = inv.issue_date ?? paidDate;
+        // Net of VAT, as linked earnings are: output VAT is not income
+        const netPaid = netOfInvoice(inv, inv.paid_amount_pence);
         return {
           id: -inv.id,
           freelancer_id: freelancerId,
@@ -506,13 +532,13 @@ export async function booksExportWorkbook(req: Request, res: Response) {
           work_end_date: null,
           quantity: "1",
           unit: "job" as const,
-          unit_amount_pence: inv.total_pence,
-          gross_amount_pence: inv.total_pence,
+          unit_amount_pence: netPaid,
+          gross_amount_pence: netPaid,
           deductions_pence: 0,
           currency: inv.currency ?? "GBP",
           status: "paid" as const,
           paid_date: paidDate,
-          paid_amount_pence: inv.paid_amount_pence ?? inv.total_pence,
+          paid_amount_pence: netPaid,
           invoiced_date: inv.issue_date ?? null,
           notes: null,
           needs_review: false,
@@ -562,8 +588,10 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const netPence = (arr: typeof filteredEntries) =>
       arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
     const receivedPence = netPence(cashEntries);
-    const allowablePence = allowableExpensePence;
-    const expenseTotals = sumAllowableExpenses(expenses);
+    const vatRegistered = business?.vat_registered ?? false;
+    const allowablePence = (e: (typeof expenses)[number]) =>
+      allowableExpensePence(e, vatRegistered);
+    const expenseTotals = sumAllowableExpenses(expenses, vatRegistered);
     const totalExpensesPence = expenseTotals.pence;
     const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
     const generated = new Date().toLocaleDateString("en-GB", {
@@ -601,7 +629,9 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       {
         title: tradingName ? `Books summary — ${tradingName}` : "Books summary",
         subtitle: `${fmtLongDate(from)} to ${fmtLongDate(to)}`,
-        meta: `Generated ${generated}. Cash basis.`,
+        meta: vatRegistered
+          ? `Generated ${generated}. Cash basis. Figures exclude VAT; VAT is accounted for separately.`
+          : `Generated ${generated}. Cash basis.`,
       },
       [
         { heading: "Whose books", lines: whose },
@@ -809,7 +839,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ];
     const expensesRows = expenses.map((e) => {
       const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = allowableExpensePence(e);
+      const allowable = allowablePence(e);
       return [
         e.expense_date ? new Date(e.expense_date + "T00:00:00Z") : null,
         e.supplier ?? "",

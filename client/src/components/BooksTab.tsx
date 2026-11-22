@@ -105,6 +105,20 @@ function formatPence(pence: number | null | undefined, currency = "GBP"): string
 
 // ── Month grouping helper + component ─────────────────────────────────────────
 
+/**
+ * What an expense costs the business before business-use %: the net for a
+ * VAT-registered freelancer (the VAT is reclaimed), the gross otherwise.
+ * Same rule as allowableExpensePence in shared/expense-totals.ts, which the
+ * server totals use; this one keeps every currency so a list row still shows
+ * its own amount.
+ */
+function expenseBase(
+  e: { net_amount_pence: number; vat_amount_pence: number },
+  vatRegistered: boolean
+): number {
+  return vatRegistered ? e.net_amount_pence : e.net_amount_pence + e.vat_amount_pence;
+}
+
 function groupByMonth<T>(items: T[], dateKey: keyof T): { key: string; items: T[] }[] {
   const map: Record<string, T[]> = {};
   for (const item of items) {
@@ -508,8 +522,7 @@ function ExpenseDialog({
         notes: editing.notes ?? "",
       });
       setMoreOpen(
-        editing.vat_amount_pence > 0 ||
-          editing.business_use_percent < 100 ||
+        editing.business_use_percent < 100 ||
           !!editing.payment_method ||
           editing.billable_to_client ||
           !editing.allowable
@@ -525,6 +538,10 @@ function ExpenseDialog({
 
   const set = <K extends keyof ExpenseForm>(k: K, v: ExpenseForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  // Also shown when editing an expense that already carries VAT (entered while
+  // registered), so it can't be hidden and silently kept.
+  const showVat = vatRegistered || (editing?.vat_amount_pence ?? 0) > 0;
 
   const saveMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => {
@@ -579,21 +596,48 @@ function ExpenseDialog({
           <DialogTitle>{editing ? "Edit expense" : "Add expense"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Amount — focused first */}
-          <div className="space-y-1">
-            <Label htmlFor="exp-amount">Amount (£) *</Label>
-            <Input
-              id="exp-amount"
-              ref={amountRef}
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={form.net_amount}
-              onChange={(e) => set("net_amount", e.target.value)}
-              style={{ fontSize: "16px" }}
-            />
+          {/* Amount — focused first. A VAT-registered freelancer deducts the net
+              and reclaims the VAT, so the VAT sits beside the amount where it
+              can't be skipped: left blank, the receipt looks zero-rated and the
+              books count the reclaimed VAT as a cost. */}
+          <div className={showVat ? "grid grid-cols-2 gap-3" : ""}>
+            <div className="space-y-1">
+              <Label htmlFor="exp-amount">
+                {showVat ? "Amount excl. VAT (£) *" : "Amount (£) *"}
+              </Label>
+              <Input
+                id="exp-amount"
+                ref={amountRef}
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={form.net_amount}
+                onChange={(e) => set("net_amount", e.target.value)}
+                style={{ fontSize: "16px" }}
+              />
+            </div>
+            {showVat && (
+              <div className="space-y-1">
+                <Label htmlFor="exp-vat">VAT (£)</Label>
+                <Input
+                  id="exp-vat"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.vat_amount}
+                  onChange={(e) => set("vat_amount", e.target.value)}
+                  style={{ fontSize: "16px" }}
+                />
+              </div>
+            )}
           </div>
+          {showVat && (
+            <p className="-mt-2 text-xs text-muted-foreground">
+              From the receipt. Leave VAT blank only if none was charged.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -689,22 +733,6 @@ function ExpenseDialog({
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3 space-y-4">
-              {vatRegistered && (
-                <div className="space-y-1">
-                  <Label htmlFor="exp-vat">VAT amount (£)</Label>
-                  <Input
-                    id="exp-vat"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={form.vat_amount}
-                    onChange={(e) => set("vat_amount", e.target.value)}
-                    style={{ fontSize: "16px" }}
-                  />
-                </div>
-              )}
-
               <div className="space-y-1">
                 <Label htmlFor="exp-biz">Business use %</Label>
                 <Input
@@ -1433,10 +1461,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                     (sum, e) =>
                       e.allowable
                         ? sum +
-                          Math.round(
-                            ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) /
-                              100
-                          )
+                          Math.round((expenseBase(e, vatRegistered) * e.business_use_percent) / 100)
                         : sum,
                     0
                   );
@@ -1451,9 +1476,8 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                       divider={mi < expenseMonths.length - 1}
                     >
                       {monthExpenses.map((expense, i) => {
-                        const total = expense.net_amount_pence + expense.vat_amount_pence;
                         const allowableAmount = Math.round(
-                          (total * expense.business_use_percent) / 100
+                          (expenseBase(expense, vatRegistered) * expense.business_use_percent) / 100
                         );
                         const catName = expense.category_id
                           ? categoryMap[expense.category_id]
@@ -2574,7 +2598,12 @@ interface BooksSummary {
   overdue_pence: number;
   other_currency_earnings?: number;
   other_currency_expenses?: number;
+  /** True when the figures exclude VAT (earnings net, expenses net) */
+  vat_registered?: boolean;
 }
+
+/** Says which VAT treatment the Books figures use, for a registered freelancer. */
+const VAT_TREATMENT_NOTE = "Figures exclude VAT. Your VAT is accounted for separately.";
 
 interface MonthlyRow {
   month: string;
@@ -3024,6 +3053,9 @@ function OverviewSection({
       >
         {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
       </p>
+      {data.vat_registered && (
+        <p className="-mt-3 text-xs text-muted-foreground">{VAT_TREATMENT_NOTE}</p>
+      )}
 
       {/* ── Stat tiles ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -3841,8 +3873,9 @@ function OverviewSection({
           </div>
           {taxData?.vatRegistered && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              You are VAT registered. Ensure your earnings are entered ex-VAT so the estimate is not
-              inflated by VAT you collect on HMRC&apos;s behalf.
+              You are VAT registered, so this estimate excludes VAT on both sides: earnings net of
+              the VAT you charge, expenses net of the VAT you reclaim. Enter any earnings logged by
+              hand ex-VAT, and the VAT on each receipt.
             </p>
           )}
           {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
@@ -4232,7 +4265,12 @@ export function BooksTab() {
           description: exp.description,
           rate_type: "flat",
           quantity: 1,
-          unit_price_pence: exp.net_amount_pence + (exp.vat_amount_pence ?? 0),
+          // A registered freelancer rebills the net: the invoice adds VAT on
+          // top, so billing the gross would charge the client VAT twice.
+          unit_price_pence: expenseBase(
+            { net_amount_pence: exp.net_amount_pence, vat_amount_pence: exp.vat_amount_pence ?? 0 },
+            topLevelVatRegistered
+          ),
         });
       }
 
@@ -5017,6 +5055,9 @@ export function BooksTab() {
               {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
             </span>
           </div>
+          {topLevelVatRegistered && (
+            <p className="mt-1 text-right text-xs text-blue-200">{VAT_TREATMENT_NOTE}</p>
+          )}
         </div>
         <CardContent className="pt-4">
           {summary.entry_count === 0 ? (
