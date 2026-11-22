@@ -1,5 +1,7 @@
 import { apiRequest } from "@/lib/queryClient";
 import { pressable } from "@/lib/a11y";
+import { loadProfileFont } from "@/lib/load-profile-font";
+import { DEFAULT_FONT, isFontKey, PROFILE_FONTS } from "@shared/profile-fonts";
 import { PublicAvailabilityMonth, PublicAvailabilityStrip } from "@/components/PublicAvailability";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
@@ -245,31 +247,10 @@ export default function FreelancerCard() {
   const btnBorder = btnDark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   // Font from profile theme
-  const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
-  const FONT_CSS_MAP: Record<string, string> = {
-    inter: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    playfair: "'Playfair Display', serif",
-    poppins: "Poppins, sans-serif",
-    "space-grotesk": "'Space Grotesk', sans-serif",
-  };
-  const FONT_URLS: Record<string, string> = {
-    playfair:
-      "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
-    poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
-    "space-grotesk":
-      "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-  };
+  const storedFont: unknown = (freelancer as any)?.profile_theme?.font;
+  const themeFont = isFontKey(storedFont) ? storedFont : DEFAULT_FONT;
   useEffect(() => {
-    const url = FONT_URLS[themeFont];
-    if (url) {
-      const id = "card-theme-font";
-      document.getElementById(id)?.remove();
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = url;
-      document.head.appendChild(link);
-    }
+    loadProfileFont(themeFont);
   }, [themeFont]);
 
   const uid: number | undefined = freelancer?.user_id;
@@ -808,7 +789,7 @@ export default function FreelancerCard() {
       style={{
         background: DM.pageBg,
         minHeight: "100vh",
-        fontFamily: FONT_CSS_MAP[themeFont] ?? FONT_CSS_MAP.inter,
+        fontFamily: PROFILE_FONTS[themeFont].stack,
       }}
     >
       {/* ── HEADER ── */}
