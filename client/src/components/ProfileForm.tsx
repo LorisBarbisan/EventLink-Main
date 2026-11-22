@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { pressable } from "@/lib/a11y";
 import { ProfileThemePicker } from "@/components/ProfileThemePicker";
+import { profileFont } from "@shared/profile-fonts";
 import { CVParsingReview } from "@/components/CVParsingReview";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -507,6 +508,9 @@ export function ProfileForm({
                 <FreelancerCardAppearanceFields
                   formData={formData as FreelancerFormData}
                   onInputChange={handleInputChange}
+                  calendarPublic={showCalendar}
+                  onMakeCalendarPublic={user?.id ? () => calendarMutation.mutate(true) : undefined}
+                  calendarPending={calendarMutation.isPending}
                 />
               </TabsContent>
 
@@ -997,16 +1001,10 @@ function CardLivePreview({
 }) {
   const [flipped, setFlipped] = useState(false);
 
-  const FONT_CSS_MAP: Record<string, string> = {
-    inter: "Inter, sans-serif",
-    playfair: "'Playfair Display', serif",
-    poppins: "Poppins, sans-serif",
-    "space-grotesk": "'Space Grotesk', sans-serif",
-  };
   const accent = theme.accent ?? "#f97316";
   const buttonColor = theme.button_color ?? "#ffffff";
   const buttonTextPref = theme.button_text ?? "auto";
-  const fontFamily = FONT_CSS_MAP[theme.font ?? "inter"] ?? "Inter, sans-serif";
+  const fontFamily = profileFont(theme.font).stack;
   const firstName = formData.first_name || "Your";
   const lastName = formData.last_name || "Name";
   const title = formData.title || "Professional Title";
@@ -1404,9 +1402,15 @@ function CardLivePreview({
 function FreelancerCardAppearanceFields({
   formData,
   onInputChange,
+  calendarPublic,
+  onMakeCalendarPublic,
+  calendarPending,
 }: {
   formData: FreelancerFormData;
   onInputChange: (field: string, value: any) => void;
+  calendarPublic: boolean;
+  onMakeCalendarPublic?: () => void;
+  calendarPending?: boolean;
 }) {
   const theme = (formData as any).profile_theme ?? {};
 
@@ -1450,7 +1454,13 @@ function FreelancerCardAppearanceFields({
           </p>
         </div>
 
-        <ProfileThemePicker theme={theme} onChange={(t) => onInputChange("profile_theme", t)} />
+        <ProfileThemePicker
+          theme={theme}
+          onChange={(t) => onInputChange("profile_theme", t)}
+          calendarPublic={calendarPublic}
+          onMakeCalendarPublic={onMakeCalendarPublic}
+          calendarPending={calendarPending}
+        />
       </div>
 
       {/* Right: Live Preview */}

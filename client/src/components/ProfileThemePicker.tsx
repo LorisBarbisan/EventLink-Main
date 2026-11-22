@@ -1,7 +1,11 @@
+import { loadProfileFont } from "@/lib/load-profile-font";
 import { cn } from "@/lib/utils";
+import { FONT_KEYS, PROFILE_FONTS, profileFont, type FontKey } from "@shared/profile-fonts";
+import { reconcileSectionOrder, SECTION_LABELS } from "@shared/profile-sections";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect } from "react";
 
-export type FontKey = "inter" | "playfair" | "poppins" | "space-grotesk";
+export type { FontKey };
 export type TextureKey = "none" | "leather" | "grid";
 
 export interface ProfileTheme {
@@ -65,38 +69,33 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-const FONTS: { key: FontKey; label: string; style: string }[] = [
-  { key: "inter", label: "Modern", style: "Inter, sans-serif" },
-  { key: "playfair", label: "Elegant", style: "'Playfair Display', serif" },
-  { key: "poppins", label: "Friendly", style: "Poppins, sans-serif" },
-  { key: "space-grotesk", label: "Technical", style: "'Space Grotesk', sans-serif" },
-];
-
-const FONT_CSS: Record<FontKey, string> = {
-  inter: "Inter, sans-serif",
-  playfair: "'Playfair Display', serif",
-  poppins: "Poppins, sans-serif",
-  "space-grotesk": "'Space Grotesk', sans-serif",
-};
-
-const DEFAULT_SECTIONS = ["about", "references", "documents", "contacts"];
-
-const SECTION_LABELS: Record<string, string> = {
-  about: "About",
-  references: "References",
-  documents: "Documents",
-  contacts: "Contacts",
-};
-
 interface Props {
   theme: ProfileTheme;
   onChange: (theme: ProfileTheme) => void;
+  /** Whether the freelancer shows their calendar publicly. The Calendar tab only appears when they do. */
+  calendarPublic?: boolean;
+  /** Turns public calendar visibility on (the same setting as "Show my calendar"). */
+  onMakeCalendarPublic?: () => void;
+  calendarPending?: boolean;
 }
 
-export function ProfileThemePicker({ theme, onChange }: Props) {
+export function ProfileThemePicker({
+  theme,
+  onChange,
+  calendarPublic = false,
+  onMakeCalendarPublic,
+  calendarPending = false,
+}: Props) {
   const accent = theme.accent ?? "#f97316";
   const font = theme.font ?? "inter";
-  const sections = theme.section_order ?? DEFAULT_SECTIONS;
+  const sections = reconcileSectionOrder(theme.section_order);
+
+  // The panel exists to compare faces, so load all of them, not just the
+  // chosen one. The site loads no web fonts, so without this every sans
+  // option renders as Arial.
+  useEffect(() => {
+    FONT_KEYS.forEach(loadProfileFont);
+  }, []);
 
   const buttonColor = theme.button_color ?? "#ffffff";
   const buttonText = theme.button_text ?? "auto";
@@ -264,28 +263,27 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
       <div>
         <p className="mb-3 text-sm font-semibold">Profile font</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {FONTS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFont(f.key)}
-              className={cn(
-                "flex flex-col items-start rounded-xl border-2 px-3 py-3 transition-all",
-                font === f.key
-                  ? "border-foreground bg-muted/60"
-                  : "border-border bg-background hover:border-foreground/40"
-              )}
-              style={{ fontFamily: f.style }}
-            >
-              <span className="text-xl font-semibold leading-none">Aa</span>
-              <span
-                className="mt-1 text-xs text-muted-foreground"
-                style={{ fontFamily: "Inter, sans-serif" }}
+          {FONT_KEYS.map((key) => {
+            const f = PROFILE_FONTS[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFont(key)}
+                className={cn(
+                  "flex flex-col items-start rounded-xl border-2 px-3 py-3 transition-all",
+                  font === key
+                    ? "border-foreground bg-muted/60"
+                    : "border-border bg-background hover:border-foreground/40"
+                )}
+                style={{ fontFamily: f.stack }}
               >
-                {f.label}
-              </span>
-            </button>
-          ))}
+                <span className="text-xl font-semibold leading-none">Aa</span>
+                <span className="mt-1 text-xs text-muted-foreground">{f.label}</span>
+                <span className="text-[10px] text-muted-foreground/70">{f.family}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -296,30 +294,56 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
           This controls the order of tabs on your public profile.
         </p>
         <div className="space-y-1.5">
-          {sections.map((s, i) => (
-            <div
-              key={s}
-              className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <span className="flex-1 text-sm">{SECTION_LABELS[s] ?? s}</span>
-              <button
-                type="button"
-                onClick={() => moveSection(i, -1)}
-                disabled={i === 0}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+          {sections.map((s, i) => {
+            const hidden = s === "calendar" && !calendarPublic;
+            return (
+              <div
+                key={s}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2",
+                  hidden && "border-dashed"
+                )}
               >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => moveSection(i, 1)}
-                disabled={i === sections.length - 1}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+                <span className={cn("flex-1 text-sm", hidden && "text-muted-foreground")}>
+                  {SECTION_LABELS[s]}
+                  {hidden && (
+                    <span className="mt-0.5 block text-xs">
+                      Shown only when your calendar is public.
+                      {onMakeCalendarPublic && (
+                        <>
+                          {" "}
+                          <button
+                            type="button"
+                            onClick={onMakeCalendarPublic}
+                            disabled={calendarPending}
+                            className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                          >
+                            Show my calendar
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => moveSection(i, -1)}
+                  disabled={i === 0}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveSection(i, 1)}
+                  disabled={i === sections.length - 1}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -329,7 +353,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
 /** Returns a <style> tag string to inject into any page for the given theme. */
 export function themeToCSS(theme: ProfileTheme): string {
   const accent = theme.accent ?? "#f97316";
-  const font = FONT_CSS[theme.font ?? "inter"];
+  const font = profileFont(theme.font).stack;
   return `
     :root {
       --profile-accent: ${accent};
@@ -337,17 +361,3 @@ export function themeToCSS(theme: ProfileTheme): string {
     }
   `;
 }
-
-/** Google Fonts URL for the chosen font (returns null for inter which is already loaded). */
-export function fontGoogleUrl(font: FontKey): string | null {
-  const map: Partial<Record<FontKey, string>> = {
-    playfair:
-      "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
-    poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
-    "space-grotesk":
-      "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-  };
-  return map[font] ?? null;
-}
-
-export { DEFAULT_SECTIONS, FONT_CSS };
