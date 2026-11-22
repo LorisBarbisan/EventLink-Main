@@ -185,6 +185,38 @@ export function vatPaidInRange(
     .reduce((sum, p) => sum + Number(p.amount_pence), 0);
 }
 
+/**
+ * Earnings logged by hand (no EventLink invoice behind them) dated in
+ * `from`–`to`. Box 1 counts invoices only, and an earnings entry has no
+ * VAT field, so any VAT charged on these sales is missing from the return.
+ * Dated by when they were paid, else invoiced, else worked.
+ */
+export function uninvoicedEarnings(
+  entries: Array<{
+    invoice_id: number | null;
+    archived?: boolean | null;
+    currency?: string | null;
+    paid_date: string | null;
+    invoiced_date: string | null;
+    work_date: string;
+    gross_amount_pence: number;
+  }>,
+  from: string,
+  to: string
+): { count: number; pence: number } {
+  let count = 0;
+  let pence = 0;
+  for (const e of entries) {
+    if (e.invoice_id || e.archived) continue;
+    if ((e.currency ?? "GBP") !== "GBP") continue;
+    const d = e.paid_date ?? e.invoiced_date ?? e.work_date;
+    if (d < from || d > to) continue;
+    count++;
+    pence += Number(e.gross_amount_pence);
+  }
+  return { count, pence };
+}
+
 export interface VatInvoiceLike {
   status: string;
   archived?: boolean | null;

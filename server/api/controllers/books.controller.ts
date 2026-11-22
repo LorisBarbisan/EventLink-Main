@@ -22,6 +22,7 @@ import {
   recentVatQuarters,
   vatQuartersOverlapping,
   vatPaidInRange,
+  uninvoicedEarnings,
   VAT_SCHEME_LABELS,
   isVatScheme,
   isVatStagger,
@@ -1192,10 +1193,11 @@ export async function vatReturn(req: Request, res: Response) {
     const quarters = recentVatQuarters(stagger, today, VAT_QUARTERS_SHOWN);
     const oldest = quarters[quarters.length - 1];
 
-    const [invoices, expenses, payments] = await Promise.all([
+    const [invoices, expenses, payments, entries] = await Promise.all([
       storage.getInvoicesByFreelancer(freelancerId),
       storage.listExpensesForExport(freelancerId, oldest.from, quarters[0].to),
       storage.listVatPayments(freelancerId),
+      storage.listEarningsEntries(freelancerId, { archived: false }),
     ]);
 
     const vatInvoices = toVatInvoices(invoices);
@@ -1208,9 +1210,13 @@ export async function vatReturn(req: Request, res: Response) {
       vat_flat_rate_bp: flatRateBp,
       quarters: quarters.map((q) => {
         const p = paymentByEnd.get(q.to);
+        // Sales Box 1 can't see: a hand-logged earnings entry has no VAT field
+        const uninvoiced = uninvoicedEarnings(entries, q.from, q.to);
         return {
           ...q,
           ...computeVatReturn(q, vatInvoices, expenses, scheme, flatRateBp),
+          uninvoiced_earnings_count: uninvoiced.count,
+          uninvoiced_earnings_pence: uninvoiced.pence,
           in_progress: today <= q.to,
           payment: p
             ? {

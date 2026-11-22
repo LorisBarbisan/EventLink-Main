@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   vatQuartersOverlapping,
   vatPaidInRange,
+  uninvoicedEarnings,
   computeVatReturn,
   recentVatQuarters,
   vatTreatmentNote,
@@ -228,5 +229,33 @@ describe("vatPaidInRange", () => {
       { paid_date: null, amount_pence: 999 },
     ];
     expect(vatPaidInRange(payments, "2026-04-06", "2027-04-05")).toBe(90_000);
+  });
+});
+
+describe("uninvoicedEarnings", () => {
+  const base = {
+    invoice_id: null,
+    archived: false,
+    currency: "GBP",
+    paid_date: null,
+    invoiced_date: null,
+    work_date: "2026-05-10",
+    gross_amount_pence: 10_000,
+  };
+
+  it("counts hand-logged sterling earnings in the period, dated paid, then invoiced, then worked", () => {
+    const r = uninvoicedEarnings(
+      [
+        base,
+        { ...base, paid_date: "2026-07-02" }, // paid after the quarter
+        { ...base, invoiced_date: "2026-06-30", gross_amount_pence: 5_000 },
+        { ...base, invoice_id: 9 }, // already in Box 1 via its invoice
+        { ...base, archived: true },
+        { ...base, currency: "EUR" },
+      ],
+      "2026-04-01",
+      "2026-06-30"
+    );
+    expect(r).toEqual({ count: 2, pence: 15_000 });
   });
 });

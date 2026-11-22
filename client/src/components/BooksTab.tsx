@@ -3967,7 +3967,7 @@ function OverviewSection({
           )}
           {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
             <p className="text-xs text-muted-foreground">
-              Trading income is under £1,000 — you may be able to use the{" "}
+              Trading income is £1,000 or less — you may be able to use the{" "}
               <span className="font-medium">Trading Allowance</span> instead of claiming actual
               expenses, making the profit from this source £0.
             </p>
@@ -5167,7 +5167,7 @@ export function BooksTab() {
               <div className="mb-4 grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/40">
                   <p className="text-xs font-medium uppercase tracking-wide text-blue-500">
-                    Gross income
+                    Income before expenses
                   </p>
                   <p className="mt-1 text-xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
                     {formatPence(summary.total_pence)}
