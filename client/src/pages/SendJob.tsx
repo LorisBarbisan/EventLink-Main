@@ -343,12 +343,15 @@ export default function SendJob() {
                     </div>
 
                     {/* Currency + Rate + Event date */}
-                    <div className="grid grid-cols-3 gap-4">
+                    {/* Currency + Rate share a row on mobile; Date gets its own
+                        full-width row there (a 1/3-width native date picker is
+                        unreadable at phone width). All three line up at sm+. */}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                       <FormField
                         control={form.control}
                         name="currency"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="min-w-0">
                             <FormLabel>Currency</FormLabel>
                             <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
@@ -372,7 +375,7 @@ export default function SendJob() {
                         control={form.control}
                         name="rate"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="min-w-0">
                             <FormLabel>
                               Rate / budget{" "}
                               <span className="text-xs font-normal text-gray-400">(optional)</span>
@@ -388,7 +391,7 @@ export default function SendJob() {
                         control={form.control}
                         name="event_date"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="col-span-2 min-w-0 sm:col-span-1">
                             <FormLabel>
                               Date <span className="text-red-500">*</span>
                             </FormLabel>
