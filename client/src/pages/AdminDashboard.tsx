@@ -845,6 +845,8 @@ function AdminDashboardContent() {
       createdAt: string;
       agreedRate: string | null;
       currency: string | null;
+      reportedAt: string | null;
+      reportReason: string | null;
       jobId: number;
       jobTitle: string;
       eventDate: string | null;
@@ -1871,7 +1873,14 @@ function AdminDashboardContent() {
                             {formatDistanceToNow(new Date(o.createdAt), { addSuffix: true })}
                           </td>
                           <td className="py-2">
-                            <Badge variant="outline">{o.bookingStatus}</Badge>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge variant="outline">{o.bookingStatus}</Badge>
+                              {o.reportedAt && (
+                                <Badge variant="destructive" title={o.reportReason ?? "Reported"}>
+                                  Reported
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}

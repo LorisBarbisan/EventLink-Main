@@ -1208,6 +1208,10 @@ export const bookings = pgTable(
     employerNotes: text("employer_notes"),
     cancellationReason: text("cancellation_reason"),
     cancelledBy: text("cancelled_by"),
+    // A freelancer can report a direct offer they consider abusive. Surfaced in
+    // the admin direct-offers view; not a moderation gate.
+    reported_at: timestamp("reported_at", { withTimezone: true }),
+    report_reason: text("report_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

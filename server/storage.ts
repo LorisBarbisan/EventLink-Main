@@ -6578,6 +6578,8 @@ export class DatabaseStorage implements IStorage {
         createdAt: bookings.createdAt,
         agreedRate: bookings.agreedRate,
         currency: bookings.currency,
+        reportedAt: bookings.reported_at,
+        reportReason: bookings.report_reason,
         jobId: jobs.id,
         jobTitle: jobs.title,
         eventDate: jobs.event_date,
