@@ -170,7 +170,7 @@ export default function SendJob() {
                   />
                 </Field>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Date" htmlFor="event_date">
                     <Input
                       id="event_date"
@@ -191,7 +191,7 @@ export default function SendJob() {
                   </Field>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Your name" htmlFor="contact_name">
                     <Input
                       id="contact_name"
@@ -233,7 +233,7 @@ export default function SendJob() {
                         onChange={(e) => set("rate")(e.target.value)}
                       />
                     </Field>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label="End date" htmlFor="end_date">
                         <Input
                           id="end_date"
@@ -250,7 +250,7 @@ export default function SendJob() {
                         />
                       </Field>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label="Start time" htmlFor="start_time">
                         <Input
                           id="start_time"
@@ -330,7 +330,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <Label htmlFor={htmlFor} className="text-xs font-medium text-gray-700 dark:text-gray-300">
         {label}
       </Label>
