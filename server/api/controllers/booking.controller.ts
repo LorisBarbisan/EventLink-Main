@@ -174,11 +174,14 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           eventDate: jobs.event_date,
           endDate: jobs.end_date,
           payRate: jobs.rate,
+          posterType: jobs.poster_type,
+          status: jobs.status,
         },
         employer: {
           id: users.id,
           firstName: users.first_name,
           lastName: users.last_name,
+          email: users.email,
           companyName: recruiter_profiles.company_name,
           accountPhotoUrl: users.profile_photo_url,
           companyLogoUrl: recruiter_profiles.company_logo_url,
@@ -221,10 +224,14 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           entry_work_date: entryWorkDate ?? null,
         },
         job,
+        // A direct offer ("Send me a job"): a private, guest-posted job. These
+        // arrived with no application and the employer may have no password yet.
+        isDirectOffer: job.posterType === "guest" && job.status === "private",
         employer: {
           id: employer.id,
           firstName: employer.firstName,
           lastName: employer.lastName,
+          email: employer.email,
           companyName: employer.companyName,
           profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
         },
