@@ -1241,7 +1241,10 @@ export async function changePassword(req: Request, res: Response) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { currentPassword, newPassword } = req.body;
+    // oldPassword: the name the settings form sent before this was fixed, so a
+    // tab still running the old bundle can change the password too
+    const { newPassword } = req.body;
+    const currentPassword = req.body.currentPassword ?? req.body.oldPassword;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current password and new password are required" });
