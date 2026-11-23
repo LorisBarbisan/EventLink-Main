@@ -1681,7 +1681,7 @@ function AdminDashboardContent() {
                           <p className="text-xs text-muted-foreground">
                             {job.location}
                             {job.country ? `, ${job.country}` : ""} &middot; {job.rate}
-                            {job.event_date ? ` &middot; ${job.event_date}` : ""}
+                            {job.event_date ? ` · ${job.event_date}` : ""}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Contact: <span className="font-medium">{job.contact_email ?? "—"}</span>
@@ -1747,8 +1747,8 @@ function AdminDashboardContent() {
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {moderateDecision === "approved"
-                    ? "The job will be published immediately and visible to all freelancers."
-                    : "The job will be closed and the poster will not be notified automatically."}
+                    ? "This post is pending review. Approving sets it to active and lists it publicly for all freelancers to see."
+                    : "This post is pending review. Rejecting closes it; the poster is not notified automatically."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="py-2">
