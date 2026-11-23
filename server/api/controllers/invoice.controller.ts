@@ -24,6 +24,7 @@ import {
   unlinkInvoiceFromEntry,
   seedEntryFromBooking,
 } from "../services/earnings.service";
+import { buildInvoiceExtras } from "../services/invoice-extras.service";
 import { ObjectStorageService } from "../utils/object-storage";
 import { insertMessageSchema, bookings, invoices as invoicesTable, jobs } from "@shared/schema";
 import { db } from "../config/db";
@@ -332,9 +333,11 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
     const lineItem = {
       description: job?.title ?? "Freelance services",
       quantity: qty.quantity,
+      // When the rate couldn't be parsed, the price is 0 and `confident` is
+      // false, which the invoice flags as "estimated" for the freelancer to fix.
+      unit_price_pence: unitPence ?? 0,
       unit: qty.unit,
-      unit_price_pence: unitPence,
-      total_pence: totalPence,
+      total_pence: totalPence ?? 0,
       confident: parsed.confident && qty.confident,
       rate_raw: parsed.raw,
     };
@@ -361,6 +364,18 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
 
     const today = ukToday();
     const dueDate = addDays(today, billingProfile.payment_terms_days);
+    const currency = booking.currency ?? job?.currency ?? "GBP";
+
+    // Fold in the booking's billable extras: expenses flagged for the client
+    // and not yet rebilled, plus any overtime from logged time. The base rate
+    // line stays first; invoiceAmounts prices every line and totals them.
+    const extras = await buildInvoiceExtras({
+      freelancerId: user.id,
+      bookingId,
+      currency,
+      billingProfile,
+    });
+    const amounts = invoiceAmounts([lineItem, ...extras.lines], billingProfile);
 
     // Allocate number inside transaction
     const invoiceNumber = await storage.allocateInvoiceNumber(billingProfile.id);
@@ -372,15 +387,27 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       status: "draft",
       from_details: fromDetails as any,
       to_details: toDetails as any,
-      line_items: [lineItem] as any,
-      currency: booking.currency ?? job?.currency ?? "GBP",
-      subtotal_pence: totalPence ?? 0,
-      ...(({ vat_pence, total_pence }) => ({ vat_pence, total_pence }))(
-        invoiceTotals(totalPence ?? 0, billingProfile)
-      ),
+      line_items: amounts.lines as any,
+      currency,
+      subtotal_pence: amounts.subtotal_pence,
+      vat_pence: amounts.vat_pence,
+      total_pence: amounts.total_pence,
       issue_date: today,
       due_date: dueDate,
     });
+
+    // Mark the folded-in expenses rebilled so a later invoice can't double-bill
+    // them. Non-fatal: the booking already has an invoice now, so a re-run is
+    // blocked by the duplicate check above regardless.
+    if (extras.rebilledExpenseIds.length) {
+      await Promise.all(
+        extras.rebilledExpenseIds.map((id) =>
+          storage
+            .updateExpense(id, user.id, { rebilled: true })
+            .catch((err) => console.error(`marking expense ${id} rebilled failed:`, err))
+        )
+      );
+    }
 
     // Ensure earnings entry exists for this booking, then link it to the invoice (non-blocking)
     if (job)

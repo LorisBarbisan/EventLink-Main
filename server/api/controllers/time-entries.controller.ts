@@ -1,20 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-
-function minutesToHours(minutes: number): number {
-  return Math.round((minutes / 60) * 100) / 100;
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m ?? 0);
-}
-
-function workedMinutes(start: string, finish: string, breakMin: number): number {
-  let mins = timeToMinutes(finish) - timeToMinutes(start);
-  if (mins < 0) mins += 24 * 60; // overnight
-  return Math.max(0, mins - breakMin);
-}
+import { computeOvertime } from "@shared/overtime";
 
 export async function listTimeEntries(req: Request, res: Response) {
   const earningsEntryId = parseInt(req.params.entryId);
@@ -59,35 +45,19 @@ export async function getOvertimeSummary(req: Request, res: Response) {
   if (!entry || entry.freelancer_id !== req.user!.id)
     return res.status(404).json({ error: "Earnings entry not found" });
 
-  const standardMinutes = entry.standard_hours_per_day ? entry.standard_hours_per_day * 60 : null;
-
-  let totalWorkedMinutes = 0;
-  let totalOvertimeMinutes = 0;
-
-  const days = rows.map((r) => {
-    const worked = workedMinutes(r.start_time, r.finish_time, r.break_minutes);
-    totalWorkedMinutes += worked;
-    const overtime = standardMinutes !== null ? Math.max(0, worked - standardMinutes) : null;
-    if (overtime !== null) totalOvertimeMinutes += overtime;
-    return {
-      ...r,
-      worked_minutes: worked,
-      overtime_minutes: overtime,
-    };
+  const ot = computeOvertime(rows, {
+    standard_hours_per_day: entry.standard_hours_per_day,
+    overtime_rate_pence: entry.overtime_rate_pence,
   });
 
-  const overtimeHours = minutesToHours(totalOvertimeMinutes);
-  const overtimePence =
-    entry.overtime_rate_pence !== null && entry.overtime_rate_pence !== undefined
-      ? Math.round(overtimeHours * entry.overtime_rate_pence)
-      : null;
+  const days = rows.map((r, i) => ({ ...r, ...ot.per_day[i] }));
 
   return res.json({
     days,
-    total_worked_minutes: totalWorkedMinutes,
-    total_overtime_minutes: standardMinutes !== null ? totalOvertimeMinutes : null,
-    overtime_hours_suggested: standardMinutes !== null ? overtimeHours : null,
-    overtime_pence_suggested: overtimePence,
+    total_worked_minutes: ot.total_worked_minutes,
+    total_overtime_minutes: ot.has_standard ? ot.total_overtime_minutes : null,
+    overtime_hours_suggested: ot.has_standard ? ot.overtime_hours : null,
+    overtime_pence_suggested: ot.overtime_pence,
     standard_hours_per_day: entry.standard_hours_per_day ?? null,
     overtime_rate_pence: entry.overtime_rate_pence ?? null,
   });
