@@ -334,6 +334,8 @@ export default function SimplifiedFreelancerDashboard() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [showUrlEditor, setShowUrlEditor] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [showJobLinkModal, setShowJobLinkModal] = useState(false);
+  const [jobLinkQr, setJobLinkQr] = useState<string>("");
 
   // Check URL parameters for initial tab and react to location changes
   const [location] = useLocation();
@@ -537,6 +539,18 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // The public "Send me a job" slug, if the profile has one.
+  const sendJobSlug =
+    (profile as { custom_slug?: string | null; slug?: string | null } | undefined)?.custom_slug ||
+    (profile as { custom_slug?: string | null; slug?: string | null } | undefined)?.slug ||
+    null;
+  useEffect(() => {
+    if (!showJobLinkModal || !sendJobSlug) return;
+    QRCode.toDataURL(`${window.location.origin}/send-job/${sendJobSlug}`, { width: 256 })
+      .then(setJobLinkQr)
+      .catch(() => setJobLinkQr(""));
+  }, [showJobLinkModal, sendJobSlug]);
+
   const [cardShareUrl, setCardShareUrl] = useState("");
 
   useEffect(() => {
@@ -623,6 +637,11 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // The public "Send me a job" link. Needs a slug; empty otherwise so the
+  // button only shows when there's a legible slug to share.
+  const getSendJobUrl = () =>
+    sendJobSlug ? `${window.location.origin}/send-job/${sendJobSlug}` : "";
+
   // Simplified notification check
   return (
     <div className="container mx-auto min-w-0 max-w-full px-1 py-4 sm:px-6 sm:py-6">
@@ -696,7 +715,7 @@ export default function SimplifiedFreelancerDashboard() {
               htmlFor="accepts-offers-bar"
               className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
             >
-              Job link
+              Accept offers
             </label>
           </div>
           <Button
@@ -741,6 +760,17 @@ export default function SimplifiedFreelancerDashboard() {
             <QrCode className="h-3.5 w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Card QR</span>
           </Button>
+          {sendJobSlug && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowJobLinkModal(true)}
+              title="Your 'Send me a job' link"
+            >
+              <Send className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Job link</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -1120,6 +1150,61 @@ export default function SimplifiedFreelancerDashboard() {
                     const a = document.createElement("a");
                     a.href = qrDataUrl;
                     a.download = "eventlink-qr-code.png";
+                    a.click();
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Download QR
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showJobLinkModal} onOpenChange={setShowJobLinkModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-purple-600" />
+              Your &ldquo;Send me a job&rdquo; link
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <p className="text-center text-sm text-muted-foreground">
+              Share this with a client who&rsquo;s just agreed work. They fill in a few fields and
+              the job lands in your dashboard — no account needed.
+            </p>
+            {jobLinkQr ? (
+              <img src={jobLinkQr} alt="Job link QR code" className="h-56 w-56 rounded-lg" />
+            ) : (
+              <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground">Generating…</p>
+              </div>
+            )}
+            <p className="w-full truncate rounded bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+              {getSendJobUrl()}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  navigator.clipboard.writeText(getSendJobUrl());
+                  toast({ title: "Job link copied!" });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy Link
+              </Button>
+              {jobLinkQr && (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = jobLinkQr;
+                    a.download = "eventlink-job-link-qr.png";
                     a.click();
                   }}
                 >
