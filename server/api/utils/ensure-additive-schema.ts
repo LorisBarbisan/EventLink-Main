@@ -17,6 +17,9 @@ import { db } from "../config/db";
 const STATEMENTS = [
   // Direct offers ("Send me a job")
   `ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS accepts_direct_offers boolean NOT NULL DEFAULT true`,
+  // Direct offers — freelancer can report an abusive offer
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reported_at timestamptz`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS report_reason text`,
   // Credential register (Epic 1)
   `ALTER TABLE freelancer_documents ADD COLUMN IF NOT EXISTS issuing_body text`,
   `ALTER TABLE freelancer_documents ADD COLUMN IF NOT EXISTS reference_number text`,

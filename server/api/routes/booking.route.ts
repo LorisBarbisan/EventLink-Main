@@ -14,6 +14,7 @@ import {
   getBookingById,
   updateBookingStatus,
   updateBookingDetails,
+  reportBooking,
   getBookingsByJob,
   getBookingsSummary,
 } from "../controllers/booking.controller";
@@ -31,6 +32,7 @@ router.patch("/:id/details", requireRole("employer"), resolveCompanyId, updateBo
 
 // ── Freelancer routes ─────────────────────────────────────
 router.get("/freelancer", requireRole("freelancer"), getFreelancerBookings);
+router.post("/:id/report", requireRole("freelancer"), reportBooking);
 
 // ── Shared routes ─────────────────────────────────────────
 router.get("/:id", getBookingById);

@@ -427,6 +427,46 @@ export async function updateBookingStatus(req: Request, res: Response) {
   }
 }
 
+// ── Report a direct offer (freelancer only) ───────────────
+// The freelancer flags an offer they consider abusive. This records the report
+// for admin oversight; it is not a moderation gate and does not change status.
+export async function reportBooking(req: Request, res: Response) {
+  try {
+    const userId = req.user!.id;
+    const bookingId = parseInt(req.params.id);
+    const { reason } = req.body as { reason?: string };
+
+    if (isNaN(bookingId)) {
+      return res.status(400).json({ error: "Invalid booking ID" });
+    }
+
+    // Only the freelancer the offer was sent to can report it.
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.id, bookingId), eq(bookings.freelancerId, userId)));
+
+    if (!booking) {
+      return res.status(404).json({ error: "Offer not found or access denied" });
+    }
+
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        reported_at: new Date(),
+        report_reason: typeof reason === "string" && reason.trim() ? reason.trim() : "Reported",
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+
+    return res.json({ ok: true, booking: updated });
+  } catch (error) {
+    console.error("reportBooking error:", error);
+    return res.status(500).json({ error: "Failed to report the offer" });
+  }
+}
+
 // ── Update booking details (employer only) ─────────────────
 export async function updateBookingDetails(req: Request, res: Response) {
   try {

@@ -248,6 +248,18 @@ export async function getPendingGuestJobs(req: Request, res: Response) {
   }
 }
 
+// Read-only oversight list of recent direct offers (admin only). No moderation
+// controls — direct offers are private and already delivered to the freelancer.
+export async function getDirectOffers(req: Request, res: Response) {
+  try {
+    const offers = await storage.listDirectOffersForAdmin();
+    res.json({ offers, total: offers.length });
+  } catch (error) {
+    console.error("getDirectOffers error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Approve or reject a guest job (admin only)
 export async function moderateGuestJob(req: Request, res: Response) {
   try {

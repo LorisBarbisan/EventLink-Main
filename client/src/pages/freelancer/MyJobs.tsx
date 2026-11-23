@@ -22,6 +22,7 @@ interface FreelancerBookingResult {
     venueAddress: string | null;
     cancellationReason: string | null;
     cancelledBy: string | null;
+    reported_at: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -119,6 +120,27 @@ export default function MyJobs() {
     },
     onError: () => toast({ title: "Couldn't decline the offer", variant: "destructive" }),
   });
+
+  const reportMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      return apiRequest(`/api/bookings/${bookingId}/report`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Offer reported", description: "Thanks — an admin will take a look." });
+    },
+    onError: () => toast({ title: "Couldn't report the offer", variant: "destructive" }),
+  });
+
+  const handleReport = (bookingId: number) => {
+    const reason = window.prompt("What's wrong with this offer? (optional)");
+    // Cancelling the prompt returns null; an empty string is a valid "no reason".
+    if (reason === null) return;
+    reportMutation.mutate({ bookingId, reason });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -297,6 +319,20 @@ export default function MyJobs() {
                     📩 Sent to you directly
                   </div>
                 )}
+                {result.isDirectOffer &&
+                  (booking.reported_at ? (
+                    <span className="mb-3 ml-2 inline-flex items-center text-xs text-gray-400">
+                      Reported
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleReport(booking.id)}
+                      disabled={reportMutation.isPending}
+                      className="mb-3 ml-2 text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline disabled:opacity-50"
+                    >
+                      Report
+                    </button>
+                  ))}
 
                 {/* Employer info */}
                 <div className="mb-3 flex items-center gap-2">
