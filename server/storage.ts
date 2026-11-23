@@ -165,6 +165,7 @@ import {
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
+import { countryCondition } from "./api/utils/country-filter";
 import {
   freelancerKeywordCondition,
   freelancerLocationCondition,
@@ -1995,9 +1996,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (country?.trim()) {
-        conditions.push(
-          sql`LOWER(${freelancer_profiles.country}) = ${country.trim().toLowerCase()}`
-        );
+        conditions.push(countryCondition(freelancer_profiles.country, country));
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -2268,17 +2267,8 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    if (country && country !== "all") {
-      const match = ilike(jobs.country, country.trim());
-      // Jobs posted before the country field have none. EventLink is UK-first
-      // (profiles with no country are backfilled to the UK too), and the jobs
-      // board now starts filtered to the UK, so count them as UK jobs rather
-      // than hide them from the default view.
-      conditions.push(
-        country.trim().toLowerCase() === "united kingdom"
-          ? or(match, isNull(jobs.country), eq(jobs.country, ""))!
-          : match
-      );
+    if (country?.trim() && country !== "all") {
+      conditions.push(countryCondition(jobs.country, country));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -2899,9 +2889,10 @@ export class DatabaseStorage implements IStorage {
         conditions.push(sql`LOWER(${jobs.location}) LIKE ${locationTerm}`);
       }
 
-      // Country filter (exact match)
-      if (country && country.trim()) {
-        conditions.push(sql`LOWER(${jobs.country}) = ${country.toLowerCase()}`);
+      // Country filter. The UK also takes jobs with no country (see
+      // countryCondition), as the board starts filtered to the UK.
+      if (country?.trim() && country !== "all") {
+        conditions.push(countryCondition(jobs.country, country));
       }
 
       // Date range filter on event_date
