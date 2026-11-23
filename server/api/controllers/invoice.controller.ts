@@ -1,4 +1,10 @@
 import { fmtDate } from "@shared/dates";
+import {
+  businessIdErrors,
+  normaliseCompanyNumber,
+  normaliseUtr,
+  normaliseVatNumber,
+} from "@shared/business-ids";
 import { invoiceAmounts, lineTotalPence } from "@shared/invoice-math";
 import { addDays, ukDate, ukToday } from "@shared/job-dates";
 import { formatSortCode, invoiceTotals, isVatRate } from "@shared/invoice-vat";
@@ -78,6 +84,19 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     return res.status(400).json({ error: "vat_flat_rate_bp must be between 1 and 1650 (16.5%)" });
   }
 
+  // Shape checks on the numbers that go on invoices and to the accountant.
+  // Only fields actually sent are checked, so a save of other details isn't
+  // blocked by one it didn't touch.
+  const idErrors = businessIdErrors({
+    utr: typeof utr === "string" ? utr : null,
+    company_number: typeof company_number === "string" ? company_number : null,
+    vat_number: typeof vat_number === "string" ? vat_number : null,
+  });
+  const firstIdError = Object.values(idErrors)[0];
+  if (firstIdError) {
+    return res.status(400).json({ error: firstIdError, fields: idErrors });
+  }
+
   // Validate payment_terms_days if present
   if (payment_terms_days !== undefined) {
     const n = Number(payment_terms_days);
@@ -100,13 +119,13 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     country,
     phone,
     email,
-    utr,
-    company_number,
     invoice_footer_note,
   };
   for (const [k, v] of Object.entries(textFields)) {
     if (v !== undefined) data[k] = typeof v === "string" ? v.trim() || null : v;
   }
+  if (utr !== undefined) data.utr = normaliseUtr(utr);
+  if (company_number !== undefined) data.company_number = normaliseCompanyNumber(company_number);
   if (bank_account_name !== undefined) data.bank_account_name = bank_account_name;
   if (bank_sort_code !== undefined)
     data.bank_sort_code = bank_sort_code ? formatSortCode(String(bank_sort_code)) : null;
@@ -115,7 +134,7 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (payment_terms_days !== undefined) data.payment_terms_days = Number(payment_terms_days);
   if (invoice_prefix !== undefined) data.invoice_prefix = String(invoice_prefix).slice(0, 10);
   if (vat_registered !== undefined) data.vat_registered = Boolean(vat_registered);
-  if (vat_number !== undefined) data.vat_number = vat_number ?? null;
+  if (vat_number !== undefined) data.vat_number = normaliseVatNumber(vat_number);
   if (vat_rate_pct !== undefined) data.vat_rate_pct = Number(vat_rate_pct);
   if (vat_scheme !== undefined) data.vat_scheme = vat_scheme;
   if (vat_stagger !== undefined) data.vat_stagger = Number(vat_stagger);

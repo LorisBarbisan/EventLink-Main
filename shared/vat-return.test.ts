@@ -3,6 +3,7 @@ import {
   vatQuartersOverlapping,
   vatPaidInRange,
   uninvoicedEarnings,
+  vatQuarterStatus,
   computeVatReturn,
   recentVatQuarters,
   vatTreatmentNote,
@@ -285,5 +286,27 @@ describe("uninvoicedEarnings", () => {
     expect(uninvoicedEarnings([paidLate], ...Q2, "cash").count).toBe(0);
     expect(uninvoicedEarnings([paidLate], "2026-07-01", "2026-09-30", "cash").count).toBe(1);
     expect(uninvoicedEarnings([base], ...Q2, "cash").count).toBe(0);
+  });
+});
+
+describe("vatQuarterStatus", () => {
+  const q = { from: "2026-04-01", to: "2026-06-30", due: "2026-08-07" };
+  const late = "2026-11-22";
+
+  it("never calls a repayment quarter overdue", () => {
+    expect(vatQuarterStatus(q, -12_753, null, late)).toBe("Repayment due from HMRC");
+    expect(vatQuarterStatus(q, 0, null, late)).toBe("Nothing to pay");
+  });
+
+  it("calls an unpaid amount owed overdue only after the due date", () => {
+    expect(vatQuarterStatus(q, 5_000, null, late)).toBe("Overdue — no payment recorded");
+    expect(vatQuarterStatus(q, 5_000, null, "2026-07-15")).toBe("Return due");
+  });
+
+  it("reports a recorded payment or repayment, and quarters not yet ended", () => {
+    expect(vatQuarterStatus(q, 5_000, { amount_pence: 5_000 }, late)).toBe("Paid");
+    expect(vatQuarterStatus(q, -12_753, { amount_pence: -12_753 }, late)).toBe("Repaid");
+    expect(vatQuarterStatus(q, 5_000, null, "2026-03-31")).toBe("Not started");
+    expect(vatQuarterStatus(q, 5_000, null, "2026-06-30")).toBe("In progress");
   });
 });

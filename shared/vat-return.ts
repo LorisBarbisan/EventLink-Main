@@ -222,6 +222,24 @@ export function uninvoicedEarnings(
   return { count, pence };
 }
 
+/**
+ * A quarter's status line for the workbook. A quarter whose net is a
+ * repayment is never "overdue": nothing was owed, HMRC owes the freelancer.
+ */
+export function vatQuarterStatus(
+  q: { from: string; to: string; due: string },
+  netPence: number,
+  payment: { amount_pence: number } | null,
+  today: string
+): string {
+  if (today < q.from) return "Not started";
+  if (today <= q.to) return "In progress";
+  if (payment) return Number(payment.amount_pence) < 0 ? "Repaid" : "Paid";
+  if (netPence < 0) return "Repayment due from HMRC";
+  if (netPence === 0) return "Nothing to pay";
+  return today > q.due ? "Overdue — no payment recorded" : "Return due";
+}
+
 export interface VatInvoiceLike {
   status: string;
   archived?: boolean | null;

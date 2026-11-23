@@ -71,6 +71,21 @@ export function createWorkbook(): ExcelJS.Workbook {
   return wb;
 }
 
+/**
+ * A totals-row figure. Cells hold pounds (pence already divided), and
+ * summing those in floating point leaves noise: 127.53 + 143.39 + 143.8 is
+ * 414.71999999999997. Money is rounded back to whole pence; other numbers
+ * (miles, hours) to six places, which only removes the noise.
+ */
+export function columnTotal(col: ColSpec, rows: CellValue[][], i: number): number {
+  const sum = rows.reduce<number>(
+    (s, row) => s + (typeof row[i] === "number" ? (row[i] as number) : 0),
+    0
+  );
+  const places = col.type === "money" ? 100 : 1_000_000;
+  return Math.round(sum * places) / places;
+}
+
 export function addTypedSheet(
   wb: ExcelJS.Workbook,
   name: string,
@@ -160,12 +175,7 @@ export function addTypedSheet(
   if (cols.some((c) => c.total)) {
     ws.addRow([]); // separator
     const data = cols.map((c, i) => {
-      if (c.total) {
-        return rows.reduce(
-          (s, row) => s + (typeof row[i] === "number" ? (row[i] as number) : 0),
-          0
-        );
-      }
+      if (c.total) return columnTotal(c, rows, i);
       return i === 0 ? (opts.totalLabel ?? "Total") : null;
     });
     const tr = ws.addRow(data);
