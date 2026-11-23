@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -34,8 +34,9 @@ export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   // Starts at the UK; "" means All Countries
-  const [countryFilter, setCountryFilter] = useState(DEFAULT_COUNTRY);
-  const countryFiltered = countryFilter !== DEFAULT_COUNTRY;
+  // All countries: the directory shows everyone until narrowed
+  const [countryFilter, setCountryFilter] = useState("");
+  const countryFiltered = !!countryFilter;
   // On mobile the search/filter panel is collapsed by default so the freelancer
   // cards are the first thing seen; it is always open from md up.
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -288,7 +289,7 @@ export default function Freelancers() {
                         onClick={() => {
                           setSearchQuery("");
                           setLocationFilter("");
-                          setCountryFilter(DEFAULT_COUNTRY);
+                          setCountryFilter("");
                         }}
                         data-testid="button-clear-filters"
                       >

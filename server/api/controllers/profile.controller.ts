@@ -6,6 +6,7 @@ import { storage } from "../../storage";
 import sharp from "sharp";
 import { canManageTeam, getEmployerCompanyId } from "../utils/team.util";
 import { isLocalPath, resolveLocalPath } from "../utils/local-storage-fallback";
+import { publicUserView } from "../utils/public-user";
 
 /** Company owner or team admin may create/update recruiter_profiles (keyed by owner user_id). */
 function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
@@ -27,13 +28,11 @@ export async function getUserById(req: Request, res: Response) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Return user without sensitive information
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, email_verification_token, password_reset_token, ...safeUser } = user;
-    // Prevent caching to ensure fresh user data
+    // Public endpoint: an allow-list, never the whole row (it held emails,
+    // tokens and Stripe ids)
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
-    res.json(safeUser);
+    res.json(publicUserView(user));
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -197,17 +196,10 @@ export async function updateFreelancerProfile(req: Request, res: Response) {
     }
     console.log("Parsed payload:", result.data);
 
-    // Strip Pro-only fields for free-tier users
-    const user = (req as any).user;
-    const isPro = user?.subscription_tier === "pro" || user?.role === "admin";
-    const payload = { ...result.data };
-    if (!isPro) {
-      delete (payload as any).profile_theme;
-      delete (payload as any).phone;
-      delete (payload as any).contact_email;
-    }
-
-    const profile = await storage.updateFreelancerProfile(userId, payload);
+    // Card styling (profile_theme) and the card's phone and contact email are
+    // open to every freelancer. They used to be dropped here for free
+    // accounts while the editor still said "saved", so the card never changed.
+    const profile = await storage.updateFreelancerProfile(userId, result.data);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
