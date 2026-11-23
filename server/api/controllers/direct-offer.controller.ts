@@ -50,7 +50,10 @@ export async function submitDirectOffer(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing freelancer" });
     }
     const profile = await storage.getFreelancerProfileBySlug(freelancer_slug.trim());
-    if (!profile) {
+    if (
+      !profile ||
+      (profile as { accepts_direct_offers?: boolean }).accepts_direct_offers === false
+    ) {
       return res.status(404).json({ error: "This link isn't available." });
     }
     const freelancerUser = await storage.getUser(profile.user_id);

@@ -15,6 +15,8 @@ import { db } from "../config/db";
 // drop or a destructive change. Keep this list in step with new columns/tables
 // added to shared/schema.ts; anything already applied is a cheap no-op.
 const STATEMENTS = [
+  // Direct offers ("Send me a job")
+  `ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS accepts_direct_offers boolean NOT NULL DEFAULT true`,
   // Credential register (Epic 1)
   `ALTER TABLE freelancer_documents ADD COLUMN IF NOT EXISTS issuing_body text`,
   `ALTER TABLE freelancer_documents ADD COLUMN IF NOT EXISTS reference_number text`,

@@ -57,6 +57,7 @@ const FreelancerCard = lazy(() => import("./pages/FreelancerCard"));
 const PostJob = lazy(() => import("./pages/PostJob"));
 const ConfirmJob = lazy(() => import("./pages/ConfirmJob"));
 const ConfirmOffer = lazy(() => import("./pages/ConfirmOffer"));
+const SendJob = lazy(() => import("./pages/SendJob"));
 const GuestApplicationView = lazy(() => import("./pages/GuestApplicationView"));
 
 function PageLoader() {
@@ -116,6 +117,7 @@ function AppRouter() {
           <Route path="/post-job" component={PostJob} />
           <Route path="/confirm-job" component={ConfirmJob} />
           <Route path="/confirm-offer" component={ConfirmOffer} />
+          <Route path="/send-job/:slug" component={SendJob} />
           <Route path="/applications/guest-view" component={GuestApplicationView} />
           <Route component={NotFound} />
         </Switch>
