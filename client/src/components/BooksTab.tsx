@@ -941,6 +941,7 @@ function ReceiptRow({ expenseId }: { expenseId: number }) {
       {/* Camera-first add button */}
       <button
         className="flex h-10 w-10 items-center justify-center rounded border border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        data-help="books.receipt.add"
         title="Add receipt"
         disabled={uploadMutation.isPending}
         onClick={() => fileRef.current?.click()}
@@ -1096,6 +1097,7 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
           </button>
           <button
             className="flex h-8 w-8 items-center justify-center rounded border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            data-help="books.receipt.capture"
             title="Capture receipt now"
             disabled={uploadMutation.isPending}
             onClick={() => fileRef.current?.click()}
@@ -1132,6 +1134,7 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
                   {r.mime_type.startsWith("image/") ? (
                     <button
                       className="shrink-0 cursor-zoom-in"
+                      data-help="books.receipt.viewFull"
                       onClick={() => setLightboxUrl(r.url)}
                       title="View full size"
                     >
@@ -1529,6 +1532,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                               </span>
                               <button
                                 className="text-muted-foreground transition-colors hover:text-foreground"
+                                data-help="books.row.edit"
                                 title="Edit"
                                 onClick={() => {
                                   setEditingExpense(expense);
@@ -1539,6 +1543,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                               </button>
                               <button
                                 className="text-muted-foreground transition-colors hover:text-destructive"
+                                data-help="books.row.remove"
                                 title="Remove"
                                 onClick={() => archiveMutation.mutate(expense.id)}
                               >
@@ -2498,6 +2503,7 @@ function MileageSection() {
                             </span>
                             <button
                               className="text-muted-foreground transition-colors hover:text-foreground"
+                              data-help="books.row.edit"
                               title="Edit"
                               onClick={() => {
                                 setEditingTrip(trip);
@@ -2508,6 +2514,7 @@ function MileageSection() {
                             </button>
                             <button
                               className="text-muted-foreground transition-colors hover:text-destructive"
+                              data-help="books.row.remove"
                               title="Remove"
                               onClick={() => archiveMutation.mutate(trip.id)}
                             >
@@ -5824,6 +5831,7 @@ export function BooksTab() {
                                 </span>
                                 <button
                                   className="text-muted-foreground transition-colors hover:text-foreground"
+                                  data-help="books.row.edit"
                                   title="Edit"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -5834,6 +5842,7 @@ export function BooksTab() {
                                 </button>
                                 <button
                                   className="text-muted-foreground transition-colors hover:text-foreground"
+                                  data-help="books.row.history"
                                   title="History"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -5845,6 +5854,7 @@ export function BooksTab() {
                                 {(entry.source === "manual" || entry.source === "imported") && (
                                   <button
                                     className="text-muted-foreground transition-colors hover:text-destructive"
+                                    data-help="books.row.remove"
                                     title="Remove"
                                     onClick={(e) => {
                                       e.stopPropagation();

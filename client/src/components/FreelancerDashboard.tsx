@@ -668,6 +668,7 @@ export default function SimplifiedFreelancerDashboard() {
           </div>
           <Button
             size="sm"
+            data-help="action.profile.customizeUrl"
             onClick={() => setShowUrlEditor(true)}
             className="h-7 w-7 shrink-0 border-0 bg-primary/10 p-0 text-primary hover:bg-primary/20"
             title="Customize URL"
@@ -1120,6 +1121,7 @@ export default function SimplifiedFreelancerDashboard() {
                 href={cardShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-help="action.profile.openCard"
                 title="Click to open card"
               >
                 <img
