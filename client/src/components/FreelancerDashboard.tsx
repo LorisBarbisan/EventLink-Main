@@ -46,7 +46,7 @@ import {
   PoundSterling,
   QrCode,
   Send,
-  Share2,
+  ExternalLink,
   ShieldCheck,
   Star,
   X,
@@ -765,13 +765,13 @@ export default function SimplifiedFreelancerDashboard() {
           {sendJobSlug && (
             <Button
               size="sm"
-              variant="outline"
               data-help="action.profile.sendJobLink"
               onClick={() => setShowJobLinkModal(true)}
               title="Your 'Send me a job' link"
+              className="border-0 bg-orange-600 text-white hover:bg-orange-700"
             >
               <Send className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Job link</span>
+              <span className="hidden sm:inline">Send Me Jobs</span>
             </Button>
           )}
           <Button
@@ -782,8 +782,8 @@ export default function SimplifiedFreelancerDashboard() {
             title="View public profile"
           >
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-              <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">View Profile</span>
+              <ExternalLink className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Profile</span>
             </a>
           </Button>
         </div>
