@@ -567,6 +567,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   const profileSlugMatch = req.path.match(/^\/profile\/([a-z][a-z0-9-]+)$/);
   const freelancerSlugMatch = req.path.match(/^\/freelancers\/([a-z][a-z0-9-]+)$/);
   const employerSlugMatch = req.path.match(/^\/employers\/([a-z][a-z0-9-]+)$/);
+  const sendJobSlugMatch = req.path.match(/^\/send-job\/([a-z][a-z0-9-]+)$/);
 
   const handleJob = (jobFn: () => Promise<any>) => {
     jobFn()
@@ -701,6 +702,44 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
       })
       .catch((err) => {
         console.error("OG employer error:", err);
+        next();
+      });
+    return;
+  }
+
+  if (sendJobSlugMatch) {
+    const slug = sendJobSlugMatch[1];
+    storage
+      .getFreelancerProfileBySlug(slug)
+      .then((profile) => {
+        // Off or missing → a plain shell, so the link still unfurls to something.
+        if (
+          !profile ||
+          (profile as { accepts_direct_offers?: boolean }).accepts_direct_offers === false
+        ) {
+          return res.status(200).set({ "Content-Type": "text/html" }).end(buildFallbackHtml());
+        }
+        const baseUrl = getBaseUrl(req);
+        const uid = profile.user_id;
+        const hasPhoto = !!(profile.profile_photo_url && profile.profile_photo_url.trim());
+        const ogImageUrl = hasPhoto
+          ? `${baseUrl}/api/profile-photo/${uid}`
+          : `${baseUrl}/og-image.png`;
+        const fullName =
+          `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "a freelancer";
+        const html = buildOgHtml({
+          url: `${baseUrl}/send-job/${slug}`,
+          title: escapeHtml(`Send a job to ${fullName} | EventLink`),
+          description: escapeHtml(
+            `Just agreed work with ${fullName}? Send them the job in under a minute — no account needed. They get it straight away.`
+          ),
+          imageUrl: ogImageUrl,
+          linkText: "Send the job on EventLink",
+        });
+        res.status(200).set({ "Content-Type": "text/html" }).end(html);
+      })
+      .catch((err) => {
+        console.error("OG send-job error:", err);
         next();
       });
     return;
