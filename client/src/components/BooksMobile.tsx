@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { invalidateBooks } from "@/lib/invalidate-books";
 import { gbp, monthlySetAside, savedTaxQuery } from "@/lib/books-mobile";
+import { MobileAvailability } from "./MobileAvailability";
 
 type Invoice = {
   id: number;
@@ -21,8 +22,9 @@ type Invoice = {
 };
 
 /**
- * Books on a phone: the three things worth having away from a desk — what to
- * put aside, what you're owed (with Mark paid), and receipt capture. The rest
+ * Books on a phone: the things worth having away from a desk — what to put
+ * aside, what you're owed (with Mark paid), receipt capture, and marking
+ * availability on the calendar. The rest
  * of Books stays on the computer, and this says so.
  */
 export function BooksMobile() {
@@ -147,6 +149,8 @@ export function BooksMobile() {
           {waiting} receipt{waiting === 1 ? "" : "s"} waiting to be filed
         </p>
       )}
+
+      <MobileAvailability />
 
       <p className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
         <Monitor className="mt-0.5 h-4 w-4 shrink-0" />
