@@ -971,6 +971,8 @@ export interface IStorage {
       page?: number;
     }
   ): Promise<{ expenses: Expense[]; total: number }>;
+  /** All non-archived, billable, not-yet-rebilled expenses attached to a booking. */
+  listBillableExpensesForBooking(freelancerId: number, bookingId: number): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(data: InsertExpense): Promise<Expense>;
   updateExpense(
@@ -7530,6 +7532,25 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     return { expenses: rows, total: Number(countRow?.total ?? 0) };
+  }
+
+  async listBillableExpensesForBooking(
+    freelancerId: number,
+    bookingId: number
+  ): Promise<Expense[]> {
+    return db
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.freelancer_id, freelancerId),
+          eq(expenses.booking_id, bookingId),
+          eq(expenses.archived, false),
+          eq(expenses.billable_to_client, true),
+          eq(expenses.rebilled, false)
+        )
+      )
+      .orderBy(expenses.expense_date, expenses.id);
   }
 
   async getExpense(id: number): Promise<Expense | undefined> {
