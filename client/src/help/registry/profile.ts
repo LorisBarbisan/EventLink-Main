@@ -120,6 +120,20 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "action.profile.customizeUrl",
+    scope: "action",
+    body: "Change the web address of your public profile and card to something easy to share.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "action.profile.openCard",
+    scope: "action",
+    body: "Opens your shareable card in a new tab.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
     key: "action.profile.sendJobLink",
     scope: "action",
     title: "Send me a job",
