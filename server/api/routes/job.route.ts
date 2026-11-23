@@ -21,6 +21,7 @@ import {
   updateJob,
 } from "../controllers/job.controller";
 import { submitGuestJob, confirmGuestJob } from "../controllers/guest-job.controller";
+import { submitDirectOffer, confirmDirectOffer } from "../controllers/direct-offer.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
@@ -57,10 +58,37 @@ const guestJobEmailLimiter = rateLimit({
   },
 });
 
+// Direct offer ("send me a job"): tighter than guest posting since the link is
+// shareable and targets one freelancer. IP: 3/hour. Email: 10/day.
+const directOfferIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { error: "Too many offers from this device. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const directOfferEmailLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req: Request) => {
+    const email = (req.body?.contact_email as string | undefined) ?? "";
+    return email.toLowerCase().trim() || "unknown";
+  },
+  message: { error: "This email address has sent the maximum number of offers today." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: Request) => !req.body?.contact_email,
+});
+
 export function registerJobRoutes(app: Express) {
   // Guest job submission (no auth required) — rate limited by IP and email
   app.post("/api/jobs/guest", guestJobIpLimiter, guestJobEmailLimiter, submitGuestJob);
   app.get("/api/jobs/guest/confirm", confirmGuestJob);
+
+  // Direct offer ("send me a job") — no auth required; rate limited by IP and email
+  app.post("/api/jobs/direct", directOfferIpLimiter, directOfferEmailLimiter, submitDirectOffer);
+  app.get("/api/jobs/direct/confirm", confirmDirectOffer);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);
