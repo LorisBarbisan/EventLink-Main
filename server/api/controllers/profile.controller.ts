@@ -197,17 +197,10 @@ export async function updateFreelancerProfile(req: Request, res: Response) {
     }
     console.log("Parsed payload:", result.data);
 
-    // Strip Pro-only fields for free-tier users
-    const user = (req as any).user;
-    const isPro = user?.subscription_tier === "pro" || user?.role === "admin";
-    const payload = { ...result.data };
-    if (!isPro) {
-      delete (payload as any).profile_theme;
-      delete (payload as any).phone;
-      delete (payload as any).contact_email;
-    }
-
-    const profile = await storage.updateFreelancerProfile(userId, payload);
+    // Card styling (profile_theme) and the card's phone and contact email are
+    // open to every freelancer. They used to be dropped here for free
+    // accounts while the editor still said "saved", so the card never changed.
+    const profile = await storage.updateFreelancerProfile(userId, result.data);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
