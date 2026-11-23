@@ -837,6 +837,30 @@ function AdminDashboardContent() {
     staleTime: 0,
   });
 
+  // Read-only oversight list of recent direct offers (no moderation controls)
+  const { data: directOffersData, isLoading: directOffersLoading } = useQuery<{
+    offers: Array<{
+      bookingId: number;
+      bookingStatus: string;
+      createdAt: string;
+      agreedRate: string | null;
+      currency: string | null;
+      jobId: number;
+      jobTitle: string;
+      eventDate: string | null;
+      clientFirst: string | null;
+      clientLast: string | null;
+      clientEmail: string;
+      freelancerFirst: string | null;
+      freelancerLast: string | null;
+    }>;
+    total: number;
+  }>({
+    queryKey: ["/api/admin/direct-offers"],
+    queryFn: () => apiRequest("/api/admin/direct-offers"),
+    staleTime: 0,
+  });
+
   const moderateJobMutation = useMutation({
     mutationFn: async ({
       jobId,
@@ -1798,6 +1822,63 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               <ModerationTable />
+            </CardContent>
+          </Card>
+
+          {/* Read-only: recent direct offers. Oversight only — no approve/reject.
+              A direct offer is a private arrangement already delivered to the
+              freelancer, so it is shown, never gated. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Direct offers</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Recent &ldquo;Send me a job&rdquo; offers, newest first. Read-only &mdash; these are
+                private arrangements between a client and a freelancer, not posts awaiting
+                moderation.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {directOffersLoading ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : (directOffersData?.offers?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No direct offers yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-2 pr-4 font-medium">Freelancer</th>
+                        <th className="py-2 pr-4 font-medium">Client</th>
+                        <th className="py-2 pr-4 font-medium">Job</th>
+                        <th className="py-2 pr-4 font-medium">Received</th>
+                        <th className="py-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {directOffersData!.offers.map((o) => (
+                        <tr key={o.bookingId} className="border-b last:border-0">
+                          <td className="py-2 pr-4">
+                            {`${o.freelancerFirst ?? ""} ${o.freelancerLast ?? ""}`.trim() || "—"}
+                          </td>
+                          <td className="py-2 pr-4">
+                            <div>
+                              {`${o.clientFirst ?? ""} ${o.clientLast ?? ""}`.trim() || "—"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{o.clientEmail}</div>
+                          </td>
+                          <td className="py-2 pr-4">{o.jobTitle}</td>
+                          <td className="whitespace-nowrap py-2 pr-4">
+                            {formatDistanceToNow(new Date(o.createdAt), { addSuffix: true })}
+                          </td>
+                          <td className="py-2">
+                            <Badge variant="outline">{o.bookingStatus}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

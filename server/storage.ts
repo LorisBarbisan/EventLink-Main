@@ -164,6 +164,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
@@ -6563,6 +6564,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.id, jobId))
       .returning();
     return updated;
+  }
+
+  // Read-only oversight: recent direct offers (a private, guest-posted job with
+  // its enquired booking), newest first. No moderation — direct offers are
+  // private arrangements, surfaced for visibility and abuse-spotting only.
+  async listDirectOffersForAdmin(limit = 100) {
+    const freelancerUser = alias(users, "direct_offer_freelancer");
+    const rows = await db
+      .select({
+        bookingId: bookings.id,
+        bookingStatus: bookings.status,
+        createdAt: bookings.createdAt,
+        agreedRate: bookings.agreedRate,
+        currency: bookings.currency,
+        jobId: jobs.id,
+        jobTitle: jobs.title,
+        eventDate: jobs.event_date,
+        clientFirst: users.first_name,
+        clientLast: users.last_name,
+        clientEmail: users.email,
+        freelancerFirst: freelancerUser.first_name,
+        freelancerLast: freelancerUser.last_name,
+      })
+      .from(bookings)
+      .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+      .innerJoin(users, eq(bookings.employerId, users.id))
+      .innerJoin(freelancerUser, eq(bookings.freelancerId, freelancerUser.id))
+      .where(and(eq(jobs.poster_type as any, "guest"), eq(jobs.status as any, "private")))
+      .orderBy(desc(bookings.createdAt))
+      .limit(limit);
+    return rows;
   }
 
   // ── Guest job drafts ────────────────────────────────────────────────────────
