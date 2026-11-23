@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,7 +57,7 @@ export default function Jobs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   // Starts at the UK; "" means All Countries (written to the URL as country=all)
-  const [countryFilter, setCountryFilter] = useState(DEFAULT_COUNTRY);
+  const [countryFilter, setCountryFilter] = useState(""); // all countries: the board shows everything until narrowed
   const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
   // On mobile the search/filter panel is collapsed by default so the jobs are
   // the first thing a freelancer sees; it is always open from md up.
@@ -75,9 +75,8 @@ export default function Jobs() {
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
-    setCountryFilter(
-      urlCountry === null ? DEFAULT_COUNTRY : urlCountry === "all" ? "" : urlCountry
-    );
+    // "all" is what links from the UK-default days carry
+    setCountryFilter(urlCountry === null || urlCountry === "all" ? "" : urlCountry);
     setCurrentPage(urlPage);
 
     if (urlJobId) {
@@ -92,7 +91,7 @@ export default function Jobs() {
 
     if (searchQuery) urlParams.set("search", searchQuery);
     if (locationFilter) urlParams.set("location", locationFilter);
-    if (countryFilter !== DEFAULT_COUNTRY) urlParams.set("country", countryFilter || "all");
+    if (countryFilter) urlParams.set("country", countryFilter);
 
     if (currentPage > 1) urlParams.set("page", currentPage.toString());
     // Persist expanded job ID in URL
@@ -467,10 +466,7 @@ export default function Jobs() {
               </div>
 
               {/* Clear Filters Button */}
-              {(searchQuery ||
-                locationFilter ||
-                countryFilter !== DEFAULT_COUNTRY ||
-                freelancerPostedFilter) && (
+              {(searchQuery || locationFilter || countryFilter || freelancerPostedFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -478,7 +474,7 @@ export default function Jobs() {
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setCountryFilter(DEFAULT_COUNTRY);
+                      setCountryFilter("");
                       setFreelancerPostedFilter(false);
                       setCurrentPage(1);
                     }}
@@ -527,13 +523,13 @@ export default function Jobs() {
                 <p className="mb-4 text-muted-foreground">
                   Try adjusting your search criteria or removing some filters.
                 </p>
-                {(searchQuery || locationFilter || countryFilter !== DEFAULT_COUNTRY) && (
+                {(searchQuery || locationFilter || countryFilter) && (
                   <Button
                     variant="outline"
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setCountryFilter(DEFAULT_COUNTRY);
+                      setCountryFilter("");
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
