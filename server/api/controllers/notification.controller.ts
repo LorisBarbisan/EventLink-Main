@@ -72,7 +72,10 @@ export async function createNotification(req: Request, res: Response) {
 // Mark notification as read
 export async function markNotificationAsRead(req: Request, res: Response) {
   try {
-    const notificationId = parseInt(req.params.id);
+    const notificationId = Number(req.params.id);
+    if (!Number.isInteger(notificationId) || notificationId <= 0) {
+      return res.status(400).json({ error: "Invalid notification id" });
+    }
 
     // Check if notification belongs to user
     const notification = await storage.getNotification(notificationId);
@@ -182,7 +185,10 @@ export async function markCategoryNotificationsAsRead(req: Request, res: Respons
 export async function deleteNotification(req: Request, res: Response) {
   try {
     console.log("Deleting notification:", req.params.id);
-    const notificationId = parseInt(req.params.id);
+    const notificationId = Number(req.params.id);
+    if (!Number.isInteger(notificationId) || notificationId <= 0) {
+      return res.status(400).json({ error: "Invalid notification id" });
+    }
 
     // Check if notification belongs to user
     const notification = await storage.getNotification(notificationId);
@@ -328,7 +334,7 @@ export async function updateJobAlertFilter(req: Request, res: Response) {
 
     // Verify ownership before updating
     const existingFilters = await storage.getJobAlertFilters((req as any).user.id);
-    const ownedFilter = existingFilters.find(f => f.id === filterId);
+    const ownedFilter = existingFilters.find((f) => f.id === filterId);
 
     if (!ownedFilter) {
       return res.status(404).json({ error: "Job alert filter not found or access denied" });
@@ -361,7 +367,7 @@ export async function deleteJobAlertFilter(req: Request, res: Response) {
 
     // Verify ownership before deleting
     const existingFilters = await storage.getJobAlertFilters((req as any).user.id);
-    const ownedFilter = existingFilters.find(f => f.id === filterId);
+    const ownedFilter = existingFilters.find((f) => f.id === filterId);
 
     if (!ownedFilter) {
       return res.status(404).json({ error: "Job alert filter not found or access denied" });
