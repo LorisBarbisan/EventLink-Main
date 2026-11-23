@@ -42,6 +42,27 @@ const C = {
   border2: "rgba(0,0,0,0.18)",
 };
 
+// A reference's written comment, as a short pull quote: trimmed, without the
+// quote marks some referees type themselves.
+function refQuote(comment: unknown): string | undefined {
+  if (typeof comment !== "string") return undefined;
+  const text = comment
+    .trim()
+    .replace(/^["“'‘]+|["”'’]+$/g, "")
+    .trim();
+  return text || undefined;
+}
+// Three lines at most on the card; the full text is on the profile.
+const quoteStyle: React.CSSProperties = {
+  marginTop: 4,
+  fontStyle: "italic",
+  lineHeight: 1.45,
+  display: "-webkit-box",
+  WebkitLineClamp: 3,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
 type Detail = "about" | "credentials" | "files" | "calendar" | null;
 type RightTab = "about" | "credentials" | "files" | "calendar";
 
@@ -484,6 +505,11 @@ export default function FreelancerCard() {
                 <div style={{ fontSize: 10, color: "#999" }}>
                   {ref.referee_organisation || ref.badge_result?.replace(/_/g, " ") || ""}
                 </div>
+                {refQuote(ref.comment) && (
+                  <div style={{ ...quoteStyle, fontSize: 11, color: "#555" }}>
+                    “{refQuote(ref.comment)}”
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -648,6 +674,7 @@ export default function FreelancerCard() {
     icon,
     label,
     sub,
+    quote,
     href,
     onClick,
     action,
@@ -656,6 +683,7 @@ export default function FreelancerCard() {
     icon: React.ReactNode;
     label: string;
     sub?: string;
+    quote?: string;
     href?: string;
     onClick?: () => void;
     action?: React.ReactNode;
@@ -679,6 +707,7 @@ export default function FreelancerCard() {
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: DM.text1 }}>{label}</div>
           {sub && <div style={{ fontSize: 11, color: DM.text2, marginTop: 1 }}>{sub}</div>}
+          {quote && <div style={{ ...quoteStyle, fontSize: 12, color: DM.text2 }}>“{quote}”</div>}
         </div>
         {action && <span style={{ marginLeft: "auto" }}>{action}</span>}
       </>
@@ -1494,6 +1523,7 @@ export default function FreelancerCard() {
                         icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
                         label={ref.referee_name || "Reference"}
                         sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
+                        quote={refQuote(ref.comment)}
                       />
                     ))}
                     {(references as any[]).length === 0 && !isVerified && (
