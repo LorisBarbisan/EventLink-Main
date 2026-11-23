@@ -87,10 +87,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
+    // Same minimum as the server (and sign-up)
+    if (passwordForm.newPassword.length < 8) {
       toast({
         title: "Error",
-        description: "Password must be at least 6 characters long.",
+        description: "Password must be at least 8 characters long.",
         variant: "destructive",
       });
       return;
@@ -102,8 +103,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.id,
-          oldPassword: passwordForm.oldPassword,
+          currentPassword: passwordForm.oldPassword,
           newPassword: passwordForm.newPassword,
         }),
       });

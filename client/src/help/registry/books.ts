@@ -48,6 +48,13 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "books.vat.summary",
+    scope: "field",
+    body: "VAT you charge belongs to HMRC and VAT you reclaim isn't a cost, so neither is in your profit. This is the VAT for the same tax year. The VAT return card below splits it into the quarters you file.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
     key: "books.business.vat",
     scope: "field",
     body: "Turning this on adds VAT to every new invoice; your earnings stay net because the VAT belongs to HMRC.",

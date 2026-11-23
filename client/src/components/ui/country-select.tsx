@@ -212,7 +212,27 @@ interface CountrySelectProps {
   className?: string;
 }
 
-const COUNTRY_OPTIONS: SearchableOption[] = COUNTRIES.map((c) => ({
+/** EventLink is UK-first: forms and filters start here unless told otherwise. */
+export const DEFAULT_COUNTRY = "United Kingdom";
+export const DEFAULT_COUNTRY_CODE = "GB";
+
+/**
+ * ISO code for a stored country. Countries are stored by display name
+ * ("United Kingdom"), but location search filters by code ("GB").
+ * The one place that lookup lives.
+ */
+export function countryCodeFor(name: string | null | undefined): string | undefined {
+  if (!name) return undefined;
+  return COUNTRIES.find((c) => c.name === name)?.code;
+}
+
+// The UK is listed first, above the alphabetical rest, rather than reordering
+// COUNTRIES itself (other code may rely on it being a plain ISO list). It stays
+// in the searchable options, so typing "united" still finds it.
+const COUNTRY_OPTIONS: SearchableOption[] = [
+  ...COUNTRIES.filter((c) => c.code === DEFAULT_COUNTRY_CODE),
+  ...COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE),
+].map((c) => ({
   value: c.name,
   label: c.name,
   keywords: [c.code],

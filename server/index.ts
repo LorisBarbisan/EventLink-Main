@@ -29,6 +29,7 @@ import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
 import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
+import { apiNotFound } from "./api/middleware/api-not-found";
 import { handleWebhook } from "./api/controllers/stripe.controller";
 import { flushErrors, initErrorReporting, reportError } from "./api/utils/error-reporting";
 import { sql } from "drizzle-orm";
@@ -340,6 +341,9 @@ app.use((req, res, next) => {
     if (status >= 500) reportError(err, { tags: { kind: "request" } });
     else console.error("Server error:", err);
   });
+
+  // An unknown /api path gets a JSON 404 rather than the SPA catch-all below
+  app.use("/api", apiNotFound);
 
   if (process.env.NODE_ENV === "development") {
     app.use((req, res, next) => {

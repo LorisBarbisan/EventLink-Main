@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { businessIdErrors } from "@shared/business-ids";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
+import { cn } from "@/lib/utils";
+import { ArrowRight, Building2 } from "lucide-react";
 
 /**
  * Who you are as a business: trading name, address, UTR, VAT. The same
@@ -117,6 +121,12 @@ export function BusinessDetailsCard() {
   }, [profile, isLoading]);
 
   const complete = businessDetailsComplete(profile);
+  const idErrors = businessIdErrors({
+    utr: form.utr,
+    company_number: form.company_number,
+    vat_number: form.vat_registered ? form.vat_number : null,
+  });
+  const idInvalid = Object.keys(idErrors).length > 0;
 
   const save = useMutation({
     mutationFn: () => {
@@ -129,8 +139,9 @@ export function BusinessDetailsCard() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/billing-profile"] });
-      // VAT registration changes the tax estimate's figures
-      qc.invalidateQueries({ queryKey: ["/api/books/tax-estimate"] });
+      // VAT registration changes which expenses count net, so every Books
+      // figure moves, not just the tax estimate
+      invalidateBooks(qc);
       toast({ title: "Business details saved" });
       setOpen(false);
     },
@@ -145,31 +156,64 @@ export function BusinessDetailsCard() {
   const set = (k: keyof Form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-l-4 border-slate-500 bg-slate-50/50 px-5 py-3 dark:bg-slate-900/40">
-        <div>
-          <p data-help="books.business.details" className="font-semibold">
-            Your business
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {complete
-              ? [profile?.trading_name, profile?.postcode].filter(Boolean).join(" · ")
-              : "Add your business details so invoices can be raised."}
-          </p>
+    <Card
+      className={cn(
+        "overflow-hidden",
+        // Until the details are in, this is the one thing to do on the page:
+        // invoices can't be raised without them.
+        !complete && !isLoading && "border-orange-300 shadow-md dark:border-orange-800"
+      )}
+    >
+      {complete || isLoading ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-l-4 border-slate-500 bg-slate-50/50 px-5 py-3 dark:bg-slate-900/40">
+          <div>
+            <p data-help="books.business.details" className="font-semibold">
+              Your business
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {complete
+                ? [profile?.trading_name, profile?.postcode].filter(Boolean).join(" · ")
+                : "Add your business details so invoices can be raised."}
+            </p>
+          </div>
+          {!open && (
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)} disabled={isLoading}>
+              {complete ? "Edit" : "Add details"}
+            </Button>
+          )}
         </div>
-        {!open && (
-          <Button size="sm" variant="outline" onClick={() => setOpen(true)} disabled={isLoading}>
-            {complete ? "Edit" : "Add details"}
-          </Button>
-        )}
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-4 border-l-4 border-orange-500 bg-orange-50 px-5 py-4 dark:bg-orange-950/30">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300">
+            <Building2 className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p data-help="books.business.details" className="text-base font-semibold">
+              Add your business details
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Your trading name and address go on every invoice, so you can&rsquo;t raise one until
+              they&rsquo;re here. It takes about two minutes.
+            </p>
+          </div>
+          {!open && (
+            <Button
+              onClick={() => setOpen(true)}
+              className="shrink-0 bg-orange-600 text-white hover:bg-orange-700"
+            >
+              Add details
+              <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
+      )}
       {open && (
         <CardContent className="space-y-4 py-4">
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              save.mutate();
+              if (!idInvalid) save.mutate();
             }}
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -193,7 +237,14 @@ export function BusinessDetailsCard() {
                               ? "tel"
                               : undefined
                     }
+                    aria-invalid={f.key in idErrors || undefined}
+                    aria-describedby={f.key in idErrors ? `business-${f.key}-error` : undefined}
                   />
+                  {(f.key === "utr" || f.key === "company_number") && idErrors[f.key] && (
+                    <p id={`business-${f.key}-error`} className="text-xs text-destructive">
+                      {idErrors[f.key]}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -222,7 +273,16 @@ export function BusinessDetailsCard() {
                       value={form.vat_number}
                       onChange={(e) => set("vat_number", e.target.value)}
                       placeholder="GB123456789"
+                      aria-invalid={!!idErrors.vat_number || undefined}
+                      aria-describedby={
+                        idErrors.vat_number ? "business-vat-number-error" : undefined
+                      }
                     />
+                    {idErrors.vat_number && (
+                      <p id="business-vat-number-error" className="text-xs text-destructive">
+                        {idErrors.vat_number}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="business-vat-rate">Rate you charge</Label>
@@ -256,7 +316,7 @@ export function BusinessDetailsCard() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending || idInvalid}>
                 {save.isPending ? "Saving…" : "Save details"}
               </Button>
             </div>

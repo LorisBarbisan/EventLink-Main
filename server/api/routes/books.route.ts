@@ -13,6 +13,9 @@ import {
   booksExpenseCategories,
   booksQuarterly,
   syncOverdue,
+  vatReturn,
+  saveVatPayment,
+  deleteVatPayment,
 } from "../controllers/books.controller";
 import {
   listRemovedHandler,
@@ -36,6 +39,9 @@ export function registerBooksRoutes(app: Express) {
   app.get("/api/books/expense-categories", ...auth, booksExpenseCategories);
   app.get("/api/books/quarterly", ...auth, booksQuarterly);
   app.post("/api/books/sync-overdue", ...auth, syncOverdue);
+  app.get("/api/books/vat-return", ...auth, vatReturn);
+  app.put("/api/books/vat-payments", ...auth, saveVatPayment);
+  app.delete("/api/books/vat-payments/:id", ...auth, deleteVatPayment);
 
   // Not UK-gated: tells a freelancer whose Books are hidden that they still
   // have records to download.

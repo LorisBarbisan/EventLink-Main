@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { ukDate } from "@shared/job-dates";
+import { ukDate, ukToday } from "@shared/job-dates";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate, taxQuarters } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
@@ -14,7 +14,25 @@ import {
   sumAllowableExpenses,
   allowableExpensePence,
   isBooksCurrency,
+  reclaimsInputVat,
 } from "@shared/expense-totals";
+import {
+  vatTreatmentNote,
+  computeVatReturn,
+  recentVatQuarters,
+  vatQuartersOverlapping,
+  vatPaidInRange,
+  uninvoicedEarnings,
+  vatQuarterStatus,
+  VAT_SCHEME_LABELS,
+  isVatScheme,
+  isVatStagger,
+  isFlatRateBp,
+  type VatScheme,
+  type VatStagger,
+  type VatInvoiceLike,
+  type VatReturnFigures,
+} from "@shared/vat-return";
 import {
   createWorkbook,
   addTypedSheet,
@@ -24,6 +42,7 @@ import {
 } from "../utils/xlsx";
 import { addQuartersSheet } from "../utils/hmrc-quarters-sheet";
 import { logBooksEvent } from "../services/books-usage.service";
+import { netOfInvoice } from "@shared/invoice-vat";
 
 /** "2026-04-06" → "6 April 2026". */
 // timeZone "UTC" is deliberate: do not change it to Europe/London. The
@@ -47,11 +66,93 @@ function taxYearParams(req: Request): { from: string; to: string } {
   };
 }
 
+/**
+ * Whether the freelancer reclaims input VAT (registered, not on the Flat Rate
+ * Scheme). Decides whether expenses count net or gross (see
+ * expense-totals.ts), so every total must ask.
+ */
+async function reclaimsVatFor(freelancerId: number): Promise<boolean> {
+  return reclaimsInputVat(await storage.getBillingProfile(freelancerId));
+}
+
+// ── VAT ───────────────────────────────────────────────────────────────────────
+
+type InvoiceRow = Awaited<ReturnType<typeof storage.getInvoicesByFreelancer>>[number];
+type BillingRow = NonNullable<Awaited<ReturnType<typeof storage.getBillingProfile>>>;
+type ExpenseRow = Awaited<ReturnType<typeof storage.listExpensesForExport>>[number];
+type VatPaymentRow = Awaited<ReturnType<typeof storage.listVatPayments>>[number];
+type EntryRow = Awaited<ReturnType<typeof storage.listEarningsEntries>>[number];
+
+function toVatInvoices(invoices: InvoiceRow[]): VatInvoiceLike[] {
+  return invoices.map((inv) => ({
+    status: inv.status,
+    archived: inv.archived,
+    currency: inv.currency,
+    issue_date: inv.issue_date,
+    paid_date: inv.paid_at ? ukDate(inv.paid_at) : null,
+    paid_amount_pence: inv.paid_amount_pence,
+    subtotal_pence: inv.subtotal_pence,
+    vat_pence: inv.vat_pence,
+    total_pence: inv.total_pence,
+  }));
+}
+
+/** The VAT settings on a billing profile, with anything unset or invalid defaulted. */
+function vatSettings(billing: BillingRow): {
+  scheme: VatScheme;
+  stagger: VatStagger;
+  flatRateBp: number | null;
+} {
+  return {
+    scheme: isVatScheme(billing.vat_scheme) ? billing.vat_scheme : "standard",
+    stagger: isVatStagger(billing.vat_stagger) ? billing.vat_stagger : 1,
+    flatRateBp: isFlatRateBp(billing.vat_flat_rate_bp) ? billing.vat_flat_rate_bp : null,
+  };
+}
+
+/**
+ * VAT for a period that isn't a VAT quarter (the Books tax year): what was
+ * charged, what is reclaimable, the difference, and what was paid to HMRC
+ * in it. Null when the freelancer isn't VAT-registered.
+ */
+function periodVat(
+  billing: Awaited<ReturnType<typeof storage.getBillingProfile>>,
+  from: string,
+  to: string,
+  invoices: InvoiceRow[],
+  expenses: ExpenseRow[],
+  payments: VatPaymentRow[],
+  entries: EntryRow[]
+):
+  | (VatReturnFigures & {
+      scheme: VatScheme;
+      flat_rate_bp: number | null;
+      paid_pence: number;
+      uninvoiced_earnings_count: number;
+      uninvoiced_earnings_pence: number;
+    })
+  | null {
+  if (!billing?.vat_registered) return null;
+  const { scheme, flatRateBp } = vatSettings(billing);
+  // Sales the figures can't see: a hand-logged earnings entry has no VAT field
+  const uninvoiced = uninvoicedEarnings(entries, from, to, scheme);
+  return {
+    scheme,
+    flat_rate_bp: flatRateBp,
+    ...computeVatReturn({ from, to }, toVatInvoices(invoices), expenses, scheme, flatRateBp),
+    paid_pence: vatPaidInRange(payments, from, to),
+    uninvoiced_earnings_count: uninvoiced.count,
+    uninvoiced_earnings_pence: uninvoiced.pence,
+  };
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 // Pence from paid invoices that have no linked earnings_entries row.
 // These arise when a blank invoice was marked paid before the auto-create
 // logic was added, or when the invoice was never tied to a booking.
+// Counted net of VAT, as linked earnings are (netOfInvoice): output VAT
+// belongs to HMRC, not to income.
 async function syntheticInvoicePence(
   freelancerId: number,
   from: string,
@@ -74,7 +175,7 @@ async function syntheticInvoicePence(
             : null;
       return paidDate && paidDate >= from && paidDate <= to;
     })
-    .reduce((sum, inv) => sum + (inv.paid_amount_pence ?? inv.total_pence), 0);
+    .reduce((sum, inv) => sum + netOfInvoice(inv, inv.paid_amount_pence), 0);
 }
 
 export async function booksSummary(req: Request, res: Response) {
@@ -82,23 +183,36 @@ export async function booksSummary(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earnings, expensesData, mileagePence, extraPence, overdueData] = await Promise.all([
-      storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
-      storage.listExpensesForExport(freelancerId, from, to),
-      storage.sumMileagePence(freelancerId, from, to),
-      syntheticInvoicePence(freelancerId, from, to),
-      storage.countOverdueEntries(freelancerId, from, to),
-    ]);
+    const [earnings, expensesData, mileagePence, extraPence, overdueData, billing] =
+      await Promise.all([
+        storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
+        storage.listExpensesForExport(freelancerId, from, to),
+        storage.sumMileagePence(freelancerId, from, to),
+        syntheticInvoicePence(freelancerId, from, to),
+        storage.countOverdueEntries(freelancerId, from, to),
+        storage.getBillingProfile(freelancerId),
+      ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
+    const reclaimsVat = reclaimsInputVat(billing);
 
-    const expenseTotals = sumAllowableExpenses(expensesData);
+    const expenseTotals = sumAllowableExpenses(expensesData, reclaimsVat);
     const expenseAllowablePence = expenseTotals.pence;
 
     const expenseCount = expensesData.length;
     const mileageTripCount = (await storage.listMileageTrips(freelancerId, from, to)).length;
 
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
+
+    // VAT is kept out of every figure above, so show it beside them instead
+    const [vatInvoices, vatPayments, vatEntries] = billing?.vat_registered
+      ? await Promise.all([
+          storage.getInvoicesByFreelancer(freelancerId),
+          storage.listVatPayments(freelancerId),
+          storage.listEarningsEntries(freelancerId, { archived: false }),
+        ])
+      : [[], [], []];
+    const vat = periodVat(billing, from, to, vatInvoices, expensesData, vatPayments, vatEntries);
 
     return res.json({
       from,
@@ -115,6 +229,10 @@ export async function booksSummary(req: Request, res: Response) {
       // Records left out of every total because they are not in sterling
       other_currency_earnings: earnings.excluded.other_currency,
       other_currency_expenses: expenseTotals.otherCurrency,
+      // Which VAT treatment the figures use, so the screen can say so
+      vat_registered: billing?.vat_registered ?? false,
+      vat_scheme: billing?.vat_registered ? billing.vat_scheme : null,
+      vat,
     });
   } catch (err) {
     console.error("booksSummary error:", err);
@@ -129,14 +247,15 @@ export async function booksExport(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [expenses, trips] = await Promise.all([
+    const [expenses, trips, reclaimsVat] = await Promise.all([
       storage.listExpensesForExport(freelancerId, from, to),
       storage.listMileageTrips(freelancerId, from, to),
+      reclaimsVatFor(freelancerId),
     ]);
 
     // Section 1: Expenses
     const expenseRows = expenses.map((e) => {
-      const allowable = allowableExpensePence(e);
+      const allowable = allowableExpensePence(e, reclaimsVat);
       return [
         "expense",
         dateToCsvDate(e.expense_date),
@@ -206,13 +325,15 @@ export async function booksMonthly(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earningsGroups, expensesRaw, mileageTrips, allInvoices, allEntries] = await Promise.all([
-      storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
-      storage.listExpensesForExport(freelancerId, from, to),
-      storage.listMileageTrips(freelancerId, from, to),
-      storage.getInvoicesByFreelancer(freelancerId),
-      storage.listEarningsEntries(freelancerId, { archived: false }),
-    ]);
+    const [earningsGroups, expensesRaw, mileageTrips, allInvoices, allEntries, reclaimsVat] =
+      await Promise.all([
+        storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
+        storage.listExpensesForExport(freelancerId, from, to),
+        storage.listMileageTrips(freelancerId, from, to),
+        storage.getInvoicesByFreelancer(freelancerId),
+        storage.listEarningsEntries(freelancerId, { archived: false }),
+        reclaimsVatFor(freelancerId),
+      ]);
 
     // Build month buckets from from/to range
     const months: string[] = [];
@@ -242,14 +363,14 @@ export async function booksMonthly(req: Request, res: Response) {
             : null;
       if (!paidDate || paidDate < from || paidDate > to) continue;
       const m = paidDate.slice(0, 7);
-      earningsMap[m] = (earningsMap[m] ?? 0) + (inv.paid_amount_pence ?? inv.total_pence);
+      earningsMap[m] = (earningsMap[m] ?? 0) + netOfInvoice(inv, inv.paid_amount_pence);
     }
 
     // Expenses per month
     const expensesMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const m = e.expense_date.slice(0, 7);
-      expensesMap[m] = (expensesMap[m] ?? 0) + allowableExpensePence(e);
+      expensesMap[m] = (expensesMap[m] ?? 0) + allowableExpensePence(e, reclaimsVat);
     }
 
     // Mileage per month
@@ -284,12 +405,15 @@ export async function booksExpenseCategories(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const expensesRaw = await storage.listExpensesForExport(freelancerId, from, to);
+    const [expensesRaw, reclaimsVat] = await Promise.all([
+      storage.listExpensesForExport(freelancerId, from, to),
+      reclaimsVatFor(freelancerId),
+    ]);
 
     const catMap: Record<string, number> = {};
     for (const e of expensesRaw) {
       const cat = e.category_name ?? "Other";
-      catMap[cat] = (catMap[cat] ?? 0) + allowableExpensePence(e);
+      catMap[cat] = (catMap[cat] ?? 0) + allowableExpensePence(e, reclaimsVat);
     }
 
     const categories = Object.entries(catMap)
@@ -315,15 +439,19 @@ export async function taxEstimate(req: Request, res: Response) {
       : 0;
     const scotland = req.query.scotland === "1";
 
-    const [earnings, expensesData, mileagePence, billing] = await Promise.all([
+    const [earnings, expensesData, mileagePence, extraPence, billing] = await Promise.all([
       storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
       storage.listExpensesForExport(freelancerId, from, to),
       storage.sumMileagePence(freelancerId, from, to),
+      syntheticInvoicePence(freelancerId, from, to),
       storage.getBillingProfile(freelancerId),
     ]);
 
-    const earningsPence = earnings.total_pence - earnings.deductions_pence;
-    const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
+    // Same income as the Books summary (paid invoices with no earnings entry
+    // included), so the estimate's profit is the profit shown above it
+    const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
+    const reclaimsVat = reclaimsInputVat(billing);
+    const expenseAllowablePence = sumAllowableExpenses(expensesData, reclaimsVat).pence;
 
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
 
@@ -384,6 +512,7 @@ export async function taxEstimate(req: Request, res: Response) {
     return res.json({
       ...estimate,
       vatRegistered: billing?.vat_registered ?? false,
+      vatScheme: billing?.vat_registered ? billing.vat_scheme : null,
       grossEarningsPence: earningsPence,
     });
   } catch (err) {
@@ -400,6 +529,7 @@ export async function booksQuarterly(req: Request, res: Response) {
     const { from } = taxYearParams(req);
     const ty = taxYearForDate(from);
     const quarters = taxQuarters(ty.year);
+    const reclaimsVat = await reclaimsVatFor(freelancerId);
 
     const rows = await Promise.all(
       quarters.map(async (q) => {
@@ -409,7 +539,7 @@ export async function booksQuarterly(req: Request, res: Response) {
           storage.sumMileagePence(freelancerId, q.from, q.to),
         ]);
         const earningsPence = earnings.total_pence - earnings.deductions_pence;
-        const expenseAllowablePence = sumAllowableExpenses(expensesData).pence;
+        const expenseAllowablePence = sumAllowableExpenses(expensesData, reclaimsVat).pence;
         return {
           quarter: q.quarter,
           label: q.label,
@@ -450,7 +580,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [entries, clients, roles, expenses, trips, invoices, kit, business, owner] =
+    const [entries, clients, roles, expenses, trips, invoices, kit, business, owner, vatPayments] =
       await Promise.all([
         storage.listEarningsEntries(freelancerId, { archived: false }),
         storage.listEarningsClients(freelancerId),
@@ -461,6 +591,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         storage.listKitItems(freelancerId, true),
         storage.getBillingProfile(freelancerId),
         storage.getUser(freelancerId),
+        storage.listVatPayments(freelancerId),
       ]);
 
     const clientMap = new Map(clients.map((c) => [c.id, c.name]));
@@ -493,6 +624,8 @@ export async function booksExportWorkbook(req: Request, res: Response) {
             ? ukDate(inv.paid_at)
             : (inv.paid_at as unknown as string).slice(0, 10);
         const workDate = inv.issue_date ?? paidDate;
+        // Net of VAT, as linked earnings are: output VAT is not income
+        const netPaid = netOfInvoice(inv, inv.paid_amount_pence);
         return {
           id: -inv.id,
           freelancer_id: freelancerId,
@@ -506,13 +639,13 @@ export async function booksExportWorkbook(req: Request, res: Response) {
           work_end_date: null,
           quantity: "1",
           unit: "job" as const,
-          unit_amount_pence: inv.total_pence,
-          gross_amount_pence: inv.total_pence,
+          unit_amount_pence: netPaid,
+          gross_amount_pence: netPaid,
           deductions_pence: 0,
           currency: inv.currency ?? "GBP",
           status: "paid" as const,
           paid_date: paidDate,
-          paid_amount_pence: inv.paid_amount_pence ?? inv.total_pence,
+          paid_amount_pence: netPaid,
           invoiced_date: inv.issue_date ?? null,
           notes: null,
           needs_review: false,
@@ -562,10 +695,12 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const netPence = (arr: typeof filteredEntries) =>
       arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
     const receivedPence = netPence(cashEntries);
-    const allowablePence = allowableExpensePence;
-    const expenseTotals = sumAllowableExpenses(expenses);
+    const reclaimsVat = reclaimsInputVat(business);
+    const allowablePence = (e: (typeof expenses)[number]) => allowableExpensePence(e, reclaimsVat);
+    const expenseTotals = sumAllowableExpenses(expenses, reclaimsVat);
     const totalExpensesPence = expenseTotals.pence;
     const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
+    const vat = periodVat(business, from, to, invoices, expenses, vatPayments, entries);
     const generated = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -601,7 +736,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       {
         title: tradingName ? `Books summary — ${tradingName}` : "Books summary",
         subtitle: `${fmtLongDate(from)} to ${fmtLongDate(to)}`,
-        meta: `Generated ${generated}. Cash basis.`,
+        meta: `Generated ${generated}. Cash basis.${vatTreatmentNote(business) ? ` ${vatTreatmentNote(business)}` : ""}`,
       },
       [
         { heading: "Whose books", lines: whose },
@@ -633,6 +768,48 @@ export async function booksExportWorkbook(req: Request, res: Response) {
             },
           ],
         },
+        ...(vat
+          ? [
+              {
+                heading: "VAT (not in the figures above)",
+                lines: [
+                  { label: "Scheme", value: VAT_SCHEME_LABELS[vat.scheme], text: true as const },
+                  ...(vat.scheme === "flat_rate"
+                    ? [
+                        {
+                          label: "Turnover incl. VAT (flat rate applied to)",
+                          value: (vat.flat_rate_turnover_pence ?? 0) / 100,
+                        },
+                        {
+                          label: `Flat-rate VAT${vat.flat_rate_bp ? ` at ${vat.flat_rate_bp / 100}%` : " (rate not set)"}`,
+                          value: vat.output_pence / 100,
+                        },
+                      ]
+                    : [
+                        { label: "VAT on sales", value: vat.output_pence / 100 },
+                        { label: "VAT reclaimable on expenses", value: vat.input_pence / 100 },
+                      ]),
+                  {
+                    label: vat.net_pence >= 0 ? "Net VAT owed to HMRC" : "Net VAT repayment due",
+                    value: Math.abs(vat.net_pence) / 100,
+                    bold: true,
+                  },
+                  {
+                    label: "Paid to HMRC in period (net of repayments)",
+                    value: vat.paid_pence / 100,
+                  },
+                  ...(vat.uninvoiced_earnings_count > 0
+                    ? [
+                        {
+                          label: `Not counted: earnings logged by hand (${vat.uninvoiced_earnings_count}${vat.scheme === "cash" ? "" : ", dated when invoiced, not when paid"}). Only invoices raised in EventLink are in the VAT figures — add the VAT charged on these yourself`,
+                          value: vat.uninvoiced_earnings_pence / 100,
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ]
+          : []),
         {
           heading: "Records",
           lines: [
@@ -681,6 +858,69 @@ export async function booksExportWorkbook(req: Request, res: Response) {
           : `This export covers ${fmtLongDate(from)} to ${fmtLongDate(to)}, so records outside that range are not counted.`,
       }
     );
+
+    // ── VAT quarters (VAT-registered only) ─────────────────────────────────────────
+    // Whole VAT quarters, so the first and last usually reach outside the tax
+    // year. Each matches the VAT return card in Books.
+    if (business?.vat_registered) {
+      const { scheme, stagger, flatRateBp } = vatSettings(business);
+      const quarters = vatQuartersOverlapping(stagger, from, to);
+      if (quarters.length > 0) {
+        const qFrom = quarters[0].from;
+        const qTo = quarters[quarters.length - 1].to;
+        const quarterExpenses =
+          qFrom === from && qTo === to
+            ? expenses
+            : await storage.listExpensesForExport(freelancerId, qFrom, qTo);
+        const vatInvoices = toVatInvoices(invoices);
+        const paymentByEnd = new Map(vatPayments.map((p) => [p.period_end, p]));
+        const today = ukToday();
+        const flat = scheme === "flat_rate";
+        const vatCols: ColSpec[] = [
+          { header: "Quarter", type: "text" },
+          { header: "From", type: "date" },
+          { header: "To", type: "date" },
+          { header: "Return due", type: "date" },
+          ...(flat ? [{ header: "Turnover incl. VAT", type: "money" as const, total: true }] : []),
+          {
+            header: flat ? "Flat-rate VAT (Box 1)" : "VAT on sales (Box 1)",
+            type: "money",
+            total: true,
+          },
+          { header: "VAT reclaimed (Box 4)", type: "money", total: true },
+          { header: "Net VAT (Box 5)", type: "money", total: true },
+          { header: "Paid to HMRC", type: "money", total: true },
+          { header: "Paid date", type: "date" },
+          { header: "Status", type: "text" },
+        ];
+        const d = (iso: string | null | undefined) => (iso ? new Date(iso + "T00:00:00Z") : null);
+        const vatRows = quarters.map((q) => {
+          const fig = computeVatReturn(q, vatInvoices, quarterExpenses, scheme, flatRateBp);
+          const p = paymentByEnd.get(q.to);
+          const status = vatQuarterStatus(q, fig.net_pence, p ?? null, today);
+          return [
+            q.label,
+            d(q.from),
+            d(q.to),
+            d(q.due),
+            ...(flat ? [(fig.flat_rate_turnover_pence ?? 0) / 100] : []),
+            fig.output_pence / 100,
+            fig.input_pence / 100,
+            fig.net_pence / 100,
+            p ? Number(p.amount_pence) / 100 : null,
+            d(p?.paid_date),
+            status,
+          ];
+        });
+        addTypedSheet(wb, "VAT", vatCols, vatRows, {
+          title: `VAT — ${VAT_SCHEME_LABELS[scheme]}${flat && flatRateBp ? ` at ${flatRateBp / 100}%` : ""}`,
+          subtitle:
+            "Whole VAT quarters, so the first and last may reach outside the tax year. Net VAT: positive is owed to HMRC, negative is a repayment. Figures to copy into your MTD software; nothing here is sent to HMRC.",
+          totalLabel: "Total",
+          tabColor: "FF2563EB",
+        });
+      }
+    }
 
     // ── Sheet 3: Earnings ─────────────────────────────────────────────────────────
     // currencyFrom index: col 6 (0-based) = Currency column → used for Gross/Deductions/Net formatting
@@ -801,6 +1041,9 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       { header: "VAT", type: "money", total: true },
       { header: "Total", type: "money", total: true },
       { header: "Business use (0–100)", type: "number" },
+      // VAT-registered (not flat rate): the business share of the VAT, which
+      // is reclaimed on the VAT return and so is not in Allowable
+      ...(reclaimsVat ? [{ header: "VAT reclaimable", type: "money" as const, total: true }] : []),
       { header: "Allowable", type: "money", total: true },
       { header: "Billable", type: "text" },
       { header: "Rebilled", type: "text" },
@@ -809,7 +1052,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ];
     const expensesRows = expenses.map((e) => {
       const total = e.net_amount_pence + e.vat_amount_pence;
-      const allowable = allowableExpensePence(e);
+      const allowable = allowablePence(e);
       return [
         e.expense_date ? new Date(e.expense_date + "T00:00:00Z") : null,
         e.supplier ?? "",
@@ -819,6 +1062,13 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         e.vat_amount_pence / 100,
         total / 100,
         e.business_use_percent,
+        ...(reclaimsVat
+          ? [
+              e.allowable === false
+                ? 0
+                : Math.round((e.vat_amount_pence * e.business_use_percent) / 100) / 100,
+            ]
+          : []),
         allowable / 100,
         e.billable_to_client ? "Yes" : "No",
         e.rebilled ? "Yes" : "No",
@@ -865,7 +1115,13 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ];
     const invoicesRows = filteredInvoices.map((inv) => {
       const toDetails = (inv.to_details as Record<string, unknown>) ?? {};
-      const client = (toDetails.company_name as string) ?? (toDetails.contact_name as string) ?? "";
+      // Invoices store the client as company/name; company_name/contact_name are older keys
+      const client =
+        (toDetails.company as string) ||
+        (toDetails.company_name as string) ||
+        (toDetails.name as string) ||
+        (toDetails.contact_name as string) ||
+        "";
       return [
         inv.invoice_number ?? "",
         client,
@@ -923,5 +1179,110 @@ export async function booksExportWorkbook(req: Request, res: Response) {
   } catch (err) {
     console.error("booksExportWorkbook error:", err);
     if (!res.headersSent) return res.status(500).json({ error: "Failed to generate workbook" });
+  }
+}
+
+// ── VAT return ────────────────────────────────────────────────────────────────
+
+const VAT_QUARTERS_SHOWN = 5; // the current quarter and the four before it
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Per VAT quarter: output VAT, input VAT, the difference, and what the
+ * freelancer recorded paying. Figures to copy into their own MTD software;
+ * nothing is submitted to HMRC.
+ */
+export async function vatReturn(req: Request, res: Response) {
+  try {
+    const freelancerId = req.user!.id;
+    const billing = await storage.getBillingProfile(freelancerId);
+    if (!billing?.vat_registered) return res.json({ vat_registered: false });
+
+    const { scheme, stagger, flatRateBp } = vatSettings(billing);
+    const today = ukToday();
+    const quarters = recentVatQuarters(stagger, today, VAT_QUARTERS_SHOWN);
+    const oldest = quarters[quarters.length - 1];
+
+    const [invoices, expenses, payments, entries] = await Promise.all([
+      storage.getInvoicesByFreelancer(freelancerId),
+      storage.listExpensesForExport(freelancerId, oldest.from, quarters[0].to),
+      storage.listVatPayments(freelancerId),
+      storage.listEarningsEntries(freelancerId, { archived: false }),
+    ]);
+
+    const vatInvoices = toVatInvoices(invoices);
+    const paymentByEnd = new Map(payments.map((p) => [p.period_end, p]));
+
+    return res.json({
+      vat_registered: true,
+      vat_scheme: scheme,
+      vat_stagger: stagger,
+      vat_flat_rate_bp: flatRateBp,
+      quarters: quarters.map((q) => {
+        const p = paymentByEnd.get(q.to);
+        // Sales Box 1 can't see: a hand-logged earnings entry has no VAT field
+        const uninvoiced = uninvoicedEarnings(entries, q.from, q.to, scheme);
+        return {
+          ...q,
+          ...computeVatReturn(q, vatInvoices, expenses, scheme, flatRateBp),
+          uninvoiced_earnings_count: uninvoiced.count,
+          uninvoiced_earnings_pence: uninvoiced.pence,
+          in_progress: today <= q.to,
+          payment: p
+            ? {
+                id: p.id,
+                amount_pence: p.amount_pence,
+                paid_date: p.paid_date,
+                notes: p.notes,
+              }
+            : null,
+        };
+      }),
+    });
+  } catch (err) {
+    console.error("vatReturn error:", err);
+    return res.status(500).json({ error: "Failed to load VAT return" });
+  }
+}
+
+/** Record (or correct) what was paid to or received from HMRC for one quarter. */
+export async function saveVatPayment(req: Request, res: Response) {
+  try {
+    const { period_start, period_end, amount_pence, paid_date, notes } = req.body ?? {};
+    if (
+      ![period_start, period_end, paid_date].every((d) => typeof d === "string" && DATE_RE.test(d))
+    )
+      return res
+        .status(400)
+        .json({ error: "period_start, period_end and paid_date must be YYYY-MM-DD" });
+    if (period_start > period_end)
+      return res.status(400).json({ error: "period_start must be before period_end" });
+    const amount = Number(amount_pence);
+    if (!Number.isSafeInteger(amount))
+      return res.status(400).json({ error: "amount_pence must be a whole number of pence" });
+    const saved = await storage.upsertVatPayment(req.user!.id, {
+      period_start,
+      period_end,
+      amount_pence: amount,
+      paid_date,
+      notes: typeof notes === "string" && notes.trim() ? notes.trim().slice(0, 500) : null,
+    });
+    return res.json(saved);
+  } catch (err) {
+    console.error("saveVatPayment error:", err);
+    return res.status(500).json({ error: "Failed to save VAT payment" });
+  }
+}
+
+export async function deleteVatPayment(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id" });
+    const ok = await storage.deleteVatPayment(req.user!.id, id);
+    return ok ? res.status(204).end() : res.status(404).json({ error: "Not found" });
+  } catch (err) {
+    console.error("deleteVatPayment error:", err);
+    return res.status(500).json({ error: "Failed to delete VAT payment" });
   }
 }

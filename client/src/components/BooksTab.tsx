@@ -86,7 +86,9 @@ import { ImportWizard } from "./ImportWizard";
 import { RecentlyRemoved } from "./RecentlyRemoved";
 import { StartAgainCard } from "./StartAgainCard";
 import { matchesOrigin, ORIGIN_OPTIONS, type OriginFilter } from "@/lib/origin";
-import { isBooksCurrency } from "@shared/expense-totals";
+import { isBooksCurrency, reclaimsInputVat } from "@shared/expense-totals";
+import { VAT_SCHEME_LABELS, vatTreatmentNote, type VatScheme } from "@shared/vat-return";
+import { VatReturnCard } from "./VatReturnCard";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
@@ -104,6 +106,20 @@ function formatPence(pence: number | null | undefined, currency = "GBP"): string
 }
 
 // ── Month grouping helper + component ─────────────────────────────────────────
+
+/**
+ * What an expense costs the business before business-use %: the net for a
+ * VAT-registered freelancer (the VAT is reclaimed), the gross otherwise.
+ * Same rule as allowableExpensePence in shared/expense-totals.ts, which the
+ * server totals use; this one keeps every currency so a list row still shows
+ * its own amount.
+ */
+function expenseBase(
+  e: { net_amount_pence: number; vat_amount_pence: number },
+  vatRegistered: boolean
+): number {
+  return vatRegistered ? e.net_amount_pence : e.net_amount_pence + e.vat_amount_pence;
+}
 
 function groupByMonth<T>(items: T[], dateKey: keyof T): { key: string; items: T[] }[] {
   const map: Record<string, T[]> = {};
@@ -508,8 +524,7 @@ function ExpenseDialog({
         notes: editing.notes ?? "",
       });
       setMoreOpen(
-        editing.vat_amount_pence > 0 ||
-          editing.business_use_percent < 100 ||
+        editing.business_use_percent < 100 ||
           !!editing.payment_method ||
           editing.billable_to_client ||
           !editing.allowable
@@ -525,6 +540,10 @@ function ExpenseDialog({
 
   const set = <K extends keyof ExpenseForm>(k: K, v: ExpenseForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  // Also shown when editing an expense that already carries VAT (entered while
+  // registered), so it can't be hidden and silently kept.
+  const showVat = vatRegistered || (editing?.vat_amount_pence ?? 0) > 0;
 
   const saveMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => {
@@ -579,21 +598,48 @@ function ExpenseDialog({
           <DialogTitle>{editing ? "Edit expense" : "Add expense"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Amount — focused first */}
-          <div className="space-y-1">
-            <Label htmlFor="exp-amount">Amount (£) *</Label>
-            <Input
-              id="exp-amount"
-              ref={amountRef}
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={form.net_amount}
-              onChange={(e) => set("net_amount", e.target.value)}
-              style={{ fontSize: "16px" }}
-            />
+          {/* Amount — focused first. A VAT-registered freelancer deducts the net
+              and reclaims the VAT, so the VAT sits beside the amount where it
+              can't be skipped: left blank, the receipt looks zero-rated and the
+              books count the reclaimed VAT as a cost. */}
+          <div className={showVat ? "grid grid-cols-2 gap-3" : ""}>
+            <div className="space-y-1">
+              <Label htmlFor="exp-amount">
+                {showVat ? "Amount excl. VAT (£) *" : "Amount (£) *"}
+              </Label>
+              <Input
+                id="exp-amount"
+                ref={amountRef}
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={form.net_amount}
+                onChange={(e) => set("net_amount", e.target.value)}
+                style={{ fontSize: "16px" }}
+              />
+            </div>
+            {showVat && (
+              <div className="space-y-1">
+                <Label htmlFor="exp-vat">VAT (£)</Label>
+                <Input
+                  id="exp-vat"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.vat_amount}
+                  onChange={(e) => set("vat_amount", e.target.value)}
+                  style={{ fontSize: "16px" }}
+                />
+              </div>
+            )}
           </div>
+          {showVat && (
+            <p className="-mt-2 text-xs text-muted-foreground">
+              From the receipt. Leave VAT blank only if none was charged.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -689,22 +735,6 @@ function ExpenseDialog({
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3 space-y-4">
-              {vatRegistered && (
-                <div className="space-y-1">
-                  <Label htmlFor="exp-vat">VAT amount (£)</Label>
-                  <Input
-                    id="exp-vat"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={form.vat_amount}
-                    onChange={(e) => set("vat_amount", e.target.value)}
-                    style={{ fontSize: "16px" }}
-                  />
-                </div>
-              )}
-
               <div className="space-y-1">
                 <Label htmlFor="exp-biz">Business use %</Label>
                 <Input
@@ -1266,7 +1296,10 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
     queryKey: ["/api/expense-categories"],
   });
 
-  const { data: billingProfile } = useQuery<{ vat_registered?: boolean } | null>({
+  const { data: billingProfile } = useQuery<{
+    vat_registered?: boolean;
+    vat_scheme?: string;
+  } | null>({
     queryKey: ["/api/billing-profile"],
     retry: false,
   });
@@ -1294,6 +1327,8 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
   });
 
   const vatRegistered = Boolean(billingProfile?.vat_registered);
+  // Flat Rate Scheme users are registered but reclaim nothing: their costs count gross
+  const reclaimsVat = reclaimsInputVat(billingProfile);
   const [originFilter, setOriginFilter] = useState<OriginFilter>("all");
   const [currencyFilter, setCurrencyFilter] = useState(initialCurrency);
   const expenses = (expensesData?.expenses ?? [])
@@ -1433,10 +1468,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                     (sum, e) =>
                       e.allowable
                         ? sum +
-                          Math.round(
-                            ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) /
-                              100
-                          )
+                          Math.round((expenseBase(e, reclaimsVat) * e.business_use_percent) / 100)
                         : sum,
                     0
                   );
@@ -1451,9 +1483,8 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
                       divider={mi < expenseMonths.length - 1}
                     >
                       {monthExpenses.map((expense, i) => {
-                        const total = expense.net_amount_pence + expense.vat_amount_pence;
                         const allowableAmount = Math.round(
-                          (total * expense.business_use_percent) / 100
+                          (expenseBase(expense, reclaimsVat) * expense.business_use_percent) / 100
                         );
                         const catName = expense.category_id
                           ? categoryMap[expense.category_id]
@@ -1737,7 +1768,7 @@ function TripDialog({
                 value={form.vehicle_type}
                 onChange={set("vehicle_type")}
               >
-                <option value="car">Car</option>
+                <option value="car">Car or van</option>
                 <option value="motorcycle">Motorcycle</option>
                 <option value="bicycle">Bicycle</option>
               </select>
@@ -2574,6 +2605,23 @@ interface BooksSummary {
   overdue_pence: number;
   other_currency_earnings?: number;
   other_currency_expenses?: number;
+  /** Which VAT treatment the figures use (see vatTreatmentNote) */
+  vat_registered?: boolean;
+  vat_scheme?: string | null;
+  /** VAT for the same period, kept out of every figure above. Null when not VAT-registered. */
+  vat?: {
+    scheme: VatScheme;
+    flat_rate_bp: number | null;
+    output_pence: number;
+    input_pence: number;
+    net_pence: number;
+    flat_rate_turnover_pence: number | null;
+    paid_pence: number;
+    invoice_count: number;
+    /** Hand-logged earnings in the period: their VAT is not in the figures */
+    uninvoiced_earnings_count: number;
+    uninvoiced_earnings_pence: number;
+  } | null;
 }
 
 interface MonthlyRow {
@@ -2632,6 +2680,7 @@ interface TaxEstimateData {
   marriageAllowancePenceDelta: number;
   totalDeductionsPence: number;
   vatRegistered: boolean;
+  vatScheme: string | null;
   grossEarningsPence: number;
 }
 
@@ -3024,6 +3073,9 @@ function OverviewSection({
       >
         {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
       </p>
+      {vatTreatmentNote(data) && (
+        <p className="-mt-3 text-xs text-muted-foreground">{vatTreatmentNote(data)}</p>
+      )}
 
       {/* ── Stat tiles ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -3269,7 +3321,7 @@ function OverviewSection({
           </div>
           <CardContent className="p-0">
             <div className="flex items-baseline justify-between border-l-4 border-blue-500 px-5 py-2.5">
-              <p className="text-sm">Gross earnings</p>
+              <p className="text-sm">Income before expenses</p>
               <span className="font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                 {formatPence(data.earnings_pence)}
               </span>
@@ -3296,6 +3348,78 @@ function OverviewSection({
                 {formatPence(data.net_profit_pence)}
               </span>
             </div>
+            {data.vat && (
+              <>
+                <div className="flex items-baseline justify-between border-l-4 border-sky-500 bg-sky-50/60 px-5 py-2.5 dark:bg-sky-950/30">
+                  <p data-help="books.vat.summary" className="text-sm font-semibold">
+                    VAT
+                  </p>
+                  <span className="text-xs text-muted-foreground">
+                    {VAT_SCHEME_LABELS[data.vat.scheme]}
+                    {data.vat.scheme === "flat_rate" && data.vat.flat_rate_bp
+                      ? ` · ${data.vat.flat_rate_bp / 100}%`
+                      : ""}{" "}
+                    · not in profit
+                  </span>
+                </div>
+                {data.vat.scheme === "flat_rate" ? (
+                  <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                    <p className="text-xs text-muted-foreground">
+                      Flat-rate VAT on {formatPence(data.vat.flat_rate_turnover_pence ?? 0)}{" "}
+                      turnover
+                    </p>
+                    <span className="text-xs tabular-nums">
+                      {formatPence(data.vat.output_pence)}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                      <p className="text-xs text-muted-foreground">VAT on sales</p>
+                      <span className="text-xs tabular-nums">
+                        {formatPence(data.vat.output_pence)}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                      <p className="text-xs text-muted-foreground">VAT reclaimable on expenses</p>
+                      <span className="text-xs tabular-nums">
+                        −{formatPence(data.vat.input_pence)}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-baseline justify-between border-l-4 border-sky-500 px-5 py-2.5">
+                  <p className="text-sm">
+                    {data.vat.net_pence >= 0 ? "VAT owed to HMRC" : "VAT repayment due"}
+                  </p>
+                  <span className="font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                    {formatPence(Math.abs(data.vat.net_pence))}
+                  </span>
+                </div>
+                {data.vat.paid_pence !== 0 && (
+                  <div className="flex items-baseline justify-between border-l-4 border-sky-200 py-1.5 pl-9 pr-5 dark:border-sky-900">
+                    <p className="text-xs text-muted-foreground">
+                      {data.vat.paid_pence > 0 ? "Paid to HMRC so far" : "Repaid by HMRC so far"}
+                    </p>
+                    <span className="text-xs tabular-nums">
+                      {formatPence(Math.abs(data.vat.paid_pence))}
+                    </span>
+                  </div>
+                )}
+                {data.vat.uninvoiced_earnings_count > 0 && (
+                  <p className="border-l-4 border-amber-400 bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {data.vat.invoice_count === 0 && "No sales VAT recorded. "}
+                    {formatPence(data.vat.uninvoiced_earnings_pence)} of earnings logged by hand{" "}
+                    {data.vat.scheme !== "cash" &&
+                      "(dated when invoiced, not when paid, so it can differ from income above) "}
+                    {data.vat.uninvoiced_earnings_count === 1 ? "isn’t" : "aren’t"} counted here:
+                    only invoices raised in EventLink are, so this VAT figure is incomplete. Add the
+                    VAT you charged on {data.vat.uninvoiced_earnings_count === 1 ? "it" : "them"}{" "}
+                    yourself.
+                  </p>
+                )}
+              </>
+            )}
             {taxData && (
               <>
                 {taxData.ratesProvisionalFrom && (
@@ -3841,13 +3965,25 @@ function OverviewSection({
           </div>
           {taxData?.vatRegistered && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              You are VAT registered. Ensure your earnings are entered ex-VAT so the estimate is not
-              inflated by VAT you collect on HMRC&apos;s behalf.
+              {taxData.vatScheme === "flat_rate" ? (
+                <>
+                  You are on the VAT Flat Rate Scheme. Expenses count including VAT, as you
+                  can&apos;t reclaim it. Earnings exclude the VAT you charge, so the difference
+                  between that and the flat-rate VAT you pay (which is taxable income) isn&apos;t in
+                  this estimate: ask your accountant to add it.
+                </>
+              ) : (
+                <>
+                  You are VAT registered, so this estimate excludes VAT on both sides: earnings net
+                  of the VAT you charge, expenses net of the VAT you reclaim. Enter any earnings
+                  logged by hand ex-VAT, and the VAT on each receipt.
+                </>
+              )}
             </p>
           )}
           {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
             <p className="text-xs text-muted-foreground">
-              Trading income is under £1,000 — you may be able to use the{" "}
+              Trading income is £1,000 or less — you may be able to use the{" "}
               <span className="font-medium">Trading Allowance</span> instead of claiming actual
               expenses, making the profit from this source £0.
             </p>
@@ -3915,6 +4051,9 @@ function OverviewSection({
           </CardContent>
         </Card>
       )}
+
+      {/* ── VAT return (VAT-registered only; renders nothing otherwise) ── */}
+      <VatReturnCard />
 
       {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">
@@ -4055,7 +4194,10 @@ export function BooksTab() {
     queryKey: ["/api/expense-categories"],
     queryFn: () => apiRequest("/api/expense-categories"),
   });
-  const { data: topLevelBillingProfile } = useQuery<{ vat_registered?: boolean } | null>({
+  const { data: topLevelBillingProfile } = useQuery<{
+    vat_registered?: boolean;
+    vat_scheme?: string;
+  } | null>({
     queryKey: ["/api/billing-profile"],
     queryFn: () => apiRequest("/api/billing-profile"),
   });
@@ -4232,7 +4374,12 @@ export function BooksTab() {
           description: exp.description,
           rate_type: "flat",
           quantity: 1,
-          unit_price_pence: exp.net_amount_pence + (exp.vat_amount_pence ?? 0),
+          // A registered freelancer rebills the net: the invoice adds VAT on
+          // top, so billing the gross would charge the client VAT twice.
+          unit_price_pence: expenseBase(
+            { net_amount_pence: exp.net_amount_pence, vat_amount_pence: exp.vat_amount_pence ?? 0 },
+            topLevelVatRegistered
+          ),
         });
       }
 
@@ -5017,6 +5164,11 @@ export function BooksTab() {
               {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
             </span>
           </div>
+          {vatTreatmentNote(topLevelBillingProfile) && (
+            <p className="mt-1 text-right text-xs text-blue-200">
+              {vatTreatmentNote(topLevelBillingProfile)}
+            </p>
+          )}
         </div>
         <CardContent className="pt-4">
           {summary.entry_count === 0 ? (
@@ -5031,7 +5183,7 @@ export function BooksTab() {
               <div className="mb-4 grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/40">
                   <p className="text-xs font-medium uppercase tracking-wide text-blue-500">
-                    Gross income
+                    Income before expenses
                   </p>
                   <p className="mt-1 text-xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
                     {formatPence(summary.total_pence)}

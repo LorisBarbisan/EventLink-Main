@@ -48,6 +48,9 @@ import {
 } from "@/hooks/useRatings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { loadProfileFont } from "@/lib/load-profile-font";
+import { DEFAULT_FONT, isFontKey, profileFont } from "@shared/profile-fonts";
+import { reconcileSectionOrder, type ProfileSection } from "@shared/profile-sections";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -912,38 +915,12 @@ export default function Profile() {
   const profileTheme: { accent?: string; font?: string; section_order?: string[] } =
     (freelancerProfile as any)?.profile_theme ?? {};
   const themeAccent = profileTheme.accent ?? null;
-  const themeSections = (profileTheme.section_order as TabId[] | undefined) ?? [
-    "about",
-    "references",
-    "documents",
-    "contacts",
-  ];
+  const themeSections: TabId[] = reconcileSectionOrder(profileTheme.section_order);
 
   // Inject Google Font if needed
   useEffect(() => {
-    const fontUrls: Record<string, string> = {
-      playfair:
-        "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
-      poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
-      "space-grotesk":
-        "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    };
-    const fontFamilies: Record<string, string> = {
-      inter: "Inter, sans-serif",
-      playfair: "'Playfair Display', serif",
-      poppins: "Poppins, sans-serif",
-      "space-grotesk": "'Space Grotesk', sans-serif",
-    };
-    const key = profileTheme.font ?? "inter";
-    const url = fontUrls[key];
-    document.getElementById("profile-theme-font")?.remove();
-    if (url) {
-      const link = document.createElement("link");
-      link.id = "profile-theme-font";
-      link.rel = "stylesheet";
-      link.href = url;
-      document.head.appendChild(link);
-    }
+    const themeFont = profileFont(profileTheme.font);
+    loadProfileFont(isFontKey(profileTheme.font) ? profileTheme.font : DEFAULT_FONT);
     const style =
       document.getElementById("profile-theme-style") ||
       (() => {
@@ -953,7 +930,7 @@ export default function Profile() {
         return s;
       })();
     style.textContent = `
-      .profile-themed { font-family: ${fontFamilies[key] ?? "inherit"}; }
+      .profile-themed { font-family: ${themeFont.stack}; }
       .profile-themed [data-accent] { color: ${themeAccent ?? "var(--primary)"}; }
       .profile-themed .accent-border { border-color: ${themeAccent ?? "var(--primary)"}; }
       .profile-themed .accent-bg { background-color: ${themeAccent ?? "var(--primary)"}; }
@@ -964,7 +941,7 @@ export default function Profile() {
   }, [profileTheme.font, themeAccent]);
 
   // Profile tabs
-  type TabId = "about" | "references" | "documents" | "contacts" | "calendar";
+  type TabId = ProfileSection;
   const [activeTab, setActiveTab] = useState<TabId>("about");
 
   // Generate QR code when Pro modal opens
@@ -1713,29 +1690,28 @@ export default function Profile() {
             <div className="profile-themed">
               {/* Tab bar */}
               <div className="flex overflow-x-auto overflow-y-hidden border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {[
-                  ...themeSections.filter((t) => t !== "calendar"),
-                  // Only when the freelancer chose to show their calendar
-                  ...(freelancerProfile?.public_availability ? (["calendar"] as TabId[]) : []),
-                ].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as TabId)}
-                    className={cn(
-                      "-mb-px whitespace-nowrap border-b-2 px-5 py-2.5 text-sm font-medium capitalize transition-colors",
-                      activeTab === tab
-                        ? "border-b-2 text-[var(--profile-accent,var(--primary))]"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    )}
-                    style={
-                      activeTab === tab && themeAccent
-                        ? { borderColor: themeAccent, color: themeAccent }
-                        : undefined
-                    }
-                  >
-                    {tab}
-                  </button>
-                ))}
+                {themeSections
+                  // Calendar sits where the freelancer put it, but only when they chose to show it
+                  .filter((t) => t !== "calendar" || !!freelancerProfile?.public_availability)
+                  .map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab as TabId)}
+                      className={cn(
+                        "-mb-px whitespace-nowrap border-b-2 px-5 py-2.5 text-sm font-medium capitalize transition-colors",
+                        activeTab === tab
+                          ? "border-b-2 text-[var(--profile-accent,var(--primary))]"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                      style={
+                        activeTab === tab && themeAccent
+                          ? { borderColor: themeAccent, color: themeAccent }
+                          : undefined
+                      }
+                    >
+                      {tab}
+                    </button>
+                  ))}
               </div>
 
               {/* About tab */}

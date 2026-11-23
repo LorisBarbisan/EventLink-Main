@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
+import { countryCodeFor, DEFAULT_COUNTRY_CODE } from "@/components/ui/country-select";
 import { useHelpComplete } from "@/help/useHelp";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -46,6 +47,16 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   const [filterSkills, setFilterSkills] = useState<string[]>([]);
   const [filterLocations, setFilterLocations] = useState<string[]>([]);
   const [filterKeywords, setFilterKeywords] = useState<string[]>([]);
+
+  // Alert locations are searched within the freelancer's own country (UK if
+  // none is set). Same key and fetch as the dashboard, so it shares its cache.
+  const { data: freelancerProfile } = useQuery<{ country?: string | null } | null>({
+    queryKey: ["/api/freelancer/profile", user?.id],
+    queryFn: async () => (user?.id ? apiRequest(`/api/freelancer/${user.id}`) : null),
+    enabled: !!user?.id && user.role === "freelancer",
+    retry: false,
+  });
+  const alertCountryCode = countryCodeFor(freelancerProfile?.country) ?? DEFAULT_COUNTRY_CODE;
   const [locationRadiusKm, setLocationRadiusKm] = useState<number>(30);
 
   // Fetch notification preferences
@@ -423,11 +434,12 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             <div className="space-y-3">
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <UKLocationInput
+                  <GlobalLocationInput
                     id="location-input"
                     label="Locations"
                     value={locationInput}
-                    onChange={setLocationInput}
+                    onChange={(v) => setLocationInput(v)}
+                    countryCode={alertCountryCode}
                     placeholder="Start typing a location..."
                     data-testid="input-location-filter"
                   />

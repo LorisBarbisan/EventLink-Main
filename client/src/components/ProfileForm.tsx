@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { pressable } from "@/lib/a11y";
 import { ProfileThemePicker } from "@/components/ProfileThemePicker";
+import { profileFont } from "@shared/profile-fonts";
 import { CVParsingReview } from "@/components/CVParsingReview";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -21,7 +22,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor, DEFAULT_COUNTRY } from "@/components/ui/country-select";
 import {
   StateProvinceSelect,
   countryNeedsStateProvince,
@@ -49,6 +50,7 @@ import {
   MapPin,
   Plus,
   ShieldCheck,
+  CalendarDays,
   User,
   X,
 } from "lucide-react";
@@ -156,7 +158,7 @@ export function ProfileForm({
           superpower: freelancerProfile?.superpower || "",
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
-          country: freelancerProfile?.country || "",
+          country: freelancerProfile?.country || DEFAULT_COUNTRY,
           state_province: freelancerProfile?.state_province || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
@@ -176,7 +178,7 @@ export function ProfileForm({
           contact_name: recruiterProfile?.contact_name || "",
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
-          country: recruiterProfile?.country || "",
+          country: recruiterProfile?.country || DEFAULT_COUNTRY,
           state_province: recruiterProfile?.state_province || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
@@ -507,6 +509,9 @@ export function ProfileForm({
                 <FreelancerCardAppearanceFields
                   formData={formData as FreelancerFormData}
                   onInputChange={handleInputChange}
+                  calendarPublic={showCalendar}
+                  onMakeCalendarPublic={user?.id ? () => calendarMutation.mutate(true) : undefined}
+                  calendarPending={calendarMutation.isPending}
                 />
               </TabsContent>
 
@@ -860,6 +865,7 @@ function FreelancerProfileFields({
           <GlobalLocationInput
             id="location"
             label="City / Location *"
+            countryCode={countryCodeFor(formData.country)}
             value={formData.location}
             onChange={onLocationChange}
             placeholder="Start typing a city..."
@@ -982,11 +988,16 @@ function FreelancerProfileFields({
   );
 }
 
+// A half-scale copy of the real card (pages/FreelancerCard.tsx), drawn at
+// the card's own 340px width and scaled down. Sizes here mirror that file;
+// change one, change the other.
 function CardLivePreview({
   formData,
   theme,
+  calendarPublic,
 }: {
   formData: FreelancerFormData;
+  calendarPublic: boolean;
   theme: {
     accent?: string;
     button_color?: string;
@@ -996,16 +1007,10 @@ function CardLivePreview({
 }) {
   const [flipped, setFlipped] = useState(false);
 
-  const FONT_CSS_MAP: Record<string, string> = {
-    inter: "Inter, sans-serif",
-    playfair: "'Playfair Display', serif",
-    poppins: "Poppins, sans-serif",
-    "space-grotesk": "'Space Grotesk', sans-serif",
-  };
   const accent = theme.accent ?? "#f97316";
   const buttonColor = theme.button_color ?? "#ffffff";
   const buttonTextPref = theme.button_text ?? "auto";
-  const fontFamily = FONT_CSS_MAP[theme.font ?? "inter"] ?? "Inter, sans-serif";
+  const fontFamily = profileFont(theme.font).stack;
   const firstName = formData.first_name || "Your";
   const lastName = formData.last_name || "Name";
   const title = formData.title || "Professional Title";
@@ -1044,10 +1049,19 @@ function CardLivePreview({
     { icon: <User style={{ width: 15, height: 15 }} />, label: "About", sub: "Overview & intro" },
     {
       icon: <ShieldCheck style={{ width: 15, height: 15 }} />,
-      label: "Credentials",
+      label: "References",
       sub: "Verified & endorsed",
     },
     { icon: <FileText style={{ width: 15, height: 15 }} />, label: "Files", sub: "CV & documents" },
+    ...(calendarPublic
+      ? [
+          {
+            icon: <CalendarDays style={{ width: 15, height: 15 }} />,
+            label: "Calendar",
+            sub: "When I'm free",
+          },
+        ]
+      : []),
     ...(formData.linkedin_url
       ? [
           {
@@ -1115,25 +1129,25 @@ function CardLivePreview({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                padding: "20px 16px 16px",
+                padding: "24px 20px 16px",
               }}
             >
               {/* NFC dot — grey, matching real card */}
               <div
                 style={{
-                  width: 14,
-                  height: 14,
+                  width: 16,
+                  height: 16,
                   borderRadius: "50%",
                   background: "#f7f7f8",
                   border: "1.5px solid #e0e0e8",
-                  marginBottom: 14,
+                  marginBottom: 16,
                 }}
               />
               {/* avatar — accent ring is the only front-face colour hint */}
               <div
                 style={{
-                  width: 72,
-                  height: 72,
+                  width: 120,
+                  height: 120,
                   borderRadius: "50%",
                   background: "linear-gradient(135deg,#b8cce0,#7a93a8)",
                   border: `2.5px solid ${accent}`,
@@ -1141,10 +1155,10 @@ function CardLivePreview({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 26,
+                  fontSize: 40,
                   color: "#fff",
                   fontWeight: 700,
-                  marginBottom: 10,
+                  marginBottom: 14,
                 }}
               >
                 {photo && photo !== "null" && photo.trim() ? (
@@ -1157,10 +1171,10 @@ function CardLivePreview({
                   `${(firstName[0] ?? "").toUpperCase()}${(lastName[0] ?? "").toUpperCase()}`
                 )}
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 3 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 4 }}>
                 {firstName} {lastName}
               </div>
-              <div style={{ fontSize: 11, color: "#555", marginBottom: 10 }}>{title}</div>
+              <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>{title}</div>
               <div style={{ width: "100%", height: 1, background: "#f0f0f4", marginBottom: 10 }} />
               {/* Contact details — centred */}
               {(formData.phone || formData.contact_email) && (
@@ -1264,8 +1278,8 @@ function CardLivePreview({
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <div
                   style={{
-                    width: 38,
-                    height: 38,
+                    width: 40,
+                    height: 40,
                     borderRadius: "50%",
                     border: `2px solid ${btnBorder}`,
                     background: buttonColor,
@@ -1403,9 +1417,15 @@ function CardLivePreview({
 function FreelancerCardAppearanceFields({
   formData,
   onInputChange,
+  calendarPublic,
+  onMakeCalendarPublic,
+  calendarPending,
 }: {
   formData: FreelancerFormData;
   onInputChange: (field: string, value: any) => void;
+  calendarPublic: boolean;
+  onMakeCalendarPublic?: () => void;
+  calendarPending?: boolean;
 }) {
   const theme = (formData as any).profile_theme ?? {};
 
@@ -1449,7 +1469,13 @@ function FreelancerCardAppearanceFields({
           </p>
         </div>
 
-        <ProfileThemePicker theme={theme} onChange={(t) => onInputChange("profile_theme", t)} />
+        <ProfileThemePicker
+          theme={theme}
+          onChange={(t) => onInputChange("profile_theme", t)}
+          calendarPublic={calendarPublic}
+          onMakeCalendarPublic={onMakeCalendarPublic}
+          calendarPending={calendarPending}
+        />
       </div>
 
       {/* Right: Live Preview */}
@@ -1457,7 +1483,7 @@ function FreelancerCardAppearanceFields({
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Live Preview
         </p>
-        <CardLivePreview formData={formData} theme={theme} />
+        <CardLivePreview formData={formData} theme={theme} calendarPublic={calendarPublic} />
       </div>
     </div>
   );
@@ -1596,6 +1622,7 @@ function RecruiterFormFields({
           <GlobalLocationInput
             id="location"
             label="City / Location"
+            countryCode={countryCodeFor(formData.country)}
             value={formData.location}
             onChange={onLocationChange}
             placeholder="Start typing a city..."

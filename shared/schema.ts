@@ -1414,10 +1414,47 @@ export const freelancer_billing_profiles = pgTable("freelancer_billing_profiles"
   vat_number: text("vat_number"),
   /** 20, 5 or 0 — applied to every invoice when vat_registered */
   vat_rate_pct: integer("vat_rate_pct").notNull().default(20),
+  /** How VAT is accounted for (migration 0053); see shared/vat-return.ts */
+  vat_scheme: text("vat_scheme")
+    .notNull()
+    .default("standard")
+    .$type<"standard" | "cash" | "flat_rate">(),
+  /** HMRC quarter pattern: 1 = Mar/Jun/Sep/Dec, 2 = Apr/Jul/Oct/Jan, 3 = May/Aug/Nov/Feb */
+  vat_stagger: integer("vat_stagger").notNull().default(1),
+  /** Flat Rate Scheme percentage in basis points (1250 = 12.5%); null otherwise */
+  vat_flat_rate_bp: integer("vat_flat_rate_bp"),
   logo_url: text("logo_url"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * What a VAT-registered freelancer actually paid to (positive) or received
+ * from (negative) HMRC for one VAT quarter. One row per quarter. Recorded for
+ * their own reference beside the computed return; not part of the books'
+ * totals, which exclude VAT.
+ */
+export const vat_payments = pgTable(
+  "vat_payments",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    period_start: date("period_start").notNull(),
+    period_end: date("period_end").notNull(),
+    amount_pence: bigint("amount_pence", { mode: "number" }).notNull(),
+    paid_date: date("paid_date").notNull(),
+    notes: text("notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    periodKey: uniqueIndex("vat_payments_freelancer_period_key").on(t.freelancer_id, t.period_end),
+  })
+);
+
+export type VatPayment = typeof vat_payments.$inferSelect;
 
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),

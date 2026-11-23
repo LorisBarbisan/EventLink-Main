@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { CountrySelect, countryCodeFor } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,7 +56,8 @@ export default function Jobs() {
   // Initialize search state from URL parameters
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
+  // Starts at the UK; "" means All Countries (written to the URL as country=all)
+  const [countryFilter, setCountryFilter] = useState(""); // all countries: the board shows everything until narrowed
   const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
   // On mobile the search/filter panel is collapsed by default so the jobs are
   // the first thing a freelancer sees; it is always open from md up.
@@ -67,14 +68,15 @@ export default function Jobs() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get("search") || "";
     const urlLocation = urlParams.get("location") || "";
-    const urlCountry = urlParams.get("country") || "";
+    const urlCountry = urlParams.get("country");
     const urlPage = parseInt(urlParams.get("page") || "1");
     // Check for jobId to auto-expand
     const urlJobId = urlParams.get("jobId");
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
-    setCountryFilter(urlCountry);
+    // "all" is what links from the UK-default days carry
+    setCountryFilter(urlCountry === null || urlCountry === "all" ? "" : urlCountry);
     setCurrentPage(urlPage);
 
     if (urlJobId) {
@@ -433,7 +435,7 @@ export default function Jobs() {
                     placeholder="Filter by location..."
                     value={locationFilter}
                     onChange={(value) => setLocationFilter(value)}
-                    countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
+                    countryCode={countryCodeFor(countryFilter)}
                     data-testid="input-location-filter"
                   />
                 </div>

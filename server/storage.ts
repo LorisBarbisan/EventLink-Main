@@ -1,4 +1,5 @@
 import { normaliseRecordWrite } from "@shared/record-writes";
+import { NON_PUBLIC_BADGE_RESULTS } from "@shared/references";
 import { ukToday } from "@shared/job-dates";
 import { messagingAllowed } from "@shared/safety";
 import { user_blocks, user_reports } from "@shared/schema";
@@ -110,6 +111,8 @@ import {
   type TaxRate,
   type InsertTaxRate,
   type FreelancerBillingProfile,
+  vat_payments,
+  type VatPayment,
   type InsertFreelancerBillingProfile,
   type Invoice,
   type InsertInvoice,
@@ -150,6 +153,7 @@ import {
   ilike,
   inArray,
   isNotNull,
+  notInArray,
   isNull,
   lt,
   lte,
@@ -161,6 +165,7 @@ import {
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
+import { countryCondition } from "./api/utils/country-filter";
 import {
   freelancerKeywordCondition,
   freelancerLocationCondition,
@@ -809,6 +814,20 @@ export interface IStorage {
     userId: number,
     data: Partial<import("@shared/schema").InsertFreelancerBillingProfile>
   ): Promise<import("@shared/schema").FreelancerBillingProfile>;
+
+  // VAT payments (one per freelancer per VAT quarter)
+  listVatPayments(freelancerId: number): Promise<import("@shared/schema").VatPayment[]>;
+  upsertVatPayment(
+    freelancerId: number,
+    data: {
+      period_start: string;
+      period_end: string;
+      amount_pence: number;
+      paid_date: string;
+      notes: string | null;
+    }
+  ): Promise<import("@shared/schema").VatPayment>;
+  deleteVatPayment(freelancerId: number, id: number): Promise<boolean>;
 
   // Invoices
   getInvoice(id: number): Promise<import("@shared/schema").Invoice | undefined>;
@@ -1977,9 +1996,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (country?.trim()) {
-        conditions.push(
-          sql`LOWER(${freelancer_profiles.country}) = ${country.trim().toLowerCase()}`
-        );
+        conditions.push(countryCondition(freelancer_profiles.country, country));
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -2250,8 +2267,8 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    if (country && country !== "all") {
-      conditions.push(ilike(jobs.country, country.trim()));
+    if (country?.trim() && country !== "all") {
+      conditions.push(countryCondition(jobs.country, country));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -2872,9 +2889,10 @@ export class DatabaseStorage implements IStorage {
         conditions.push(sql`LOWER(${jobs.location}) LIKE ${locationTerm}`);
       }
 
-      // Country filter (exact match)
-      if (country && country.trim()) {
-        conditions.push(sql`LOWER(${jobs.country}) = ${country.toLowerCase()}`);
+      // Country filter. The UK also takes jobs with no country (see
+      // countryCondition), as the board starts filtered to the UK.
+      if (country?.trim() && country !== "all") {
+        conditions.push(countryCondition(jobs.country, country));
       }
 
       // Date range filter on event_date
@@ -5871,7 +5889,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(freelancer_references.freelancer_id, freelancerId),
           eq(freelancer_references.is_flagged, false),
-          sql`${freelancer_references.badge_result} != 'flagged'`
+          notInArray(freelancer_references.badge_result, [...NON_PUBLIC_BADGE_RESULTS])
         )
       )
       .orderBy(desc(freelancer_references.created_at));
@@ -6627,6 +6645,51 @@ export class DatabaseStorage implements IStorage {
       .values({ user_id: userId, ...data })
       .returning();
     return created;
+  }
+
+  // ── VAT payments ─────────────────────────────────────────────────────────────
+
+  async listVatPayments(freelancerId: number): Promise<VatPayment[]> {
+    return db
+      .select()
+      .from(vat_payments)
+      .where(eq(vat_payments.freelancer_id, freelancerId))
+      .orderBy(desc(vat_payments.period_end));
+  }
+
+  async upsertVatPayment(
+    freelancerId: number,
+    data: {
+      period_start: string;
+      period_end: string;
+      amount_pence: number;
+      paid_date: string;
+      notes: string | null;
+    }
+  ): Promise<VatPayment> {
+    const [row] = await db
+      .insert(vat_payments)
+      .values({ freelancer_id: freelancerId, ...data })
+      .onConflictDoUpdate({
+        target: [vat_payments.freelancer_id, vat_payments.period_end],
+        set: {
+          period_start: data.period_start,
+          amount_pence: data.amount_pence,
+          paid_date: data.paid_date,
+          notes: data.notes,
+          updated_at: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteVatPayment(freelancerId: number, id: number): Promise<boolean> {
+    const rows = await db
+      .delete(vat_payments)
+      .where(and(eq(vat_payments.id, id), eq(vat_payments.freelancer_id, freelancerId)))
+      .returning({ id: vat_payments.id });
+    return rows.length > 0;
   }
 
   // ── Invoices ─────────────────────────────────────────────────────────────────

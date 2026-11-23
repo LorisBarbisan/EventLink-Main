@@ -1,13 +1,15 @@
 import { apiRequest } from "@/lib/queryClient";
 import { pressable } from "@/lib/a11y";
+import { loadProfileFont } from "@/lib/load-profile-font";
+import { DEFAULT_FONT, isFontKey, PROFILE_FONTS } from "@shared/profile-fonts";
 import { PublicAvailabilityMonth, PublicAvailabilityStrip } from "@/components/PublicAvailability";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsPro } from "@/hooks/useIsPro";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
   Award,
+  Building2,
   ChevronLeft,
   CalendarDays,
   ChevronRight,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { BADGE_CONFIG } from "@/components/ReferenceBadges";
 
 // Brand palette
 const C = {
@@ -42,37 +45,130 @@ const C = {
   border2: "rgba(0,0,0,0.18)",
 };
 
-// A reference's written comment, as a short pull quote: trimmed, without the
-// quote marks some referees type themselves.
-function refQuote(comment: unknown): string | undefined {
-  if (typeof comment !== "string") return undefined;
-  const text = comment
-    .trim()
-    .replace(/^["“'‘]+|["”'’]+$/g, "")
-    .trim();
-  return text || undefined;
-}
-// Three lines at most on the card; the full text is on the profile.
-const quoteStyle: React.CSSProperties = {
-  marginTop: 4,
-  fontStyle: "italic",
-  lineHeight: 1.45,
-  display: "-webkit-box",
-  WebkitLineClamp: 3,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
+type Detail = "about" | "references" | "files" | "calendar" | null;
+type RightTab = "about" | "references" | "files" | "calendar";
+
+type ReviewColors = {
+  main: string;
+  attr: string;
+  divider: string;
+  link: string;
+  iconColor: string;
 };
 
-type Detail = "about" | "credentials" | "files" | "calendar" | null;
-type RightTab = "about" | "credentials" | "files" | "calendar";
+const REVIEW_TRUNCATE = 150;
+
+/**
+ * Inline-styled, theme-aware equivalents of BADGE_CONFIG.colour (which holds
+ * Tailwind classes the card can't use). Label and icon still come from
+ * BADGE_CONFIG so the card and the profile can't drift; only the colour is
+ * restated here. verified_private / flagged have no entry — they're withheld.
+ */
+const CARD_BADGE_STYLE: Record<string, { bg: string; text: string }> = {
+  highly_recommended: { bg: C.successLight, text: C.success },
+  recommended: { bg: "hsl(160,58%,93%)", text: "hsl(160,55%,28%)" },
+  work_history_confirmed: { bg: "hsl(210,80%,94%)", text: "hsl(210,68%,40%)" },
+};
+
+/**
+ * One written reference on the card, in the shape the profile already uses:
+ * the organisation (with a building icon) as the heading, the BADGE_CONFIG
+ * pill beside it, and the comment beneath as the body. A reference with no
+ * comment keeps the heading and badge — still says something — without an
+ * empty quotation. Long comments truncate with a Read more toggle so four
+ * reviews still fit a phone-width card.
+ */
+function ReviewRow({ data, colors }: { data: any; colors: ReviewColors }) {
+  const [expanded, setExpanded] = useState(false);
+  const comment: string = (data.comment || "").trim();
+  const name: string = data.referee_name || "";
+  const org: string = data.referee_organisation || "";
+  const heading = org || name || "Reference";
+  const secondaryName = org && name ? name : "";
+  const badge = BADGE_CONFIG[data.badge_result];
+  const badgeStyle = CARD_BADGE_STYLE[data.badge_result];
+
+  const isLong = comment.length > REVIEW_TRUNCATE + 20;
+  const shown = expanded || !isLong ? comment : comment.slice(0, REVIEW_TRUNCATE).trimEnd() + "…";
+
+  return (
+    <div style={{ padding: "12px 0", borderBottom: `1px solid ${colors.divider}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          {org ? (
+            <Building2 style={{ width: 14, height: 14, color: colors.iconColor, flexShrink: 0 }} />
+          ) : (
+            <Award style={{ width: 14, height: 14, color: colors.iconColor, flexShrink: 0 }} />
+          )}
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: colors.main,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {heading}
+          </span>
+        </div>
+        {badge && badgeStyle && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "2px 8px",
+              borderRadius: 999,
+              background: badgeStyle.bg,
+              color: badgeStyle.text,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span aria-hidden="true">{badge.icon}</span>
+            {badge.label}
+          </span>
+        )}
+      </div>
+      {secondaryName && (
+        <div style={{ fontSize: 10, color: colors.attr, marginTop: 2, marginLeft: 21 }}>
+          {secondaryName}
+        </div>
+      )}
+      {comment && (
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: colors.main, margin: "7px 0 0" }}>
+          “{shown}”
+          {isLong && (
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              style={{
+                border: "none",
+                background: "none",
+                padding: 0,
+                marginLeft: 4,
+                font: "inherit",
+                fontWeight: 600,
+                color: colors.link,
+                cursor: "pointer",
+              }}
+            >
+              {expanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function FreelancerCard() {
   const { userId } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isPro = useIsPro();
   const urlPt = new URLSearchParams(window.location.search).get("pt") ?? "";
-  const isOwner = user && String(user.id) === String(userId);
 
   const [flipped, setFlipped] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
@@ -151,31 +247,10 @@ export default function FreelancerCard() {
   const btnBorder = btnDark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   // Font from profile theme
-  const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
-  const FONT_CSS_MAP: Record<string, string> = {
-    inter: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    playfair: "'Playfair Display', serif",
-    poppins: "Poppins, sans-serif",
-    "space-grotesk": "'Space Grotesk', sans-serif",
-  };
-  const FONT_URLS: Record<string, string> = {
-    playfair:
-      "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
-    poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
-    "space-grotesk":
-      "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-  };
+  const storedFont: unknown = (freelancer as any)?.profile_theme?.font;
+  const themeFont = isFontKey(storedFont) ? storedFont : DEFAULT_FONT;
   useEffect(() => {
-    const url = FONT_URLS[themeFont];
-    if (url) {
-      const id = "card-theme-font";
-      document.getElementById(id)?.remove();
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = url;
-      document.head.appendChild(link);
-    }
+    loadProfileFont(themeFont);
   }, [themeFont]);
 
   const uid: number | undefined = freelancer?.user_id;
@@ -225,49 +300,6 @@ export default function FreelancerCard() {
         }}
       >
         <p style={{ color: C.text3, fontSize: 13 }}>Loading…</p>
-      </div>
-    );
-  }
-
-  // Free users viewing their own card see an upgrade prompt instead of the card
-  if (isOwner && !isPro) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          background: C.bg3,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        <Lock size={40} color={C.orange} />
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-          Digital Business Card is a Pro feature
-        </h2>
-        <p style={{ color: C.text2, maxWidth: 340, margin: 0, fontSize: 15 }}>
-          Upgrade to Pro to create your Digital Business Card, customise your theme, and share it
-          with employers.
-        </p>
-        <a
-          href="/billing"
-          style={{
-            marginTop: 8,
-            padding: "10px 28px",
-            borderRadius: 8,
-            background: C.orange,
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 15,
-            textDecoration: "none",
-          }}
-        >
-          Upgrade to Pro
-        </a>
       </div>
     );
   }
@@ -435,7 +467,7 @@ export default function FreelancerCard() {
         </div>
       );
     }
-    if (type === "credentials") {
+    if (type === "references") {
       return (
         <div>
           {isVerified && (
@@ -474,47 +506,20 @@ export default function FreelancerCard() {
             </div>
           )}
           {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
-            <div
+            <ReviewRow
               key={ref.id ?? i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 9,
-                padding: "8px 0",
-                borderBottom: "1px solid #f4f4f8",
+              data={ref}
+              colors={{
+                main: "#333",
+                attr: "#999",
+                divider: "#f4f4f8",
+                link: C.purpleDark,
+                iconColor: C.purple,
               }}
-            >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 7,
-                  background: C.purpleLight,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Award style={{ width: 14, height: 14, color: C.purple }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#111" }}>
-                  {ref.referee_name || "Reference"}
-                </div>
-                <div style={{ fontSize: 10, color: "#999" }}>
-                  {ref.referee_organisation || ref.badge_result?.replace(/_/g, " ") || ""}
-                </div>
-                {refQuote(ref.comment) && (
-                  <div style={{ ...quoteStyle, fontSize: 11, color: "#555" }}>
-                    “{refQuote(ref.comment)}”
-                  </div>
-                )}
-              </div>
-            </div>
+            />
           ))}
           {(references as any[]).length === 0 && !isVerified && (
-            <p style={{ fontSize: 12, color: C.text3 }}>No credentials added yet.</p>
+            <p style={{ fontSize: 12, color: C.text3 }}>No references yet.</p>
           )}
         </div>
       );
@@ -674,7 +679,6 @@ export default function FreelancerCard() {
     icon,
     label,
     sub,
-    quote,
     href,
     onClick,
     action,
@@ -683,7 +687,6 @@ export default function FreelancerCard() {
     icon: React.ReactNode;
     label: string;
     sub?: string;
-    quote?: string;
     href?: string;
     onClick?: () => void;
     action?: React.ReactNode;
@@ -707,7 +710,6 @@ export default function FreelancerCard() {
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: DM.text1 }}>{label}</div>
           {sub && <div style={{ fontSize: 11, color: DM.text2, marginTop: 1 }}>{sub}</div>}
-          {quote && <div style={{ ...quoteStyle, fontSize: 12, color: DM.text2 }}>“{quote}”</div>}
         </div>
         {action && <span style={{ marginLeft: "auto" }}>{action}</span>}
       </>
@@ -744,7 +746,7 @@ export default function FreelancerCard() {
 
   const DETAIL_PANELS: Detail[] = [
     "about",
-    "credentials",
+    "references",
     "files",
     ...(freelancer?.public_availability ? (["calendar"] as Detail[]) : []),
   ];
@@ -787,7 +789,7 @@ export default function FreelancerCard() {
       style={{
         background: DM.pageBg,
         minHeight: "100vh",
-        fontFamily: FONT_CSS_MAP[themeFont] ?? FONT_CSS_MAP.inter,
+        fontFamily: PROFILE_FONTS[themeFont].stack,
       }}
     >
       {/* ── HEADER ── */}
@@ -869,7 +871,7 @@ export default function FreelancerCard() {
                     }}
                   />
                   <div style={{ marginBottom: 14 }}>
-                    <Avatar size={96} />
+                    <Avatar size={120} />
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: DM.text1, marginBottom: 4 }}>
                     {fullName}
@@ -1037,9 +1039,9 @@ export default function FreelancerCard() {
                         sub="Overview & intro"
                       />
                       <SectionBtn
-                        id="credentials"
+                        id="references"
                         icon={<ShieldCheck style={{ width: 18, height: 18 }} />}
-                        label="Credentials"
+                        label="References"
                         sub="Verified & endorsed"
                       />
                       <SectionBtn
@@ -1408,7 +1410,7 @@ export default function FreelancerCard() {
                 {(
                   [
                     "about",
-                    "credentials",
+                    "references",
                     "files",
                     ...(freelancer.public_availability ? ["calendar"] : []),
                   ] as RightTab[]
@@ -1506,7 +1508,7 @@ export default function FreelancerCard() {
                   </div>
                 )}
 
-                {rightTab === "credentials" && (
+                {rightTab === "references" && (
                   <div>
                     {isVerified && (
                       <DRow
@@ -1517,17 +1519,20 @@ export default function FreelancerCard() {
                       />
                     )}
                     {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
-                      <DRow
+                      <ReviewRow
                         key={ref.id ?? i}
-                        iconBg={C.purpleLight}
-                        icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
-                        label={ref.referee_name || "Reference"}
-                        sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
-                        quote={refQuote(ref.comment)}
+                        data={ref}
+                        colors={{
+                          main: DM.text1,
+                          attr: DM.text2,
+                          divider: DM.divider,
+                          link: darkMode ? C.purple : C.purpleDark,
+                          iconColor: C.purple,
+                        }}
                       />
                     ))}
                     {(references as any[]).length === 0 && !isVerified && (
-                      <p style={{ fontSize: 13, color: C.text3 }}>No credentials yet.</p>
+                      <p style={{ fontSize: 13, color: C.text3 }}>No references yet.</p>
                     )}
                   </div>
                 )}
