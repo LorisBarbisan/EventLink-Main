@@ -47,7 +47,10 @@ export async function getUserById(req: Request, res: Response) {
 // Serve freelancer profile photo as a real image (for OG tags / social previews)
 export async function getProfilePhoto(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
     const profile = await storage.getFreelancerProfile(userId);
 
     if (!profile || !profile.profile_photo_url) {
@@ -183,7 +186,10 @@ export async function createFreelancerProfile(req: Request, res: Response) {
 // Update freelancer profile
 export async function updateFreelancerProfile(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
 
     // Check if user is authorized to update this profile
     if (
@@ -219,7 +225,10 @@ export async function updateFreelancerProfile(req: Request, res: Response) {
 // Get recruiter profile
 export async function getRecruiterProfile(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
 
     // First check if user exists and is a recruiter
     const user = await storage.getUser(userId);
@@ -275,7 +284,10 @@ export async function createRecruiterProfile(req: Request, res: Response) {
 // Update recruiter profile
 export async function updateRecruiterProfile(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
 
     if (!canWriteRecruiterProfile(req, userId)) {
       return res.status(403).json({

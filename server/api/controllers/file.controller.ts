@@ -130,7 +130,10 @@ const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
 
 export async function downloadCV(req: Request, res: Response) {
   try {
-    const freelancerId = parseInt(req.params.freelancerId);
+    const freelancerId = Number(req.params.freelancerId);
+    if (!Number.isInteger(freelancerId) || freelancerId <= 0) {
+      return res.status(400).json({ error: "Invalid freelancer id" });
+    }
 
     // Get profile first to check if it's the promotional account
     const profile = await storage.getFreelancerProfile(freelancerId);

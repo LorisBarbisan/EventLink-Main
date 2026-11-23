@@ -250,7 +250,10 @@ export async function createFreelancerJob(req: Request, res: Response) {
 // Update job
 export async function updateJob(req: Request, res: Response) {
   try {
-    const jobId = parseInt(req.params.jobId);
+    const jobId = Number(req.params.jobId);
+    if (!Number.isInteger(jobId) || jobId <= 0) {
+      return res.status(400).json({ error: "Invalid job id" });
+    }
 
     // Check if user is authorized to update this job
     if (!(req as any).user) {

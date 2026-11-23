@@ -41,7 +41,10 @@ export async function getFeedbackStats(req: Request, res: Response) {
 // Update feedback status (admin only)
 export async function updateFeedbackStatus(req: Request, res: Response) {
   try {
-    const feedbackId = parseInt(req.params.id);
+    const feedbackId = Number(req.params.id);
+    if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+      return res.status(400).json({ error: "Invalid feedback id" });
+    }
     const { status } = req.body;
 
     if (!["pending", "in_review", "resolved", "closed"].includes(status)) {
@@ -59,7 +62,10 @@ export async function updateFeedbackStatus(req: Request, res: Response) {
 // Add admin response to feedback (admin only)
 export async function addFeedbackResponse(req: Request, res: Response) {
   try {
-    const feedbackId = parseInt(req.params.id);
+    const feedbackId = Number(req.params.id);
+    if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+      return res.status(400).json({ error: "Invalid feedback id" });
+    }
     const { response } = req.body;
 
     if (!response) {
