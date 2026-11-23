@@ -507,6 +507,36 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // "Send me a job" direct offers. On by default.
+  const [acceptsOffers, setAcceptsOffers] = useState(true);
+  const [togglingOffers, setTogglingOffers] = useState(false);
+  useEffect(() => {
+    const v = (profile as { accepts_direct_offers?: boolean } | undefined)?.accepts_direct_offers;
+    if (v !== undefined) setAcceptsOffers(!!v);
+  }, [profile]);
+  const toggleAcceptsOffers = async () => {
+    if (!user?.id) return;
+    setTogglingOffers(true);
+    const next = !acceptsOffers;
+    try {
+      await apiRequest(`/api/freelancer/${user.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ accepts_direct_offers: next }),
+      });
+      setAcceptsOffers(next);
+      toast({
+        title: next ? "Job link is on" : "Job link is off",
+        description: next
+          ? "Clients can send you a job directly through your link."
+          : "Your 'Send me a job' link now shows as unavailable.",
+      });
+    } catch {
+      toast({ title: "Failed to update the job link setting", variant: "destructive" });
+    } finally {
+      setTogglingOffers(false);
+    }
+  };
+
   const [cardShareUrl, setCardShareUrl] = useState("");
 
   useEffect(() => {
@@ -653,6 +683,20 @@ export default function SimplifiedFreelancerDashboard() {
               className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
             >
               Show calendar
+            </label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Switch
+              id="accepts-offers-bar"
+              checked={acceptsOffers}
+              onCheckedChange={toggleAcceptsOffers}
+              disabled={togglingOffers}
+            />
+            <label
+              htmlFor="accepts-offers-bar"
+              className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
+            >
+              Job link
             </label>
           </div>
           <Button
