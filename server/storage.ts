@@ -6526,6 +6526,10 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(jobs.poster_type as any, "guest"),
           eq(jobs.moderation_status as any, "pending"),
+          // Direct offers are guest + pending too, but they are private
+          // messages to one freelancer — never publication candidates. Keep
+          // them out of the queue so they can't be approved onto the board.
+          ne(jobs.status as any, "private"),
           isNull(jobs.deleted_at)
         )
       )
@@ -6539,6 +6543,13 @@ export class DatabaseStorage implements IStorage {
     moderatorUserId: number,
     note?: string
   ): Promise<Job> {
+    // Defence in depth: moderation couples moderation_status to status, so a
+    // private job (e.g. a direct offer) must never be moderated — approving
+    // would publish it, rejecting would close a live private arrangement.
+    const existing = await this.getJobById(jobId);
+    if (existing?.status === "private") {
+      throw new Error("A private job cannot be moderated for publication");
+    }
     const newStatus = decision === "approved" ? "active" : "closed";
     const [updated] = await db
       .update(jobs)
