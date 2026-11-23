@@ -798,6 +798,9 @@ export interface IStorage {
   }): Promise<JobDraft>;
   getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
   consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
+  // Mark a draft single-use without publishing a job (e.g. the target
+  // freelancer turned their link off before the draft was confirmed).
+  expireJobDraft(draftId: number): Promise<void>;
   createGuestApplicationToken(data: {
     token_hash: string;
     application_id: number;
@@ -6593,6 +6596,10 @@ export class DatabaseStorage implements IStorage {
       .update(job_drafts)
       .set({ consumed_at: new Date(), published_job_id: publishedJobId })
       .where(eq(job_drafts.id, draftId));
+  }
+
+  async expireJobDraft(draftId: number): Promise<void> {
+    await db.update(job_drafts).set({ consumed_at: new Date() }).where(eq(job_drafts.id, draftId));
   }
 
   async createGuestApplicationToken(data: {

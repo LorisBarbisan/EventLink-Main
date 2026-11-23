@@ -148,6 +148,7 @@ export async function confirmGuestJob(req: Request, res: Response) {
 
     // ── find or create a guest user account ────────────────────────────────
     let user = await storage.getUserByEmail(draft.contact_email);
+    const isNewAccount = !user;
     if (!user) {
       // Create a slim guest recruiter account — no password, not verified
       const nameParts = draft.contact_name.trim().split(/\s+/);
@@ -215,14 +216,20 @@ export async function confirmGuestJob(req: Request, res: Response) {
     }
 
     // ── generate set-password token for the guest account ───────────────────
+    // Only for an account we just created (or one with no password). An
+    // established recruiter reusing this flow should not get an unsolicited
+    // "set your password" email, and minting a token would silently invalidate
+    // any genuine password reset they have in flight.
     let setPasswordToken: string | undefined;
-    try {
-      const rawToken = randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      await storage.setPasswordResetToken(draft.contact_email, rawToken, expires);
-      setPasswordToken = rawToken;
-    } catch (err) {
-      console.error("Failed to generate set-password token for guest:", err);
+    if (isNewAccount || !user.password) {
+      try {
+        const rawToken = randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        await storage.setPasswordResetToken(draft.contact_email, rawToken, expires);
+        setPasswordToken = rawToken;
+      } catch (err) {
+        console.error("Failed to generate set-password token for guest:", err);
+      }
     }
 
     // ── send "you're live" email ─────────────────────────────────────────────

@@ -172,8 +172,24 @@ export async function confirmDirectOffer(req: Request, res: Response) {
       return res.status(410).json({ error: "This freelancer is no longer available" });
     }
 
+    // …and must still accept direct offers. The toggle is checked at submit, but
+    // drafts live 24h, so a freelancer who turns the link off (fully booked, or
+    // being pestered) would otherwise still receive every offer already in
+    // flight. Re-check here and consume the draft so the sender can't retry.
+    const freelancerProfile = await storage.getFreelancerProfile(directFreelancerId);
+    if (
+      (freelancerProfile as { accepts_direct_offers?: boolean } | undefined)
+        ?.accepts_direct_offers === false
+    ) {
+      await storage.expireJobDraft(draft.id);
+      return res
+        .status(410)
+        .json({ error: "This freelancer is no longer accepting direct offers." });
+    }
+
     // ── find or create a slim guest recruiter account (no password) ───────────
     let user = await storage.getUserByEmail(draft.contact_email);
+    const isNewAccount = !user;
     if (!user) {
       const nameParts = draft.contact_name.trim().split(/\s+/);
       const firstName = nameParts[0] ?? draft.contact_name;
@@ -253,14 +269,20 @@ export async function confirmDirectOffer(req: Request, res: Response) {
       .catch((err) => console.error("Direct offer notification failed:", err));
 
     // ── set-password token for the guest account ──────────────────────────────
+    // Only for an account we just created (or one that has no password set).
+    // Minting one for an established recruiter would send them an unsolicited
+    // "set your password" email and silently invalidate any genuine reset in
+    // flight — so skip it when the account already has a password.
     let setPasswordToken: string | undefined;
-    try {
-      const token = randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      await storage.setPasswordResetToken(draft.contact_email, token, expires);
-      setPasswordToken = token;
-    } catch (err) {
-      console.error("Failed to generate set-password token for direct offer:", err);
+    if (isNewAccount || !user.password) {
+      try {
+        const token = randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        await storage.setPasswordResetToken(draft.contact_email, token, expires);
+        setPasswordToken = token;
+      } catch (err) {
+        console.error("Failed to generate set-password token for direct offer:", err);
+      }
     }
 
     // ── confirm to the client (non-blocking) ──────────────────────────────────
