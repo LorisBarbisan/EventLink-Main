@@ -23,6 +23,37 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "jobs.offer.about",
+    scope: "feature",
+    title: "Direct offer",
+    body: "A client sent you this job through your personal link. Nothing's booked until you accept it.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 1,
+      paragraphs: [
+        "Direct offers come from a client who used your 'send me a job' link, so they're meant for you specifically rather than posted to the whole board.",
+        "You see the client's name and verified email, the job, and any rate they suggested. Accepting or declining tells them straight away.",
+      ],
+    },
+  },
+  {
+    key: "jobs.offer.accept",
+    scope: "action",
+    body: "Confirms you'll do the job. The client is told, and it moves into your confirmed bookings.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: { manualOrder: 2 },
+  },
+  {
+    key: "jobs.offer.decline",
+    scope: "action",
+    body: "Turns the job down. The client is told; nothing is booked.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: { manualOrder: 3 },
+  },
+  {
     key: "action.job.create",
     scope: "action",
     body: "Create a listing to find crew — it goes live on Find Jobs once you post it.",

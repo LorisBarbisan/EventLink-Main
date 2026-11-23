@@ -707,6 +707,7 @@ export default function SimplifiedFreelancerDashboard() {
           <div className="flex items-center gap-1.5">
             <Switch
               id="accepts-offers-bar"
+              data-help="action.profile.acceptsOffers"
               checked={acceptsOffers}
               onCheckedChange={toggleAcceptsOffers}
               disabled={togglingOffers}
@@ -754,6 +755,7 @@ export default function SimplifiedFreelancerDashboard() {
           <Button
             size="sm"
             variant="outline"
+            data-help="action.profile.cardQr"
             onClick={() => setShowQrModal(true)}
             title="Card QR code"
           >
@@ -764,6 +766,7 @@ export default function SimplifiedFreelancerDashboard() {
             <Button
               size="sm"
               variant="outline"
+              data-help="action.profile.sendJobLink"
               onClick={() => setShowJobLinkModal(true)}
               title="Your 'Send me a job' link"
             >
