@@ -28,6 +28,7 @@ import {
   job_applications,
   job_link_views,
   jobs,
+  bookings,
   saved_freelancers,
   freelancer_references,
   message_attachments,
@@ -64,6 +65,7 @@ import {
   type InsertRecruiterProfile,
   type InsertUser,
   type Job,
+  type Booking,
   type JobAlertFilter,
   type JobApplication,
   type JobLinkView,
@@ -836,6 +838,8 @@ export interface IStorage {
     status?: string
   ): Promise<import("@shared/schema").Invoice[]>;
   getInvoiceByBooking(bookingId: number): Promise<import("@shared/schema").Invoice | undefined>;
+  /** The booking (if any) linking a freelancer to a job — proof of a direct invitation. */
+  getBookingByJobAndFreelancer(jobId: number, freelancerId: number): Promise<Booking | undefined>;
   createInvoice(
     data: import("@shared/schema").InsertInvoice
   ): Promise<import("@shared/schema").Invoice>;
@@ -6716,6 +6720,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(invoices)
       .where(eq(invoices.booking_id, bookingId))
+      .limit(1);
+    return row;
+  }
+
+  async getBookingByJobAndFreelancer(
+    jobId: number,
+    freelancerId: number
+  ): Promise<Booking | undefined> {
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.jobId, jobId), eq(bookings.freelancerId, freelancerId)))
       .limit(1);
     return row;
   }

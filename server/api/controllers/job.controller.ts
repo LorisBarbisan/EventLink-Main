@@ -44,7 +44,13 @@ export async function getJobById(req: Request, res: Response) {
       if (!isOwner && currentUser.role === "freelancer") {
         const apps = await storage.getFreelancerApplications(currentUser.id);
         const hasInviteOrApplication = apps.some((app) => app.job_id === jobId);
-        if (!hasInviteOrApplication) {
+        // A booking is a stronger claim on a job than an application — a direct
+        // offer arrives as an `enquired` booking with no application — so it
+        // also proves the freelancer was invited to this private job.
+        const hasBooking = hasInviteOrApplication
+          ? true
+          : Boolean(await storage.getBookingByJobAndFreelancer(jobId, currentUser.id));
+        if (!hasInviteOrApplication && !hasBooking) {
           return res.status(403).json({ error: "This job is only accessible via invitation." });
         }
       }
