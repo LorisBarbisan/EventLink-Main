@@ -259,6 +259,15 @@ export async function moderateGuestJob(req: Request, res: Response) {
     if (decision !== "approved" && decision !== "rejected") {
       return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });
     }
+    // A private job (e.g. a direct offer) is not a publication candidate.
+    // Moderating it would publish or close a private arrangement, so refuse.
+    const existing = await storage.getJobById(jobId);
+    if (!existing) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    if (existing.status === "private") {
+      return res.status(409).json({ error: "A private job cannot be moderated for publication." });
+    }
     const moderatorId = (req as any).user?.id;
     const job = await storage.moderateJob(jobId, decision, moderatorId, note);
     res.json(job);
