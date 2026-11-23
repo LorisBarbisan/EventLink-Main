@@ -290,7 +290,10 @@ export default function MyJobs() {
                 </div>
 
                 {result.isDirectOffer && (
-                  <div className="mb-3 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
+                  <div
+                    data-help="jobs.offer.about"
+                    className="mb-3 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700"
+                  >
                     📩 Sent to you directly
                   </div>
                 )}
@@ -373,6 +376,7 @@ export default function MyJobs() {
                 {booking.status === "enquired" && result.isDirectOffer ? (
                   <div className="mt-2 flex gap-2">
                     <button
+                      data-help="jobs.offer.accept"
                       onClick={() => acceptMutation.mutate(booking.id)}
                       disabled={acceptMutation.isPending}
                       className="flex-1 rounded-lg bg-gradient-to-r from-purple-600 to-purple-800 px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -380,6 +384,7 @@ export default function MyJobs() {
                       Accept
                     </button>
                     <button
+                      data-help="jobs.offer.decline"
                       onClick={() => declineMutation.mutate(booking.id)}
                       disabled={declineMutation.isPending}
                       className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
