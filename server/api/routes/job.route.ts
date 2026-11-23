@@ -58,14 +58,21 @@ const guestJobEmailLimiter = rateLimit({
   },
 });
 
-// Direct offer ("send me a job"): tighter than guest posting since the link is
-// shareable and targets one freelancer. IP: 3/hour. Email: 10/day.
+// Direct offer ("send me a job"): the magic-link step is the real control —
+// the email must be a working mailbox before anything is created — so the
+// per-email limit (10/day) does the meaningful work. The IP limit is only a
+// blunt backstop against a crude flood, and it must stay loose: carrier-grade
+// NAT and office/venue networks put many legitimate clients behind one address,
+// so a tight per-IP cap would reject strangers who have done nothing wrong.
+// skipFailedRequests means only a submission that actually stored a draft
+// counts — validation errors and 429s no longer burn quota.
 const directOfferIpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 15,
   message: { error: "Too many offers from this device. Please try again in an hour." },
   standardHeaders: true,
   legacyHeaders: false,
+  skipFailedRequests: true,
 });
 
 const directOfferEmailLimiter = rateLimit({
@@ -79,6 +86,7 @@ const directOfferEmailLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: Request) => !req.body?.contact_email,
+  skipFailedRequests: true,
 });
 
 export function registerJobRoutes(app: Express) {

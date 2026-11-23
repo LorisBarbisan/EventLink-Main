@@ -21,7 +21,12 @@ function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean 
 // Get user by ID
 export async function getUserById(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = Number(req.params.id);
+    // A non-numeric id (e.g. "/api/users/me") must be a clean 400, not a 500
+    // from the database rejecting NaN as an integer.
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
     const user = await storage.getUser(userId);
 
     if (!user) {
