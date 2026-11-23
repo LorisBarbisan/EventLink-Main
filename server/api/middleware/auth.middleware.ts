@@ -69,40 +69,28 @@ export const authenticateOptionalJWT = async (req: any, res: any, next: any) => 
       return next();
     }
 
-    // Check if token is blacklisted (logged out)
-    if (isTokenBlacklisted(token)) {
-      // If token is provided but invalid, we should probably ignore it or return error.
-      // Returning error is safer to avoid confusion (client thinks they are logged in but server treats as guest)
-      return res.status(401).json({ error: "Token has been invalidated" });
-    }
+    // A token that's expired, logged out or otherwise unusable makes this a
+    // guest request, not a 401. These are public pages: a 401 here broke
+    // every profile for someone whose 24-hour sign-in had lapsed (the
+    // profile page read it as "Profile Not Yet Set Up").
+    if (isTokenBlacklisted(token)) return next();
 
-    // Verify JWT token
-    const decoded = verifyJWTToken(token);
-    if (!decoded || typeof decoded !== "object") {
-      return res.status(401).json({ error: "Invalid token" });
+    let decoded: unknown;
+    try {
+      decoded = verifyJWTToken(token);
+    } catch {
+      return next();
     }
+    if (!decoded || typeof decoded !== "object") return next();
 
     // Get fresh user data from database and populate req.user
     const user = await storage.getUser((decoded as any).id);
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
+    if (!user) return next();
 
     // Apply role computation and set req.user
     req.user = computeUserRole(user);
     next();
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Authentication check failed";
-    const isTokenError =
-      message.includes("jwt expired") ||
-      message.includes("jwt malformed") ||
-      message.includes("invalid signature") ||
-      message.includes("invalid token");
-
-    if (isTokenError) {
-      return res.status(401).json({ error: message });
-    }
-
     console.error("Optional JWT authentication error:", error);
     res.status(500).json({ error: "Authentication check failed" });
   }

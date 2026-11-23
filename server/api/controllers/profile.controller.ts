@@ -6,6 +6,7 @@ import { storage } from "../../storage";
 import sharp from "sharp";
 import { canManageTeam, getEmployerCompanyId } from "../utils/team.util";
 import { isLocalPath, resolveLocalPath } from "../utils/local-storage-fallback";
+import { publicUserView } from "../utils/public-user";
 
 /** Company owner or team admin may create/update recruiter_profiles (keyed by owner user_id). */
 function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
@@ -27,13 +28,11 @@ export async function getUserById(req: Request, res: Response) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Return user without sensitive information
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, email_verification_token, password_reset_token, ...safeUser } = user;
-    // Prevent caching to ensure fresh user data
+    // Public endpoint: an allow-list, never the whole row (it held emails,
+    // tokens and Stripe ids)
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
-    res.json(safeUser);
+    res.json(publicUserView(user));
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
