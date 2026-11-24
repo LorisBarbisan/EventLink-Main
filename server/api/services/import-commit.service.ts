@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, sql, or, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, sql, or, isNull } from "drizzle-orm";
 import { ukToday } from "@shared/job-dates";
 import { db } from "../config/db";
 import { storage } from "../../storage";
@@ -443,7 +443,9 @@ export async function sweepStuckCommits(): Promise<void> {
     .where(
       and(
         eq(import_batches.status, "committing"),
-        sql`${import_batches.updated_at} < ${thirtyMinutesAgo}`
+        // lt(), not a raw sql`` comparison: the column mapper turns the Date
+        // into a string; postgres.js rejects a bare Date in a raw fragment.
+        lt(import_batches.updated_at, thirtyMinutesAgo)
       )
     );
 
