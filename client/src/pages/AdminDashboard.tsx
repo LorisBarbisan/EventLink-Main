@@ -857,6 +857,7 @@ function AdminDashboardContent() {
       freelancerLast: string | null;
     }>;
     total: number;
+    reportedCount: number;
   }>({
     queryKey: ["/api/admin/direct-offers"],
     queryFn: () => apiRequest("/api/admin/direct-offers"),
@@ -1317,7 +1318,9 @@ function AdminDashboardContent() {
               </SelectItem>
               <SelectItem value="moderation">
                 Moderation
-                {(pendingGuestJobsData?.total ?? 0) > 0 ? ` (${pendingGuestJobsData!.total})` : ""}
+                {(pendingGuestJobsData?.total ?? 0) + (directOffersData?.reportedCount ?? 0) > 0
+                  ? ` (${(pendingGuestJobsData?.total ?? 0) + (directOffersData?.reportedCount ?? 0)})`
+                  : ""}
               </SelectItem>
               <SelectItem value="contact">
                 Contact{counts.contact_messages > 0 ? ` (${counts.contact_messages})` : ""}
@@ -1353,7 +1356,9 @@ function AdminDashboardContent() {
           >
             <Shield className="h-4 w-4" />
             Moderation
-            <TabBadge count={pendingGuestJobsData?.total ?? 0} />
+            <TabBadge
+              count={(pendingGuestJobsData?.total ?? 0) + (directOffersData?.reportedCount ?? 0)}
+            />
           </TabsTrigger>
           <TabsTrigger value="contact" className="flex items-center justify-center gap-2 text-sm">
             <Mail className="h-4 w-4" />
@@ -1832,10 +1837,15 @@ function AdminDashboardContent() {
               freelancer, so it is shown, never gated. */}
           <Card>
             <CardHeader>
-              <CardTitle>Direct offers</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Direct offers
+                {(directOffersData?.reportedCount ?? 0) > 0 && (
+                  <Badge variant="destructive">{directOffersData!.reportedCount} reported</Badge>
+                )}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Recent &ldquo;Send me a job&rdquo; offers, newest first. Read-only &mdash; these are
-                private arrangements between a client and a freelancer, not posts awaiting
+                Recent &ldquo;Send me a job&rdquo; offers, reported ones first. Read-only &mdash;
+                these are private arrangements between a client and a freelancer, not posts awaiting
                 moderation.
               </p>
             </CardHeader>

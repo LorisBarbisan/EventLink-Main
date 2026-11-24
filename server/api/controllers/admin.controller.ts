@@ -259,7 +259,8 @@ export async function getPendingGuestJobs(req: Request, res: Response) {
 export async function getDirectOffers(req: Request, res: Response) {
   try {
     const offers = await storage.listDirectOffersForAdmin();
-    res.json({ offers, total: offers.length });
+    const reportedCount = offers.filter((o) => o.reportedAt).length;
+    res.json({ offers, total: offers.length, reportedCount });
   } catch (error) {
     console.error("getDirectOffers error:", error);
     res.status(500).json({ error: "Internal server error" });

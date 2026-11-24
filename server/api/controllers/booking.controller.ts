@@ -460,6 +460,33 @@ export async function reportBooking(req: Request, res: Response) {
       .where(eq(bookings.id, bookingId))
       .returning();
 
+    // A report is the only abuse control on the direct-offer link, so it must
+    // reach an admin rather than terminate in a column. Fire-and-forget: a
+    // notification failure must not fail the report.
+    const reasonText =
+      updated.report_reason && updated.report_reason !== "Reported"
+        ? `: "${updated.report_reason}"`
+        : "";
+    storage
+      .listAdminUserIds()
+      .then((adminIds) =>
+        Promise.all(
+          adminIds.map((adminId) =>
+            storage.createNotification({
+              user_id: adminId,
+              type: "system",
+              title: "Direct offer reported",
+              message: `A freelancer reported a direct offer${reasonText}. Review it in the admin direct-offers list.`,
+              priority: "high",
+              related_entity_type: "job",
+              related_entity_id: booking.jobId,
+              action_url: "/admin",
+            } as any)
+          )
+        )
+      )
+      .catch((err) => console.error("Failed to notify admins of reported offer:", err));
+
     return res.json({ ok: true, booking: updated });
   } catch (error) {
     console.error("reportBooking error:", error);
