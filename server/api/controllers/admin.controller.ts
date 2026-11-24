@@ -10,6 +10,7 @@ import {
 import { storage } from "../../storage";
 import { sendContactReplyEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
+import { resolveBroadcastAudience } from "../services/broadcast-audience.service";
 import { db } from "../config/db";
 import { teamMembers, users } from "../../../shared/schema";
 import { eq } from "drizzle-orm";
@@ -951,6 +952,35 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// Live recipient breakdown for the announcement composer. Uses the same
+// resolver as the send path, so the count shown is the count that is used.
+export async function getBroadcastAudience(req: Request, res: Response) {
+  try {
+    const adminUser = (req as any).user;
+    if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
+
+    const { category, filters, userIds } = req.body as {
+      category?: string;
+      filters?: Record<string, unknown>;
+      userIds?: number[];
+    };
+    if (category !== "announcement" && category !== "service") {
+      return res.status(400).json({ error: "category must be 'announcement' or 'service'" });
+    }
+
+    const { breakdown } = await resolveBroadcastAudience({
+      adminId: adminUser.id,
+      category,
+      filters: filters as any,
+      userIds,
+    });
+    res.json(breakdown);
+  } catch (error) {
+    console.error("getBroadcastAudience error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function sendBulkMessages(req: Request, res: Response) {
