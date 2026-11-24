@@ -442,6 +442,23 @@ function AdminDashboardContent() {
   const [bulkMsgMode, setBulkMsgMode] = useState<"filtered" | "specific">("filtered");
   const [bulkMsgPickerSearch, setBulkMsgPickerSearch] = useState("");
   const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
+  // Announcement composer additions
+  const [bcCategory, setBcCategory] = useState<"" | "announcement" | "service">("");
+  const [bcCountry, setBcCountry] = useState("all");
+  const [bcLastActive, setBcLastActive] = useState("all");
+  const [bcConfirming, setBcConfirming] = useState(false);
+  const [bcTesting, setBcTesting] = useState(false);
+  type BroadcastBreakdown = {
+    matching: number;
+    demo: number;
+    unverified: number;
+    suppressed: number;
+    optedOut: number;
+    willReceiveEmail: number;
+    willReceiveInApp: number;
+  };
+  const [bcAudience, setBcAudience] = useState<BroadcastBreakdown | null>(null);
+  const [bcAudienceLoading, setBcAudienceLoading] = useState(false);
 
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
@@ -525,36 +542,127 @@ function AdminDashboardContent() {
       filters,
       userIds,
       emailSubject,
+      category,
     }: {
       message: string;
       filters?: object;
       userIds?: number[];
       emailSubject?: string;
+      category: "announcement" | "service";
     }) =>
       apiRequest("/api/admin/bulk-message", {
         method: "POST",
-        body: JSON.stringify({ message, filters, userIds, emailSubject }),
+        body: JSON.stringify({ message, filters, userIds, emailSubject, category }),
       }),
-    onSuccess: (data: { sent: number; failed: number; total: number }) => {
+    onSuccess: (data: {
+      category: string;
+      emailQueued: number;
+      inAppCreated: number;
+      breakdown?: BroadcastBreakdown;
+    }) => {
       setBulkMsgOpen(false);
       setBulkMsgText("");
       setBulkMsgSubject("");
       setBulkMsgSelectedUsers([]);
       setBulkMsgPickerSearch("");
       setBulkMsgMode("filtered");
+      setBcCategory("");
+      setBcConfirming(false);
+      setBcAudience(null);
       toast({
-        title: "Messages sent",
-        description: `Sent to ${data.sent} user${data.sent !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`,
+        title: "Broadcast sent",
+        description: `Email to ${data.emailQueued} recipient${data.emailQueued !== 1 ? "s" : ""}${
+          data.inAppCreated ? `, in-app to ${data.inAppCreated}` : ""
+        }.`,
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Failed to send",
-        description: "Could not send bulk messages. Please try again.",
+        description: (error as Error)?.message || "Could not send the broadcast. Please try again.",
         variant: "destructive",
       });
     },
   });
+
+  // Build the audience request body from the current composer state.
+  const broadcastRequestBody = () =>
+    bulkMsgMode === "specific"
+      ? { userIds: bulkMsgSelectedUsers.map((u) => u.id) }
+      : {
+          filters: {
+            search: searchTerm || undefined,
+            role: roleFilter,
+            status: statusFilter,
+            profileStatus: profileStatusFilter,
+            country: bcCountry,
+            lastActive: bcLastActive,
+          },
+        };
+
+  // Live recipient breakdown — same resolver the send path uses.
+  useEffect(() => {
+    if (!bulkMsgOpen || !bcCategory) {
+      setBcAudience(null);
+      return;
+    }
+    let cancelled = false;
+    setBcAudienceLoading(true);
+    const t = setTimeout(() => {
+      apiRequest("/api/admin/broadcast/audience", {
+        method: "POST",
+        body: JSON.stringify({ category: bcCategory, ...broadcastRequestBody() }),
+      })
+        .then((data: BroadcastBreakdown) => {
+          if (!cancelled) setBcAudience(data);
+        })
+        .catch(() => {
+          if (!cancelled) setBcAudience(null);
+        })
+        .finally(() => {
+          if (!cancelled) setBcAudienceLoading(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    bulkMsgOpen,
+    bcCategory,
+    bulkMsgMode,
+    bcCountry,
+    bcLastActive,
+    searchTerm,
+    roleFilter,
+    statusFilter,
+    profileStatusFilter,
+    bulkMsgSelectedUsers,
+  ]);
+
+  const sendBroadcastTest = async () => {
+    setBcTesting(true);
+    try {
+      const res: { ok: boolean; to: string } = await apiRequest("/api/admin/broadcast/test", {
+        method: "POST",
+        body: JSON.stringify({
+          message: bulkMsgText,
+          emailSubject: bulkMsgSubject.trim() || undefined,
+          count: bcAudience?.willReceiveEmail ?? null,
+        }),
+      });
+      toast({ title: "Test sent", description: `A test email was sent to ${res.to}.` });
+    } catch (error) {
+      toast({
+        title: "Test failed",
+        description: (error as Error)?.message || "Could not send the test email.",
+        variant: "destructive",
+      });
+    } finally {
+      setBcTesting(false);
+    }
+  };
 
   const { counts, markCategoryAsRead } = useBadgeCounts({
     enabled: !!user?.id,
@@ -2635,6 +2743,11 @@ function AdminDashboardContent() {
                       setBulkMsgMode("filtered");
                       setBulkMsgPickerSearch("");
                       setBulkMsgSelectedUsers([]);
+                      setBcCategory("");
+                      setBcCountry("all");
+                      setBcLastActive("all");
+                      setBcConfirming(false);
+                      setBcAudience(null);
                     }
                   }}
                 >
@@ -2645,14 +2758,59 @@ function AdminDashboardContent() {
                       className="flex shrink-0 items-center gap-2"
                     >
                       <MessageSquare className="h-4 w-4" />
-                      Send Bulk Message
+                      New announcement
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-lg">
+                  <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Send Bulk Message</DialogTitle>
+                      <DialogTitle>New announcement</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
+                      {/* Communication type — required, no default */}
+                      <div className="space-y-2">
+                        <span className="block text-sm font-medium text-foreground">
+                          Message type <span className="text-red-500">*</span>
+                        </span>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setBcCategory("announcement")}
+                            className={cn(
+                              "rounded-md border p-3 text-left text-sm transition-colors",
+                              bcCategory === "announcement"
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "hover:bg-muted"
+                            )}
+                          >
+                            <p className="font-medium">Announcement</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Features, news, tips. Email only. Anyone who&rsquo;s turned off
+                              platform updates won&rsquo;t receive it at all.
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBcCategory("service")}
+                            className={cn(
+                              "rounded-md border p-3 text-left text-sm transition-colors",
+                              bcCategory === "service"
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "hover:bg-muted"
+                            )}
+                          >
+                            <p className="font-medium">Service or legal</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Terms, security, outages, data changes. Email + in-app. Everyone
+                              receives it, including opted-out users.
+                            </p>
+                          </button>
+                        </div>
+                        <p className="text-xs text-amber-700 dark:text-amber-500">
+                          A message that mixes the two is an announcement — a feature plug inside a
+                          terms email makes the whole email marketing.
+                        </p>
+                      </div>
+
                       {/* Mode toggle */}
                       <div className="flex overflow-hidden rounded-md border text-sm">
                         <button
@@ -2682,11 +2840,38 @@ function AdminDashboardContent() {
                       </div>
 
                       {bulkMsgMode === "filtered" ? (
-                        <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
-                          <p className="font-medium text-muted-foreground">
-                            Recipients based on current filters:
-                          </p>
-                          <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="space-y-3 rounded-md border bg-muted/40 p-3 text-sm">
+                          <p className="font-medium text-muted-foreground">Audience</p>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <span className="block text-xs text-muted-foreground">
+                                Country contains
+                              </span>
+                              <Input
+                                value={bcCountry === "all" ? "" : bcCountry}
+                                placeholder="e.g. United Kingdom (blank = all)"
+                                onChange={(e) => setBcCountry(e.target.value.trim() || "all")}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <span className="block text-xs text-muted-foreground">
+                                Last active
+                              </span>
+                              <Select value={bcLastActive} onValueChange={setBcLastActive}>
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Any time</SelectItem>
+                                  <SelectItem value="3">Last 3 months</SelectItem>
+                                  <SelectItem value="6">Last 6 months</SelectItem>
+                                  <SelectItem value="12">Last 12 months</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                             {roleFilter !== "all" && (
                               <Badge variant="secondary">
                                 Role: {roleFilter === "recruiter" ? "employer" : roleFilter}
@@ -2703,20 +2888,10 @@ function AdminDashboardContent() {
                             {searchTerm && (
                               <Badge variant="secondary">Search: &quot;{searchTerm}&quot;</Badge>
                             )}
-                            {roleFilter === "all" &&
-                              statusFilter === "all" &&
-                              profileStatusFilter === "all" &&
-                              !searchTerm && (
-                                <span className="text-muted-foreground">All non-admin users</span>
-                              )}
                           </div>
-                          <p className="pt-1 text-muted-foreground">
-                            Approx.{" "}
-                            <span className="font-semibold text-foreground">
-                              {usersData?.total ?? "..."}
-                            </span>{" "}
-                            user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this
-                            message. Admin accounts are excluded.
+                          <p className="text-xs text-muted-foreground">
+                            Role, status, profile and search come from the Users table filters
+                            above; demo accounts and unverified addresses are always excluded.
                           </p>
                         </div>
                       ) : (
@@ -2832,6 +3007,79 @@ function AdminDashboardContent() {
                         </div>
                       )}
 
+                      {/* Live recipient breakdown — same resolver the send uses */}
+                      {bcCategory && (
+                        <div className="rounded-md border p-3 text-sm">
+                          {bcAudienceLoading && !bcAudience ? (
+                            <p className="text-muted-foreground">Calculating recipients…</p>
+                          ) : bcAudience ? (
+                            <div className="space-y-1">
+                              {(
+                                [
+                                  {
+                                    label: "Matching your filters",
+                                    value: bcAudience.matching,
+                                    kind: "head",
+                                  },
+                                  {
+                                    label: "less demo accounts",
+                                    value: -bcAudience.demo,
+                                    kind: "sub",
+                                  },
+                                  {
+                                    label: "less unverified addresses",
+                                    value: -bcAudience.unverified,
+                                    kind: "sub",
+                                  },
+                                  {
+                                    label: "less suppressed (bounced/spam)",
+                                    value: -bcAudience.suppressed,
+                                    kind: "sub",
+                                  },
+                                  ...(bcCategory === "announcement"
+                                    ? [
+                                        {
+                                          label: "less opted out of announcements",
+                                          value: -bcAudience.optedOut,
+                                          kind: "sub",
+                                        },
+                                      ]
+                                    : []),
+                                  {
+                                    label: "Will receive the email",
+                                    value: bcAudience.willReceiveEmail,
+                                    kind: "total",
+                                  },
+                                  ...(bcCategory === "service"
+                                    ? [
+                                        {
+                                          label: "Will receive the in-app message",
+                                          value: bcAudience.willReceiveInApp,
+                                          kind: "total",
+                                        },
+                                      ]
+                                    : []),
+                                ] as Array<{ label: string; value: number; kind: string }>
+                              ).map((r, i) => (
+                                <div
+                                  key={i}
+                                  className={cn(
+                                    "flex items-center justify-between",
+                                    r.kind === "sub" && "text-muted-foreground",
+                                    r.kind === "total" && "border-t pt-1 font-semibold"
+                                  )}
+                                >
+                                  <span>{r.label}</span>
+                                  <span className="tabular-nums">{r.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground">No recipients.</p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="space-y-1">
                         <label className="text-sm font-medium text-foreground">
                           Email subject{" "}
@@ -2852,50 +3100,78 @@ function AdminDashboardContent() {
                         value={bulkMsgText}
                         onChange={(e) => setBulkMsgText(e.target.value)}
                       />
-                      <div className="flex justify-end gap-2 pt-1">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setBulkMsgOpen(false);
-                            setBulkMsgText("");
-                            setBulkMsgSubject("");
-                            setBulkMsgMode("filtered");
-                            setBulkMsgPickerSearch("");
-                            setBulkMsgSelectedUsers([]);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          disabled={
-                            bulkMsgText.trim().length === 0 ||
-                            bulkMessageMutation.isPending ||
-                            (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
-                          }
-                          onClick={() => {
-                            const emailSubject = bulkMsgSubject.trim() || undefined;
-                            if (bulkMsgMode === "specific") {
-                              bulkMessageMutation.mutate({
-                                message: bulkMsgText,
-                                userIds: bulkMsgSelectedUsers.map((u) => u.id),
-                                emailSubject,
-                              });
-                            } else {
-                              bulkMessageMutation.mutate({
-                                message: bulkMsgText,
-                                emailSubject,
-                                filters: {
-                                  search: searchTerm || undefined,
-                                  role: roleFilter,
-                                  status: statusFilter,
-                                  profileStatus: profileStatusFilter,
-                                },
-                              });
-                            }
-                          }}
-                        >
-                          {bulkMessageMutation.isPending ? "Sending..." : "Send Message"}
-                        </Button>
+                      <div className="space-y-2 pt-1">
+                        {bcConfirming ? (
+                          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+                            <p className="font-medium">
+                              Send{" "}
+                              {bcCategory === "service"
+                                ? "this service/legal message"
+                                : "this announcement"}{" "}
+                              to {bcAudience?.willReceiveEmail ?? "…"} recipient
+                              {(bcAudience?.willReceiveEmail ?? 0) !== 1 ? "s" : ""} by email
+                              {bcCategory === "service" && (bcAudience?.willReceiveInApp ?? 0) > 0
+                                ? `, and ${bcAudience?.willReceiveInApp} in the app`
+                                : ""}
+                              ? This can&rsquo;t be undone.
+                            </p>
+                            <div className="mt-2 flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setBcConfirming(false)}
+                              >
+                                Back
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={bulkMessageMutation.isPending || !bcCategory}
+                                onClick={() => {
+                                  if (!bcCategory) return;
+                                  bulkMessageMutation.mutate({
+                                    message: bulkMsgText,
+                                    emailSubject: bulkMsgSubject.trim() || undefined,
+                                    category: bcCategory,
+                                    ...broadcastRequestBody(),
+                                  });
+                                }}
+                              >
+                                {bulkMessageMutation.isPending ? "Sending…" : "Confirm send"}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={bcTesting || bulkMsgText.trim().length === 0}
+                              onClick={sendBroadcastTest}
+                            >
+                              {bcTesting ? "Sending…" : "Send test to me"}
+                            </Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" onClick={() => setBulkMsgOpen(false)}>
+                                Cancel
+                              </Button>
+                              <Button
+                                disabled={
+                                  !bcCategory ||
+                                  bulkMsgText.trim().length === 0 ||
+                                  (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
+                                }
+                                onClick={() => setBcConfirming(true)}
+                              >
+                                Review &amp; send
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {!bcCategory && (
+                          <p className="text-right text-xs text-muted-foreground">
+                            Choose a message type to continue.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </DialogContent>

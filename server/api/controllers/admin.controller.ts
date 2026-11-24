@@ -983,135 +983,151 @@ export async function getBroadcastAudience(req: Request, res: Response) {
   }
 }
 
+// Send the composed email to the admin only — same template, subject and
+// footer a recipient would get, with a [TEST] prefix and a banner. The address
+// is ANNOUNCEMENT_TEST_EMAIL, falling back to the signed-in admin's own.
+export async function sendBroadcastTest(req: Request, res: Response) {
+  try {
+    const adminUser = (req as any).user;
+    if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
+
+    const { message, emailSubject, count } = req.body as {
+      message?: string;
+      emailSubject?: string;
+      count?: number;
+    };
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+    const subjectClean =
+      typeof emailSubject === "string" && emailSubject.trim()
+        ? emailSubject.trim()
+        : "A message from EventLink";
+    const to = process.env.ANNOUNCEMENT_TEST_EMAIL || adminUser.email;
+    const n = typeof count === "number" && Number.isFinite(count) ? count : null;
+    const banner = `<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#92400E;">This is a <strong>test</strong>.${
+      n != null ? ` The real send would reach <strong>${n}</strong> recipient(s).` : ""
+    }</div>`;
+    const messageHtml = banner + escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
+    const replyTo = process.env.BROADCAST_REPLY_TO || "admin@eventlink.one";
+
+    const okSent = await emailService.sendSystemUpdateNotification({
+      recipientId: adminUser.id,
+      recipientEmail: to,
+      recipientName: adminUser.first_name?.trim() || "there",
+      title: subjectClean,
+      message: messageHtml,
+      subjectOverride: `[TEST] ${subjectClean}`,
+      hideHeading: true,
+      skipPreferenceCheck: true,
+      replyTo,
+    });
+    if (!okSent) return res.status(502).json({ error: "Test email could not be sent" });
+    res.json({ ok: true, to });
+  } catch (error) {
+    console.error("sendBroadcastTest error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export async function sendBulkMessages(req: Request, res: Response) {
   try {
     const adminUser = (req as any).user;
     if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
 
-    const { message, filters, userIds, emailSubject } = req.body;
+    const { message, filters, userIds, emailSubject, category } = req.body;
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return res.status(400).json({ error: "Message is required" });
     }
-
-    let recipients: Awaited<ReturnType<typeof storage.getAllUsers>>["users"];
-
-    if (Array.isArray(userIds) && userIds.length > 0) {
-      // Specific user IDs were provided — fetch only those users
-      const { users } = await storage.getAllUsers(
-        1,
-        100000,
-        undefined,
-        undefined,
-        undefined,
-        "created_at",
-        "desc",
-        undefined
-      );
-      recipients = users.filter(
-        (u) => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin"
-      );
-    } else {
-      const search = filters?.search || undefined;
-      const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
-      const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
-      const profileStatus =
-        filters?.profileStatus && filters.profileStatus !== "all"
-          ? filters.profileStatus
-          : undefined;
-      // Country filter (e.g. a UK-only, HMRC-specific send). Passed through to
-      // getAllUsers, which the broadcast never did before.
-      const country = filters?.country && filters.country !== "all" ? filters.country : undefined;
-
-      // Fetch all matching users (no pagination cap)
-      const { users } = await storage.getAllUsers(
-        1,
-        100000,
-        search,
-        role,
-        status,
-        "created_at",
-        "desc",
-        profileStatus,
-        country
-      );
-
-      // Never message admins or the sender
-      recipients = users.filter((u) => u.id !== adminUser.id && u.role !== "admin");
+    if (category !== "announcement" && category !== "service") {
+      return res.status(400).json({ error: "category must be 'announcement' or 'service'" });
     }
 
-    // Never broadcast to demo accounts or unverified addresses — they are a
-    // deliverability risk and were never real, confirmed recipients. (is_demo
-    // lives on freelancer_profiles, so it's resolved via its own lookup.)
-    const demoUserIds = new Set(await storage.getDemoUserIds());
-    recipients = recipients.filter((u) => !demoUserIds.has(u.id) && u.email_verified);
-
-    let sent = 0;
-    let failed = 0;
+    // Single source of truth for who receives what — the same resolver the live
+    // count endpoint uses, so the number shown is the number sent.
+    const { breakdown, emailRecipients, inAppRecipients } = await resolveBroadcastAudience({
+      adminId: adminUser.id,
+      category,
+      filters,
+      userIds,
+    });
 
     const adminName =
       adminUser.first_name && adminUser.last_name
         ? `${adminUser.first_name} ${adminUser.last_name}`
         : "EventLink";
-
     const broadcastSubject =
       typeof emailSubject === "string" && emailSubject.trim()
         ? emailSubject.trim()
         : "A message from EventLink";
+    const messageHtml = escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
+    const replyTo = process.env.BROADCAST_REPLY_TO || "admin@eventlink.one";
+    const logMetadata = JSON.stringify({
+      broadcast: true,
+      category,
+      filters: filters ?? null,
+      byUserIds: Array.isArray(userIds) && userIds.length > 0,
+    });
 
-    for (const recipient of recipients) {
-      try {
-        const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
-        await storage.sendMessage({
-          conversation_id: conversation.id,
-          sender_id: adminUser.id,
-          content: message.trim(),
-          is_system_message: false,
-        });
-
-        const conversationUrl = `/dashboard?tab=messages&conversationId=${conversation.id}`;
-
-        await storage.createNotification({
-          user_id: recipient.id,
-          type: "new_message",
-          title: "New Message from EventLink",
-          message: `You have a new message from ${adminName}`,
-          metadata: JSON.stringify({ conversation_id: conversation.id }),
-          action_url: conversationUrl,
-        });
-
-        // Email the announcement through the shared system-update path: it uses
-        // the real masterTemplate, respects the recipient's system-update
-        // preference (opted-out users still get the in-app message above, just
-        // not the email), writes a send-log row, and carries an unsubscribe
-        // link. Non-blocking — a failure doesn't abort the batch.
-        const greetingName = recipient.first_name?.trim() || "there";
-        const messageHtml = escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
-
-        emailService
-          .sendSystemUpdateNotification({
-            recipientId: recipient.id,
-            recipientEmail: recipient.email,
-            recipientName: greetingName,
-            title: broadcastSubject,
-            message: messageHtml,
-            // A broadcast is the sender's own line, not a system label: use the
-            // subject verbatim and don't repeat it as a "🔔" heading in the body.
-            subjectOverride: broadcastSubject,
-            hideHeading: true,
-          })
-          .catch((err: unknown) =>
-            console.error(`Bulk message email failed for user ${recipient.id}:`, err)
-          );
-
-        sent++;
-      } catch (err) {
-        console.error(`Bulk message: failed for user ${recipient.id}:`, err);
-        failed++;
+    // In-app message + notification: service/legal only. A broadcast is not a
+    // conversation, so an announcement is email-only — opted out means opted
+    // out, and nothing lands in a one-sided thread nobody is watching.
+    let inAppCreated = 0;
+    if (category === "service") {
+      for (const recipient of inAppRecipients) {
+        try {
+          const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
+          await storage.sendMessage({
+            conversation_id: conversation.id,
+            sender_id: adminUser.id,
+            content: message.trim(),
+            is_system_message: false,
+          });
+          await storage.createNotification({
+            user_id: recipient.id,
+            type: "new_message",
+            title: "New Message from EventLink",
+            message: `You have a new message from ${adminName}`,
+            metadata: JSON.stringify({ conversation_id: conversation.id }),
+            action_url: `/dashboard?tab=messages&conversationId=${conversation.id}`,
+          });
+          inAppCreated++;
+        } catch (err) {
+          console.error(`Broadcast in-app failed for user ${recipient.id}:`, err);
+        }
       }
     }
 
-    console.log(`📨 Bulk message sent by admin ${adminUser.id}: ${sent} sent, ${failed} failed`);
-    res.json({ sent, failed, total: recipients.length });
+    // Email through the shared system-update path (real template, unsubscribe
+    // link, send-log row). Announcement is gated on the toggle — belt-and-
+    // braces, since the resolver already excluded opted-out users; service/legal
+    // skips the gate. replyTo so a reply to an email-only send lands somewhere.
+    // Fire-and-forget so a whole-base send doesn't block the request; delivery
+    // is recorded in email_notification_logs.
+    for (const recipient of emailRecipients) {
+      const greetingName = recipient.first_name?.trim() || "there";
+      emailService
+        .sendSystemUpdateNotification({
+          recipientId: recipient.id,
+          recipientEmail: recipient.email,
+          recipientName: greetingName,
+          title: broadcastSubject,
+          message: messageHtml,
+          subjectOverride: broadcastSubject,
+          hideHeading: true,
+          skipPreferenceCheck: category === "service",
+          replyTo,
+          metadata: logMetadata,
+        })
+        .catch((err: unknown) =>
+          console.error(`Broadcast email failed for user ${recipient.id}:`, err)
+        );
+    }
+
+    console.log(
+      `📨 Broadcast (${category}) by admin ${adminUser.id}: email ${emailRecipients.length}, in-app ${inAppCreated}`
+    );
+    res.json({ category, breakdown, emailQueued: emailRecipients.length, inAppCreated });
   } catch (error) {
     console.error("Bulk message error:", error);
     res.status(500).json({ error: "Internal server error" });
