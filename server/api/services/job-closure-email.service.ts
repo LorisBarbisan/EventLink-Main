@@ -4,6 +4,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
 import { SITE_URL } from "../config/site";
+import { storage } from "../../storage";
 
 export async function sendJobClosureEmails(jobId: number): Promise<void> {
   // Guard: skip if closure emails already sent for this job
@@ -81,9 +82,10 @@ export async function sendJobClosureEmails(jobId: number): Promise<void> {
 
     const firstName = freelancer.first_name || "there";
     const reputationLink = `${SITE_URL}/dashboard`;
-    const unsubscribeLink = `${SITE_URL}/unsubscribe?token=${
-      freelancer.unsubscribe_token ?? freelancer.id
-    }`;
+    // A null unsubscribe_token used to fall back to the user id, producing a
+    // link that 404s. Generate and persist a real token on demand instead.
+    const unsubscribeToken = await storage.getOrCreateUnsubscribeToken(freelancer.id);
+    const unsubscribeLink = `${SITE_URL}/unsubscribe?token=${unsubscribeToken}`;
 
     const subject = `Your application for ${job.title} — ${companyName}`;
 

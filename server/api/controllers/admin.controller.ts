@@ -8,12 +8,11 @@ import {
   type ColType,
 } from "../utils/xlsx";
 import { storage } from "../../storage";
-import { sendContactReplyEmail, sendEmail } from "../utils/emailService";
+import { sendContactReplyEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
 import { db } from "../config/db";
 import { teamMembers, users } from "../../../shared/schema";
 import { eq } from "drizzle-orm";
-import { SITE_URL } from "../config/site";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -954,38 +953,6 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-// Renders an admin broadcast as a full branded EventLink email (same navy/orange
-// template as the automatic emails), carrying the whole message — not a preview.
-function buildBroadcastEmailHtml(recipientName: string, body: string): string {
-  const site = SITE_URL;
-  const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br/>");
-  return `
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:32px 16px;"><tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-      <tr><td style="background-color:#1B2A4A;padding:28px 36px 20px 36px;border-bottom:4px solid #D8690E;">
-        <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EventLink</p>
-        <p style="margin:4px 0 0 0;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px;">Event Industry Professional Network</p>
-      </td></tr>
-      <tr><td style="padding:36px 36px 24px 36px;">
-        <p style="margin:0 0 16px 0;font-size:16px;color:#1F2937;">Hi ${escapeHtml(recipientName)},</p>
-        <div style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">${bodyHtml}</div>
-        <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">The EventLink Team<br/><a href="${site}" style="color:#D8690E;text-decoration:none;">eventlink.one</a></p>
-      </td></tr>
-      <tr><td style="background-color:#F9FAFB;padding:20px 36px;border-top:1px solid #E5E7EB;">
-        <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;">You are receiving this because you have an EventLink account. You can reply to this message from your dashboard.</p>
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`.trim();
-}
-
-function buildBroadcastText(recipientName: string, body: string): string {
-  return `Hi ${recipientName},\n\n${body}\n\nThe EventLink Team\neventlink.one`;
-}
-
 export async function sendBulkMessages(req: Request, res: Response) {
   try {
     const adminUser = (req as any).user;
@@ -1072,19 +1039,25 @@ export async function sendBulkMessages(req: Request, res: Response) {
           action_url: conversationUrl,
         });
 
-        // Send the FULL message as a branded EventLink email (not just a preview).
-        // Greeting uses the first name only. Non-blocking — a failure doesn't abort.
+        // Email the announcement through the shared system-update path: it uses
+        // the real masterTemplate, respects the recipient's system-update
+        // preference (opted-out users still get the in-app message above, just
+        // not the email), writes a send-log row, and carries an unsubscribe
+        // link. Non-blocking — a failure doesn't abort the batch.
         const greetingName = recipient.first_name?.trim() || "there";
+        const messageHtml = escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
 
-        sendEmail({
-          to: recipient.email,
-          subject: broadcastSubject,
-          text: buildBroadcastText(greetingName, message.trim()),
-          html: buildBroadcastEmailHtml(greetingName, message.trim()),
-          fromName: "EventLink Team",
-        }).catch((err: unknown) =>
-          console.error(`Bulk message email failed for user ${recipient.id}:`, err)
-        );
+        emailService
+          .sendSystemUpdateNotification({
+            recipientId: recipient.id,
+            recipientEmail: recipient.email,
+            recipientName: greetingName,
+            title: broadcastSubject,
+            message: messageHtml,
+          })
+          .catch((err: unknown) =>
+            console.error(`Bulk message email failed for user ${recipient.id}:`, err)
+          );
 
         sent++;
       } catch (err) {

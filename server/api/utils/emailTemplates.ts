@@ -370,6 +370,7 @@ export function systemUpdateEmail(data: {
   message: string;
   actionUrl?: string;
   actionText?: string;
+  unsubscribeUrl?: string;
 }): { subject: string; html: string } {
   const content = `
     <h2>🔔 ${data.title}</h2>
@@ -382,6 +383,15 @@ export function systemUpdateEmail(data: {
         ? `
       <p>
         <a href="${data.actionUrl}" class="button">${data.actionText}</a>
+      </p>
+    `
+        : ""
+    }
+    ${
+      data.unsubscribeUrl
+        ? `
+      <p style="margin-top:24px;font-size:12px;color:#9CA3AF;">
+        <a href="${data.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a> from these emails.
       </p>
     `
         : ""

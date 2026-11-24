@@ -204,6 +204,9 @@ export interface IStorage {
   isUserDeleted(userId: number): Promise<boolean>;
   markWelcomeEmailSent(userId: number): Promise<void>;
   getUserByUnsubscribeToken(token: string): Promise<User | undefined>;
+  // Returns the user's unsubscribe token, generating and saving one if absent
+  // (older/guest accounts have null tokens, which make unsubscribe links 404).
+  getOrCreateUnsubscribeToken(userId: number): Promise<string>;
   setMarketingOptOut(userId: number): Promise<void>;
   setCredentialRemindersOptOut(userId: number): Promise<void>;
   canSendMessageToUser(
@@ -1319,6 +1322,18 @@ export class DatabaseStorage implements IStorage {
   async getUserByUnsubscribeToken(token: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.unsubscribe_token, token)).limit(1);
     return result[0];
+  }
+
+  async getOrCreateUnsubscribeToken(userId: number): Promise<string> {
+    const [row] = await db
+      .select({ token: users.unsubscribe_token })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (row?.token) return row.token;
+    const token = randomBytes(32).toString("hex");
+    await db.update(users).set({ unsubscribe_token: token }).where(eq(users.id, userId));
+    return token;
   }
 
   async setMarketingOptOut(userId: number): Promise<void> {
