@@ -532,6 +532,8 @@ export class EmailNotificationService {
     message: string;
     actionUrl?: string;
     actionText?: string;
+    subjectOverride?: string;
+    hideHeading?: boolean;
   }): Promise<boolean> {
     // Check if user wants system update notifications
     if (!(await this.canSendEmail(params.recipientId, "system"))) {
@@ -547,6 +549,8 @@ export class EmailNotificationService {
       actionUrl: params.actionUrl,
       actionText: params.actionText,
       unsubscribeUrl: `${SITE_URL}/unsubscribe?token=${unsubscribeToken}`,
+      subjectOverride: params.subjectOverride,
+      hideHeading: params.hideHeading,
     });
 
     return this.sendEmailWithLogging({

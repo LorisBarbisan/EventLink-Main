@@ -988,6 +988,9 @@ export async function sendBulkMessages(req: Request, res: Response) {
         filters?.profileStatus && filters.profileStatus !== "all"
           ? filters.profileStatus
           : undefined;
+      // Country filter (e.g. a UK-only, HMRC-specific send). Passed through to
+      // getAllUsers, which the broadcast never did before.
+      const country = filters?.country && filters.country !== "all" ? filters.country : undefined;
 
       // Fetch all matching users (no pagination cap)
       const { users } = await storage.getAllUsers(
@@ -998,12 +1001,19 @@ export async function sendBulkMessages(req: Request, res: Response) {
         status,
         "created_at",
         "desc",
-        profileStatus
+        profileStatus,
+        country
       );
 
       // Never message admins or the sender
       recipients = users.filter((u) => u.id !== adminUser.id && u.role !== "admin");
     }
+
+    // Never broadcast to demo accounts or unverified addresses — they are a
+    // deliverability risk and were never real, confirmed recipients. (is_demo
+    // lives on freelancer_profiles, so it's resolved via its own lookup.)
+    const demoUserIds = new Set(await storage.getDemoUserIds());
+    recipients = recipients.filter((u) => !demoUserIds.has(u.id) && u.email_verified);
 
     let sent = 0;
     let failed = 0;
@@ -1054,6 +1064,10 @@ export async function sendBulkMessages(req: Request, res: Response) {
             recipientName: greetingName,
             title: broadcastSubject,
             message: messageHtml,
+            // A broadcast is the sender's own line, not a system label: use the
+            // subject verbatim and don't repeat it as a "🔔" heading in the body.
+            subjectOverride: broadcastSubject,
+            hideHeading: true,
           })
           .catch((err: unknown) =>
             console.error(`Bulk message email failed for user ${recipient.id}:`, err)

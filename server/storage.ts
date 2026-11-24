@@ -5194,6 +5194,16 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // User ids flagged as internal seed/demo/test records (on freelancer_profiles).
+  // Used to keep demo accounts out of broadcasts.
+  async getDemoUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ userId: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.is_demo, true));
+    return rows.map((r) => r.userId);
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
