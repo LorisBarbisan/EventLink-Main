@@ -510,10 +510,10 @@ function AdminDashboardContent() {
       setUserToDelete(null);
       toast({ title: "Account removed", description: "The account has been permanently deleted." });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Deletion failed",
-        description: "Failed to remove the account.",
+        description: (error as Error)?.message || "Failed to remove the account.",
         variant: "destructive",
       });
     },
