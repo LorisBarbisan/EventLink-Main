@@ -539,12 +539,14 @@ export class EmailNotificationService {
       return false;
     }
 
+    const unsubscribeToken = await storage.getOrCreateUnsubscribeToken(params.recipientId);
     const { subject, html } = emailTemplates.systemUpdateEmail({
       recipientName: params.recipientName,
       title: params.title,
       message: params.message,
       actionUrl: params.actionUrl,
       actionText: params.actionText,
+      unsubscribeUrl: `${SITE_URL}/unsubscribe?token=${unsubscribeToken}`,
     });
 
     return this.sendEmailWithLogging({
