@@ -20,6 +20,7 @@ import {
   getAllUsers,
   getAnalyticsOverview,
   getFeedbackStats,
+  getBroadcastAudience,
   getDirectOffers,
   getNotifyFreelancersPreview,
   getPendingGuestJobs,
@@ -114,6 +115,7 @@ export function registerAdminRoutes(app: Express) {
 
   // Send bulk in-app messages to filtered users (admin only)
   app.post("/api/admin/bulk-message", requireAdminAuth, sendBulkMessages);
+  app.post("/api/admin/broadcast/audience", requireAdminAuth, getBroadcastAudience);
 
   // Export all dashboard data as XLSX workbook (admin only)
   app.get("/api/admin/export/xlsx", requireAdminAuth, exportAdminXLSX);

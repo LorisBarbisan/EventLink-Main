@@ -5204,6 +5204,17 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => r.userId);
   }
 
+  // User ids that turned OFF "Platform updates and announcements". The default
+  // is on, so only an explicit false row counts. Used to gate announcement
+  // broadcasts set-based rather than one canSendEmail call per recipient.
+  async getSystemUpdatesOptedOutUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ userId: notification_preferences.user_id })
+      .from(notification_preferences)
+      .where(eq(notification_preferences.email_system_updates, false));
+    return rows.map((r) => r.userId);
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
