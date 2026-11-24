@@ -409,7 +409,7 @@ export default function MyJobs() {
                   </div>
                 )}
 
-                {booking.status === "enquired" && result.isDirectOffer ? (
+                {booking.status === "enquired" ? (
                   <div className="mt-2 flex gap-2">
                     <button
                       data-help="jobs.offer.accept"
