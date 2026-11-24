@@ -413,10 +413,10 @@ const STATIC_PAGES: Record<
   { title: string; description: string; h1: string; bodyHtml: string }
 > = {
   "/": {
-    title: "EventLink | Freelance Events Crew Network",
+    title: "EventLink | The Home of Freelance Event Professionals",
     description:
-      "EventLink is a freelance events crew network — employers find vetted crew fast; freelancers find event jobs and build their reputation.",
-    h1: "EventLink: the freelance events crew network",
+      "Find opportunities, connect directly with clients, manage your bookings and build your professional reputation — everything freelance event professionals need, in one place.",
+    h1: "EventLink: the home of freelance event professionals",
     bodyHtml: `<p>EventLink is where freelance event professionals build trusted profiles, showcase their experience, and connect with the companies that power live events.</p>
   <ul>
     <li><a href="/jobs">Event crew jobs</a></li>
@@ -425,14 +425,15 @@ const STATIC_PAGES: Record<
   </ul>`,
   },
   "/how-it-works": {
-    title: "How EventLink Works | Freelance Events Crew Network",
+    title: "How EventLink Works | The Home of Freelance Event Professionals",
     description: "See how EventLink connects freelance event crew with employers, step by step.",
     h1: "How EventLink Works",
     bodyHtml: `<p>EventLink connects event professionals with opportunities across the events industry. Freelancers build a profile and find work; employers post jobs and hire skilled crew.</p>`,
   },
   "/jobs": {
     title: "Event Crew Jobs | EventLink",
-    description: "Browse event industry jobs on EventLink, the freelance events crew network.",
+    description:
+      "Browse event industry jobs on EventLink, the home of freelance event professionals.",
     h1: "Event Crew Jobs",
     bodyHtml: `<p>Discover event industry jobs on EventLink and connect with top companies hiring freelance event crew across the UK.</p>`,
   },
