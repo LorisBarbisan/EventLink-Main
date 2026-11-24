@@ -2912,6 +2912,15 @@ function OverviewSection({
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  // Throws on a non-OK response so a 401/500 is treated as a query error (data
+  // stays undefined) instead of "succeeding" with an error body that later code
+  // .find()s / .map()s and crashes on. Raw fetch().then(r=>r.json()) did not.
+  const fetchJson = async <T,>(url: string): Promise<T> => {
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+    return res.json() as Promise<T>;
+  };
+
   // Fire-and-forget on mount: promote stale invoiced entries to overdue
   useEffect(() => {
     fetch("/api/books/sync-overdue", { method: "POST", headers: authHeaders() })
@@ -2930,18 +2939,17 @@ function OverviewSection({
 
   const { data, isLoading } = useQuery<BooksSummary>({
     queryKey: ["/api/books/summary"],
-    queryFn: () => fetch("/api/books/summary", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<BooksSummary>("/api/books/summary"),
   });
 
   const { data: monthlyData } = useQuery<{ months: MonthlyRow[] }>({
     queryKey: ["/api/books/monthly"],
-    queryFn: () => fetch("/api/books/monthly", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ months: MonthlyRow[] }>("/api/books/monthly"),
   });
 
   const { data: catData } = useQuery<{ name: string; pence: number }[]>({
     queryKey: ["/api/books/expense-categories"],
-    queryFn: () =>
-      fetch("/api/books/expense-categories", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ name: string; pence: number }[]>("/api/books/expense-categories"),
   });
 
   type QuarterRow = {
@@ -2955,18 +2963,17 @@ function OverviewSection({
   };
   const { data: receiptCount } = useQuery<{ count: number }>({
     queryKey: ["/api/receipts/unattached/count"],
-    queryFn: () =>
-      fetch("/api/receipts/unattached/count", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ count: number }>("/api/receipts/unattached/count"),
   });
   const { data: quarterlyData } = useQuery<{ tax_year: string; quarters: QuarterRow[] }>({
     queryKey: ["/api/books/quarterly"],
-    queryFn: () => fetch("/api/books/quarterly", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ tax_year: string; quarters: QuarterRow[] }>("/api/books/quarterly"),
   });
 
   // Which MTD quarter is today in? (inline — no shared import needed)
   const todayIso = ukToday();
   const currentQuarter = (() => {
-    const q = quarterlyData?.quarters.find((q) => todayIso >= q.from && todayIso <= q.to);
+    const q = quarterlyData?.quarters?.find((q) => todayIso >= q.from && todayIso <= q.to);
     return q?.quarter ?? null;
   })();
 
@@ -3999,7 +4006,7 @@ function OverviewSection({
       </Card>
 
       {/* ── Quarterly breakdown ── */}
-      {quarterlyData && (
+      {quarterlyData?.quarters && (
         <Card className="overflow-hidden">
           <div className="border-l-4 border-indigo-500 bg-indigo-50/50 px-5 py-3 dark:bg-indigo-950/20">
             <p data-help="tax.quarters" className="font-semibold">
