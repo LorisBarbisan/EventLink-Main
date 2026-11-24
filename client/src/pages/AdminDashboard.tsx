@@ -2768,9 +2768,9 @@ function AdminDashboardContent() {
                     <div className="space-y-4 pt-2">
                       {/* Communication type — required, no default */}
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
+                        <span className="block text-sm font-medium text-foreground">
                           Message type <span className="text-red-500">*</span>
-                        </label>
+                        </span>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <button
                             type="button"
@@ -2844,9 +2844,9 @@ function AdminDashboardContent() {
                           <p className="font-medium text-muted-foreground">Audience</p>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <div className="space-y-1">
-                              <label className="text-xs text-muted-foreground">
+                              <span className="block text-xs text-muted-foreground">
                                 Country contains
-                              </label>
+                              </span>
                               <Input
                                 value={bcCountry === "all" ? "" : bcCountry}
                                 placeholder="e.g. United Kingdom (blank = all)"
@@ -2855,7 +2855,9 @@ function AdminDashboardContent() {
                               />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-xs text-muted-foreground">Last active</label>
+                              <span className="block text-xs text-muted-foreground">
+                                Last active
+                              </span>
                               <Select value={bcLastActive} onValueChange={setBcLastActive}>
                                 <SelectTrigger className="h-8 text-sm">
                                   <SelectValue />
