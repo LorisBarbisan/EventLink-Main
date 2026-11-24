@@ -31,7 +31,7 @@ export const HeroSection = () => {
 
           <p className="mx-auto max-w-3xl text-base leading-relaxed text-foreground sm:text-xl">
             Find opportunities, connect directly with clients, manage your bookings and build your
-            professional reputation. Everything you need to make freelance work work better, all in
+            professional reputation. Everything you need to make freelance work flow better, all in
             one place.
           </p>
 
