@@ -188,6 +188,13 @@ export default function FreelancerCard() {
 
   // Profile theme accent (overrides default orange on the card)
   const themeAccent: string = (freelancer as any)?.profile_theme?.accent ?? C.orange;
+  // "Send me a job" direct-offer link — shown when the freelancer accepts
+  // offers and has a shareable slug.
+  const offerSlug: string | null =
+    (freelancer as any)?.custom_slug || (freelancer as any)?.slug || null;
+  const offersOn: boolean = (freelancer as any)?.accepts_direct_offers !== false;
+  const sendJobHref: string | null = offersOn && offerSlug ? `/send-job/${offerSlug}` : null;
+
   // Button colour for section buttons on the card back
   const themeButtonColor: string = (freelancer as any)?.profile_theme?.button_color ?? "#ffffff";
   // Faint tint version for icon backgrounds / pill backgrounds
@@ -884,6 +891,29 @@ export default function FreelancerCard() {
                     style={{ width: "100%", height: 1, background: DM.divider, margin: "12px 0" }}
                   />
                   <VerifiedBadge />
+                  {sendJobHref && (
+                    <a
+                      href={sendJobHref}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        width: "100%",
+                        minHeight: 44,
+                        borderRadius: 12,
+                        marginTop: 14,
+                        background: C.purple,
+                        color: "#fff",
+                        textDecoration: "none",
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+                      <span style={{ fontSize: 16 }}>📩</span> Send me a job
+                    </a>
+                  )}
                   {(freelancer.phone || freelancer.contact_email) && (
                     <div
                       style={{
@@ -1309,6 +1339,29 @@ export default function FreelancerCard() {
               <div style={{ margin: "8px 0" }}>
                 <VerifiedBadge />
               </div>
+              {sendJobHref && (
+                <a
+                  href={sendJobHref}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    width: "100%",
+                    minHeight: 44,
+                    borderRadius: 12,
+                    margin: "6px 0 10px",
+                    background: C.purple,
+                    color: "#fff",
+                    textDecoration: "none",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>📩</span> Send me a job
+                </a>
+              )}
               <div
                 style={{
                   display: "flex",

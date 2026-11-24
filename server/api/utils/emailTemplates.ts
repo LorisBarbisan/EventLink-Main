@@ -874,6 +874,74 @@ export function guestJobConfirmEmail(data: {
 }
 
 /**
+ * Direct offer — magic link to send a job straight to one freelancer.
+ */
+export function directOfferConfirmEmail(data: {
+  contactName: string;
+  freelancerName: string;
+  jobTitle: string;
+  confirmUrl: string;
+}): { subject: string; html: string } {
+  const content = `
+    <h2>✅ Confirm your job offer</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      You're sending <strong>&ldquo;${data.jobTitle}&rdquo;</strong> directly to
+      <strong>${data.freelancerName}</strong> on EventLink. Click below to confirm —
+      ${data.freelancerName.split(" ")[0]} sees it as soon as you do. This link expires in&nbsp;24&nbsp;hours.
+    </p>
+    <p>
+      <a href="${data.confirmUrl}" class="button">Confirm &amp; Send Offer</a>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      Or copy this link into your browser:<br/>
+      <span style="color: #D8690E; word-break: break-all;">${data.confirmUrl}</span>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      This offer goes only to ${data.freelancerName} — it is never listed publicly.
+      If you didn&rsquo;t request this, you can safely ignore this email.
+    </p>
+  `;
+  return {
+    subject: `Confirm your job offer to ${data.freelancerName} on EventLink`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
+ * Direct offer — offer sent to the freelancer + set password CTA.
+ */
+export function directOfferSentEmail(data: {
+  contactName: string;
+  freelancerName: string;
+  jobTitle: string;
+  setPasswordUrl: string;
+  hasToken: boolean;
+}): { subject: string; html: string } {
+  const ctaLabel = data.hasToken ? "Set Your Password &amp; Manage Offer" : "Create a Free Account";
+  const ctaNote = data.hasToken
+    ? "Set a password to track this offer, message directly and send more — your offer is already linked to your account."
+    : "Create a free account using the same email address and your offer will be linked automatically.";
+  const content = `
+    <h2>🎉 Your offer is on its way!</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      <strong>&ldquo;${data.jobTitle}&rdquo;</strong> has been sent to
+      <strong>${data.freelancerName}</strong>. They'll see it in their dashboard and can accept or decline.
+    </p>
+    <hr style="border: none; border-top: 1px solid #eeeeee; margin: 24px 0;" />
+    <p>${ctaNote}</p>
+    <p>
+      <a href="${data.setPasswordUrl}" class="button">${ctaLabel}</a>
+    </p>
+  `;
+  return {
+    subject: `Your offer to ${data.freelancerName} is on its way`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
  * Guest job — job is live + set password CTA
  */
 export function guestJobPublishedEmail(data: {

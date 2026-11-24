@@ -21,6 +21,7 @@ import {
   updateJob,
 } from "../controllers/job.controller";
 import { submitGuestJob, confirmGuestJob } from "../controllers/guest-job.controller";
+import { submitDirectOffer, confirmDirectOffer } from "../controllers/direct-offer.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
@@ -57,10 +58,45 @@ const guestJobEmailLimiter = rateLimit({
   },
 });
 
+// Direct offer ("send me a job"): the magic-link step is the real control —
+// the email must be a working mailbox before anything is created — so the
+// per-email limit (10/day) does the meaningful work. The IP limit is only a
+// blunt backstop against a crude flood, and it must stay loose: carrier-grade
+// NAT and office/venue networks put many legitimate clients behind one address,
+// so a tight per-IP cap would reject strangers who have done nothing wrong.
+// skipFailedRequests means only a submission that actually stored a draft
+// counts — validation errors and 429s no longer burn quota.
+const directOfferIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 15,
+  message: { error: "Too many offers from this device. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipFailedRequests: true,
+});
+
+const directOfferEmailLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req: Request) => {
+    const email = (req.body?.contact_email as string | undefined) ?? "";
+    return email.toLowerCase().trim() || "unknown";
+  },
+  message: { error: "This email address has sent the maximum number of offers today." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: Request) => !req.body?.contact_email,
+  skipFailedRequests: true,
+});
+
 export function registerJobRoutes(app: Express) {
   // Guest job submission (no auth required) — rate limited by IP and email
   app.post("/api/jobs/guest", guestJobIpLimiter, guestJobEmailLimiter, submitGuestJob);
   app.get("/api/jobs/guest/confirm", confirmGuestJob);
+
+  // Direct offer ("send me a job") — no auth required; rate limited by IP and email
+  app.post("/api/jobs/direct", directOfferIpLimiter, directOfferEmailLimiter, submitDirectOffer);
+  app.get("/api/jobs/direct/confirm", confirmDirectOffer);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);

@@ -126,7 +126,10 @@ export async function applyToJob(req: Request, res: Response) {
 // Get freelancer applications
 export async function getFreelancerApplications(req: Request, res: Response) {
   try {
-    const freelancerId = parseInt(req.params.freelancerId);
+    const freelancerId = Number(req.params.freelancerId);
+    if (!Number.isInteger(freelancerId) || freelancerId <= 0) {
+      return res.status(400).json({ error: "Invalid freelancer id" });
+    }
 
     // Check authorization
     if (
@@ -148,7 +151,10 @@ export async function getFreelancerApplications(req: Request, res: Response) {
 // Get applications for a job
 export async function getJobApplications(req: Request, res: Response) {
   try {
-    const jobId = parseInt(req.params.jobId);
+    const jobId = Number(req.params.jobId);
+    if (!Number.isInteger(jobId) || jobId <= 0) {
+      return res.status(400).json({ error: "Invalid job id" });
+    }
 
     // Check if user is authorized to view applications for this job
     if (!(req as any).user) {
@@ -177,7 +183,10 @@ export async function getJobApplications(req: Request, res: Response) {
 // Get recruiter applications
 export async function getRecruiterApplications(req: Request, res: Response) {
   try {
-    const recruiterId = parseInt(req.params.recruiterId);
+    const recruiterId = Number(req.params.recruiterId);
+    if (!Number.isInteger(recruiterId) || recruiterId <= 0) {
+      return res.status(400).json({ error: "Invalid recruiter id" });
+    }
 
     // Check authorization — allow admin, the owner themselves, or a team member whose companyId matches
     const reqUser = (req as any).user;
@@ -203,7 +212,10 @@ export async function getRecruiterApplications(req: Request, res: Response) {
 // Get applications the recruiter has hidden (soft-deleted) for live jobs
 export async function getRecruiterHiddenApplications(req: Request, res: Response) {
   try {
-    const recruiterId = parseInt(req.params.recruiterId);
+    const recruiterId = Number(req.params.recruiterId);
+    if (!Number.isInteger(recruiterId) || recruiterId <= 0) {
+      return res.status(400).json({ error: "Invalid recruiter id" });
+    }
 
     const reqUser = (req as any).user;
     const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
@@ -227,7 +239,10 @@ export async function getRecruiterHiddenApplications(req: Request, res: Response
 // Accept application
 export async function acceptApplication(req: Request, res: Response) {
   try {
-    const applicationId = parseInt(req.params.applicationId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+      return res.status(400).json({ error: "Invalid application id" });
+    }
 
     if (!(req as any).user) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -379,7 +394,10 @@ export async function acceptApplication(req: Request, res: Response) {
 // Reject application
 export async function rejectApplication(req: Request, res: Response) {
   try {
-    const applicationId = parseInt(req.params.applicationId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+      return res.status(400).json({ error: "Invalid application id" });
+    }
 
     if (!(req as any).user) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -477,7 +495,10 @@ export async function rejectApplication(req: Request, res: Response) {
 // Shortlist application
 export async function shortlistApplication(req: Request, res: Response) {
   try {
-    const applicationId = parseInt(req.params.applicationId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+      return res.status(400).json({ error: "Invalid application id" });
+    }
 
     if (!(req as any).user) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -845,7 +866,10 @@ export async function withdrawInvitation(req: Request, res: Response) {
 // Respond to invitation (Accept/Decline)
 export async function respondToInvitation(req: Request, res: Response) {
   try {
-    const applicationId = parseInt(req.params.applicationId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+      return res.status(400).json({ error: "Invalid application id" });
+    }
     const { status, responseMessage } = req.body; // status: 'applied' (accept) or 'declined'
 
     if (!(req as any).user) {

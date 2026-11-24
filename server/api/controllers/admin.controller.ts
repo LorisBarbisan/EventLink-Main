@@ -41,7 +41,10 @@ export async function getFeedbackStats(req: Request, res: Response) {
 // Update feedback status (admin only)
 export async function updateFeedbackStatus(req: Request, res: Response) {
   try {
-    const feedbackId = parseInt(req.params.id);
+    const feedbackId = Number(req.params.id);
+    if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+      return res.status(400).json({ error: "Invalid feedback id" });
+    }
     const { status } = req.body;
 
     if (!["pending", "in_review", "resolved", "closed"].includes(status)) {
@@ -59,7 +62,10 @@ export async function updateFeedbackStatus(req: Request, res: Response) {
 // Add admin response to feedback (admin only)
 export async function addFeedbackResponse(req: Request, res: Response) {
   try {
-    const feedbackId = parseInt(req.params.id);
+    const feedbackId = Number(req.params.id);
+    if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+      return res.status(400).json({ error: "Invalid feedback id" });
+    }
     const { response } = req.body;
 
     if (!response) {
@@ -248,6 +254,18 @@ export async function getPendingGuestJobs(req: Request, res: Response) {
   }
 }
 
+// Read-only oversight list of recent direct offers (admin only). No moderation
+// controls — direct offers are private and already delivered to the freelancer.
+export async function getDirectOffers(req: Request, res: Response) {
+  try {
+    const offers = await storage.listDirectOffersForAdmin();
+    res.json({ offers, total: offers.length });
+  } catch (error) {
+    console.error("getDirectOffers error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Approve or reject a guest job (admin only)
 export async function moderateGuestJob(req: Request, res: Response) {
   try {
@@ -258,6 +276,15 @@ export async function moderateGuestJob(req: Request, res: Response) {
     const { decision, note } = req.body as { decision: string; note?: string };
     if (decision !== "approved" && decision !== "rejected") {
       return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });
+    }
+    // A private job (e.g. a direct offer) is not a publication candidate.
+    // Moderating it would publish or close a private arrangement, so refuse.
+    const existing = await storage.getJobById(jobId);
+    if (!existing) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    if (existing.status === "private") {
+      return res.status(409).json({ error: "A private job cannot be moderated for publication." });
     }
     const moderatorId = (req as any).user?.id;
     const job = await storage.moderateJob(jobId, decision, moderatorId, note);

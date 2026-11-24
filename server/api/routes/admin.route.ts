@@ -20,6 +20,7 @@ import {
   getAllUsers,
   getAnalyticsOverview,
   getFeedbackStats,
+  getDirectOffers,
   getNotifyFreelancersPreview,
   getPendingGuestJobs,
   grantAdminAccess,
@@ -71,6 +72,7 @@ export function registerAdminRoutes(app: Express) {
 
   // Guest job moderation queue (admin only)
   app.get("/api/admin/jobs/pending-guest", requireAdminAuth, getPendingGuestJobs);
+  app.get("/api/admin/direct-offers", requireAdminAuth, getDirectOffers);
   app.post("/api/admin/jobs/:id/moderate", requireAdminAuth, moderateGuestJob);
 
   // Get all jobs (admin only)

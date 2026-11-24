@@ -146,6 +146,9 @@ export const freelancer_profiles = pgTable(
     profile_is_public: boolean("profile_is_public").notNull().default(true),
     // Opt-in: show the availability calendar on the profile and card
     show_calendar_publicly: boolean("show_calendar_publicly").notNull().default(false),
+    // On by default: accept direct job offers via the "Send me a job" link.
+    // Off closes that inbox — the offer page 404s and the endpoint rejects.
+    accepts_direct_offers: boolean("accepts_direct_offers").notNull().default(true),
     reference_token: text("reference_token"), // UUID for public reference request link
     // Separate token for direct ("invited") rating links — never the reference token
     rating_invite_token: text("rating_invite_token"),
@@ -1205,6 +1208,10 @@ export const bookings = pgTable(
     employerNotes: text("employer_notes"),
     cancellationReason: text("cancellation_reason"),
     cancelledBy: text("cancelled_by"),
+    // A freelancer can report a direct offer they consider abusive. Surfaced in
+    // the admin direct-offers view; not a moderation gate.
+    reported_at: timestamp("reported_at", { withTimezone: true }),
+    report_reason: text("report_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

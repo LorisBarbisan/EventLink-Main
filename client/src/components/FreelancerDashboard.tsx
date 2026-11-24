@@ -46,7 +46,7 @@ import {
   PoundSterling,
   QrCode,
   Send,
-  Share2,
+  ExternalLink,
   ShieldCheck,
   Star,
   X,
@@ -334,6 +334,8 @@ export default function SimplifiedFreelancerDashboard() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [showUrlEditor, setShowUrlEditor] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [showJobLinkModal, setShowJobLinkModal] = useState(false);
+  const [jobLinkQr, setJobLinkQr] = useState<string>("");
 
   // Check URL parameters for initial tab and react to location changes
   const [location] = useLocation();
@@ -507,6 +509,48 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // "Send me a job" direct offers. On by default.
+  const [acceptsOffers, setAcceptsOffers] = useState(true);
+  const [togglingOffers, setTogglingOffers] = useState(false);
+  useEffect(() => {
+    const v = (profile as { accepts_direct_offers?: boolean } | undefined)?.accepts_direct_offers;
+    if (v !== undefined) setAcceptsOffers(!!v);
+  }, [profile]);
+  const toggleAcceptsOffers = async () => {
+    if (!user?.id) return;
+    setTogglingOffers(true);
+    const next = !acceptsOffers;
+    try {
+      await apiRequest(`/api/freelancer/${user.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ accepts_direct_offers: next }),
+      });
+      setAcceptsOffers(next);
+      toast({
+        title: next ? "Job link is on" : "Job link is off",
+        description: next
+          ? "Clients can send you a job directly through your link."
+          : "Your 'Send me a job' link now shows as unavailable.",
+      });
+    } catch {
+      toast({ title: "Failed to update the job link setting", variant: "destructive" });
+    } finally {
+      setTogglingOffers(false);
+    }
+  };
+
+  // The public "Send me a job" slug, if the profile has one.
+  const sendJobSlug =
+    (profile as { custom_slug?: string | null; slug?: string | null } | undefined)?.custom_slug ||
+    (profile as { custom_slug?: string | null; slug?: string | null } | undefined)?.slug ||
+    null;
+  useEffect(() => {
+    if (!showJobLinkModal || !sendJobSlug) return;
+    QRCode.toDataURL(`${window.location.origin}/send-job/${sendJobSlug}`, { width: 256 })
+      .then(setJobLinkQr)
+      .catch(() => setJobLinkQr(""));
+  }, [showJobLinkModal, sendJobSlug]);
+
   const [cardShareUrl, setCardShareUrl] = useState("");
 
   useEffect(() => {
@@ -593,6 +637,11 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // The public "Send me a job" link. Needs a slug; empty otherwise so the
+  // button only shows when there's a legible slug to share.
+  const getSendJobUrl = () =>
+    sendJobSlug ? `${window.location.origin}/send-job/${sendJobSlug}` : "";
+
   // Simplified notification check
   return (
     <div className="container mx-auto min-w-0 max-w-full px-1 py-4 sm:px-6 sm:py-6">
@@ -619,6 +668,7 @@ export default function SimplifiedFreelancerDashboard() {
           </div>
           <Button
             size="sm"
+            data-help="action.profile.customizeUrl"
             onClick={() => setShowUrlEditor(true)}
             className="h-7 w-7 shrink-0 border-0 bg-primary/10 p-0 text-primary hover:bg-primary/20"
             title="Customize URL"
@@ -653,6 +703,21 @@ export default function SimplifiedFreelancerDashboard() {
               className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
             >
               Show calendar
+            </label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Switch
+              id="accepts-offers-bar"
+              data-help="action.profile.acceptsOffers"
+              checked={acceptsOffers}
+              onCheckedChange={toggleAcceptsOffers}
+              disabled={togglingOffers}
+            />
+            <label
+              htmlFor="accepts-offers-bar"
+              className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
+            >
+              Accept offers
             </label>
           </div>
           <Button
@@ -691,12 +756,25 @@ export default function SimplifiedFreelancerDashboard() {
           <Button
             size="sm"
             variant="outline"
+            data-help="action.profile.cardQr"
             onClick={() => setShowQrModal(true)}
             title="Card QR code"
           >
             <QrCode className="h-3.5 w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Card QR</span>
           </Button>
+          {sendJobSlug && (
+            <Button
+              size="sm"
+              data-help="action.profile.sendJobLink"
+              onClick={() => setShowJobLinkModal(true)}
+              title="Your 'Send me a job' link"
+              className="border-0 bg-orange-600 text-white hover:bg-orange-700"
+            >
+              <Send className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Send Me Jobs</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -705,8 +783,8 @@ export default function SimplifiedFreelancerDashboard() {
             title="View public profile"
           >
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-              <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">View Profile</span>
+              <ExternalLink className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Profile</span>
             </a>
           </Button>
         </div>
@@ -1043,6 +1121,7 @@ export default function SimplifiedFreelancerDashboard() {
                 href={cardShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-help="action.profile.openCard"
                 title="Click to open card"
               >
                 <img
@@ -1076,6 +1155,61 @@ export default function SimplifiedFreelancerDashboard() {
                     const a = document.createElement("a");
                     a.href = qrDataUrl;
                     a.download = "eventlink-qr-code.png";
+                    a.click();
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Download QR
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showJobLinkModal} onOpenChange={setShowJobLinkModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-purple-600" />
+              Your &ldquo;Send me a job&rdquo; link
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <p className="text-center text-sm text-muted-foreground">
+              Share this with a client who&rsquo;s just agreed work. They fill in a few fields and
+              the job lands in your dashboard — no account needed.
+            </p>
+            {jobLinkQr ? (
+              <img src={jobLinkQr} alt="Job link QR code" className="h-56 w-56 rounded-lg" />
+            ) : (
+              <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground">Generating…</p>
+              </div>
+            )}
+            <p className="w-full truncate rounded bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+              {getSendJobUrl()}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  navigator.clipboard.writeText(getSendJobUrl());
+                  toast({ title: "Job link copied!" });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy Link
+              </Button>
+              {jobLinkQr && (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = jobLinkQr;
+                    a.download = "eventlink-job-link-qr.png";
                     a.click();
                   }}
                 >

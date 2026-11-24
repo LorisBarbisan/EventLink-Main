@@ -22,6 +22,7 @@ interface FreelancerBookingResult {
     venueAddress: string | null;
     cancellationReason: string | null;
     cancelledBy: string | null;
+    reported_at: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -32,10 +33,12 @@ interface FreelancerBookingResult {
     eventDate: string | null;
     payRate: string | null;
   };
+  isDirectOffer?: boolean;
   employer: {
     id: number;
     firstName: string;
     lastName: string;
+    email: string | null;
     companyName: string | null;
     profilePicture: string | null;
   };
@@ -86,6 +89,58 @@ export default function MyJobs() {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
     },
   });
+
+  const acceptMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      return apiRequest(`/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "confirmed", note: "Accepted by freelancer" }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Offer accepted", description: "It's now a confirmed booking." });
+    },
+    onError: () => toast({ title: "Couldn't accept the offer", variant: "destructive" }),
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      return apiRequest(`/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellationReason: "Declined by freelancer",
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Offer declined" });
+    },
+    onError: () => toast({ title: "Couldn't decline the offer", variant: "destructive" }),
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      return apiRequest(`/api/bookings/${bookingId}/report`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Offer reported", description: "Thanks — an admin will take a look." });
+    },
+    onError: () => toast({ title: "Couldn't report the offer", variant: "destructive" }),
+  });
+
+  const handleReport = (bookingId: number) => {
+    const reason = window.prompt("What's wrong with this offer? (optional)");
+    // Cancelling the prompt returns null; an empty string is a valid "no reason".
+    if (reason === null) return;
+    reportMutation.mutate({ bookingId, reason });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -256,6 +311,29 @@ export default function MyJobs() {
                   </span>
                 </div>
 
+                {result.isDirectOffer && (
+                  <div
+                    data-help="jobs.offer.about"
+                    className="mb-3 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700"
+                  >
+                    📩 Sent to you directly
+                  </div>
+                )}
+                {result.isDirectOffer &&
+                  (booking.reported_at ? (
+                    <span className="mb-3 ml-2 inline-flex items-center text-xs text-gray-400">
+                      Reported
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleReport(booking.id)}
+                      disabled={reportMutation.isPending}
+                      className="mb-3 ml-2 text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline disabled:opacity-50"
+                    >
+                      Report
+                    </button>
+                  ))}
+
                 {/* Employer info */}
                 <div className="mb-3 flex items-center gap-2">
                   <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
@@ -271,9 +349,16 @@ export default function MyJobs() {
                       </div>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">
-                    {employer.companyName || `${employer.firstName} ${employer.lastName}`}
-                  </p>
+                  <div className="min-w-0 text-sm">
+                    <p className="text-gray-600">
+                      {employer.companyName || `${employer.firstName} ${employer.lastName}`}
+                    </p>
+                    {result.isDirectOffer && employer.email && (
+                      <p className="truncate text-xs text-gray-400" title="Verified email">
+                        {employer.email}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Booking details */}
@@ -324,13 +409,34 @@ export default function MyJobs() {
                   </div>
                 )}
 
-                {["enquired", "confirmed"].includes(booking.status) && (
-                  <button
-                    onClick={() => cancelMutation.mutate(booking.id)}
-                    className="mt-2 block text-sm text-gray-400 transition-colors hover:text-red-600"
-                  >
-                    Cancel this booking
-                  </button>
+                {booking.status === "enquired" && result.isDirectOffer ? (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      data-help="jobs.offer.accept"
+                      onClick={() => acceptMutation.mutate(booking.id)}
+                      disabled={acceptMutation.isPending}
+                      className="flex-1 rounded-lg bg-gradient-to-r from-purple-600 to-purple-800 px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      data-help="jobs.offer.decline"
+                      onClick={() => declineMutation.mutate(booking.id)}
+                      disabled={declineMutation.isPending}
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                ) : (
+                  ["enquired", "confirmed"].includes(booking.status) && (
+                    <button
+                      onClick={() => cancelMutation.mutate(booking.id)}
+                      className="mt-2 block text-sm text-gray-400 transition-colors hover:text-red-600"
+                    >
+                      Cancel this booking
+                    </button>
+                  )
                 )}
               </div>
             );

@@ -28,6 +28,7 @@ import {
   job_applications,
   job_link_views,
   jobs,
+  bookings,
   saved_freelancers,
   freelancer_references,
   message_attachments,
@@ -64,6 +65,7 @@ import {
   type InsertRecruiterProfile,
   type InsertUser,
   type Job,
+  type Booking,
   type JobAlertFilter,
   type JobApplication,
   type JobLinkView,
@@ -162,6 +164,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
@@ -796,6 +799,9 @@ export interface IStorage {
   }): Promise<JobDraft>;
   getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
   consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
+  // Mark a draft single-use without publishing a job (e.g. the target
+  // freelancer turned their link off before the draft was confirmed).
+  expireJobDraft(draftId: number): Promise<void>;
   createGuestApplicationToken(data: {
     token_hash: string;
     application_id: number;
@@ -836,6 +842,8 @@ export interface IStorage {
     status?: string
   ): Promise<import("@shared/schema").Invoice[]>;
   getInvoiceByBooking(bookingId: number): Promise<import("@shared/schema").Invoice | undefined>;
+  /** The booking (if any) linking a freelancer to a job — proof of a direct invitation. */
+  getBookingByJobAndFreelancer(jobId: number, freelancerId: number): Promise<Booking | undefined>;
   createInvoice(
     data: import("@shared/schema").InsertInvoice
   ): Promise<import("@shared/schema").Invoice>;
@@ -971,6 +979,8 @@ export interface IStorage {
       page?: number;
     }
   ): Promise<{ expenses: Expense[]; total: number }>;
+  /** All non-archived, billable, not-yet-rebilled expenses attached to a booking. */
+  listBillableExpensesForBooking(freelancerId: number, bookingId: number): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(data: InsertExpense): Promise<Expense>;
   updateExpense(
@@ -6517,6 +6527,10 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(jobs.poster_type as any, "guest"),
           eq(jobs.moderation_status as any, "pending"),
+          // Direct offers are guest + pending too, but they are private
+          // messages to one freelancer — never publication candidates. Keep
+          // them out of the queue so they can't be approved onto the board.
+          ne(jobs.status as any, "private"),
           isNull(jobs.deleted_at)
         )
       )
@@ -6530,6 +6544,13 @@ export class DatabaseStorage implements IStorage {
     moderatorUserId: number,
     note?: string
   ): Promise<Job> {
+    // Defence in depth: moderation couples moderation_status to status, so a
+    // private job (e.g. a direct offer) must never be moderated — approving
+    // would publish it, rejecting would close a live private arrangement.
+    const existing = await this.getJobById(jobId);
+    if (existing?.status === "private") {
+      throw new Error("A private job cannot be moderated for publication");
+    }
     const newStatus = decision === "approved" ? "active" : "closed";
     const [updated] = await db
       .update(jobs)
@@ -6543,6 +6564,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.id, jobId))
       .returning();
     return updated;
+  }
+
+  // Read-only oversight: recent direct offers (a private, guest-posted job with
+  // its enquired booking), newest first. No moderation — direct offers are
+  // private arrangements, surfaced for visibility and abuse-spotting only.
+  async listDirectOffersForAdmin(limit = 100) {
+    const freelancerUser = alias(users, "direct_offer_freelancer");
+    const rows = await db
+      .select({
+        bookingId: bookings.id,
+        bookingStatus: bookings.status,
+        createdAt: bookings.createdAt,
+        agreedRate: bookings.agreedRate,
+        currency: bookings.currency,
+        reportedAt: bookings.reported_at,
+        reportReason: bookings.report_reason,
+        jobId: jobs.id,
+        jobTitle: jobs.title,
+        eventDate: jobs.event_date,
+        clientFirst: users.first_name,
+        clientLast: users.last_name,
+        clientEmail: users.email,
+        freelancerFirst: freelancerUser.first_name,
+        freelancerLast: freelancerUser.last_name,
+      })
+      .from(bookings)
+      .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+      .innerJoin(users, eq(bookings.employerId, users.id))
+      .innerJoin(freelancerUser, eq(bookings.freelancerId, freelancerUser.id))
+      .where(and(eq(jobs.poster_type as any, "guest"), eq(jobs.status as any, "private")))
+      .orderBy(desc(bookings.createdAt))
+      .limit(limit);
+    return rows;
   }
 
   // ── Guest job drafts ────────────────────────────────────────────────────────
@@ -6587,6 +6641,10 @@ export class DatabaseStorage implements IStorage {
       .update(job_drafts)
       .set({ consumed_at: new Date(), published_job_id: publishedJobId })
       .where(eq(job_drafts.id, draftId));
+  }
+
+  async expireJobDraft(draftId: number): Promise<void> {
+    await db.update(job_drafts).set({ consumed_at: new Date() }).where(eq(job_drafts.id, draftId));
   }
 
   async createGuestApplicationToken(data: {
@@ -6714,6 +6772,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(invoices)
       .where(eq(invoices.booking_id, bookingId))
+      .limit(1);
+    return row;
+  }
+
+  async getBookingByJobAndFreelancer(
+    jobId: number,
+    freelancerId: number
+  ): Promise<Booking | undefined> {
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.jobId, jobId), eq(bookings.freelancerId, freelancerId)))
       .limit(1);
     return row;
   }
@@ -7530,6 +7600,25 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     return { expenses: rows, total: Number(countRow?.total ?? 0) };
+  }
+
+  async listBillableExpensesForBooking(
+    freelancerId: number,
+    bookingId: number
+  ): Promise<Expense[]> {
+    return db
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.freelancer_id, freelancerId),
+          eq(expenses.booking_id, bookingId),
+          eq(expenses.archived, false),
+          eq(expenses.billable_to_client, true),
+          eq(expenses.rebilled, false)
+        )
+      )
+      .orderBy(expenses.expense_date, expenses.id);
   }
 
   async getExpense(id: number): Promise<Expense | undefined> {

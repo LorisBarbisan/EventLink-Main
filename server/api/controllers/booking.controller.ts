@@ -174,11 +174,14 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           eventDate: jobs.event_date,
           endDate: jobs.end_date,
           payRate: jobs.rate,
+          posterType: jobs.poster_type,
+          status: jobs.status,
         },
         employer: {
           id: users.id,
           firstName: users.first_name,
           lastName: users.last_name,
+          email: users.email,
           companyName: recruiter_profiles.company_name,
           accountPhotoUrl: users.profile_photo_url,
           companyLogoUrl: recruiter_profiles.company_logo_url,
@@ -221,10 +224,14 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           entry_work_date: entryWorkDate ?? null,
         },
         job,
+        // A direct offer ("Send me a job"): a private, guest-posted job. These
+        // arrived with no application and the employer may have no password yet.
+        isDirectOffer: job.posterType === "guest" && job.status === "private",
         employer: {
           id: employer.id,
           firstName: employer.firstName,
           lastName: employer.lastName,
+          email: employer.email,
           companyName: employer.companyName,
           profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
         },
@@ -417,6 +424,46 @@ export async function updateBookingStatus(req: Request, res: Response) {
   } catch (error) {
     console.error("updateBookingStatus error:", error);
     return res.status(500).json({ error: "Failed to update booking status" });
+  }
+}
+
+// ── Report a direct offer (freelancer only) ───────────────
+// The freelancer flags an offer they consider abusive. This records the report
+// for admin oversight; it is not a moderation gate and does not change status.
+export async function reportBooking(req: Request, res: Response) {
+  try {
+    const userId = req.user!.id;
+    const bookingId = parseInt(req.params.id);
+    const { reason } = req.body as { reason?: string };
+
+    if (isNaN(bookingId)) {
+      return res.status(400).json({ error: "Invalid booking ID" });
+    }
+
+    // Only the freelancer the offer was sent to can report it.
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.id, bookingId), eq(bookings.freelancerId, userId)));
+
+    if (!booking) {
+      return res.status(404).json({ error: "Offer not found or access denied" });
+    }
+
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        reported_at: new Date(),
+        report_reason: typeof reason === "string" && reason.trim() ? reason.trim() : "Reported",
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+
+    return res.json({ ok: true, booking: updated });
+  } catch (error) {
+    console.error("reportBooking error:", error);
+    return res.status(500).json({ error: "Failed to report the offer" });
   }
 }
 

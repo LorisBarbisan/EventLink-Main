@@ -683,6 +683,50 @@ const entries: HelpEntry[] = [
       manualOrder: 40,
     },
   },
+  // Row-level controls shared across the Books tables (expenses, mileage,
+  // earnings). Generic because the same icon button appears in each.
+  {
+    key: "books.row.edit",
+    scope: "action",
+    body: "Change this entry's details.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.row.remove",
+    scope: "action",
+    body: "Removes this entry from your books. It's archived, not destroyed, so closed periods stay as they were.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.row.history",
+    scope: "action",
+    body: "Shows what's changed on this entry, and when.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.receipt.add",
+    scope: "action",
+    body: "Snap or upload a receipt; it's kept with your records for the tax year.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.receipt.capture",
+    scope: "action",
+    body: "Add a photo of a receipt to this entry.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "books.receipt.viewFull",
+    scope: "action",
+    body: "Opens the receipt image full size.",
+    audience: ["freelancer"],
+    version: 1,
+  },
 ];
 
 export default entries;
