@@ -5985,7 +5985,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(reference_requests.status, "pending"),
           eq(reference_requests.reminder_sent, false),
-          sql`${reference_requests.created_at} <= ${cutoff}`
+          lte(reference_requests.created_at, cutoff)
         )
       );
   }
