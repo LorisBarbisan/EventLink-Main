@@ -6594,9 +6594,21 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(bookings.employerId, users.id))
       .innerJoin(freelancerUser, eq(bookings.freelancerId, freelancerUser.id))
       .where(and(eq(jobs.poster_type as any, "guest"), eq(jobs.status as any, "private")))
-      .orderBy(desc(bookings.createdAt))
+      // Reported offers first so they can't sink below the limit as new offers
+      // arrive. NULLS LAST is explicit: Postgres sorts DESC nulls-first by
+      // default, which would otherwise float the unreported offers to the top.
+      .orderBy(sql`${bookings.reported_at} desc nulls last`, desc(bookings.createdAt))
       .limit(limit);
     return rows;
+  }
+
+  // Admin user ids (by role), for in-app notifications such as a reported offer.
+  async listAdminUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role as any, "admin"));
+    return rows.map((r) => r.id);
   }
 
   // ── Guest job drafts ────────────────────────────────────────────────────────
