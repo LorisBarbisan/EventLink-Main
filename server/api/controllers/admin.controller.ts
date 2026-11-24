@@ -383,6 +383,23 @@ export async function adminDeleteUser(req: Request, res: Response) {
       return res.status(400).json({ error: "You cannot delete your own account" });
     }
 
+    // Don't hard-delete an account that still has live activity — deleting it
+    // would orphan or destroy live jobs and bookings. Refuse with a clear
+    // reason so the admin can close those first.
+    const blockers = await storage.getAccountDeletionBlockers(userId);
+    if (blockers.activeJobs > 0 || blockers.openBookings > 0) {
+      const parts: string[] = [];
+      if (blockers.activeJobs > 0) {
+        parts.push(`${blockers.activeJobs} active job${blockers.activeJobs > 1 ? "s" : ""}`);
+      }
+      if (blockers.openBookings > 0) {
+        parts.push(`${blockers.openBookings} open booking${blockers.openBookings > 1 ? "s" : ""}`);
+      }
+      return res.status(409).json({
+        error: `This account still has ${parts.join(" and ")}. Close or cancel them before removing it.`,
+      });
+    }
+
     await storage.adminHardDeleteUser(userId);
     res.json({ message: "Account permanently removed." });
   } catch (error) {

@@ -4305,6 +4305,30 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Live attachments that should stop an account being hard-deleted: active or
+  // paused job posts it owns, and bookings (either side) that aren't finished.
+  async getAccountDeletionBlockers(
+    userId: number
+  ): Promise<{ activeJobs: number; openBookings: number }> {
+    const [jobRow] = await db
+      .select({ n: count() })
+      .from(jobs)
+      .where(and(eq(jobs.recruiter_id, userId), inArray(jobs.status as any, ["active", "paused"])));
+    const [bookingRow] = await db
+      .select({ n: count() })
+      .from(bookings)
+      .where(
+        and(
+          or(eq(bookings.employerId, userId), eq(bookings.freelancerId, userId)),
+          notInArray(bookings.status as any, ["cancelled", "completed"])
+        )
+      );
+    return {
+      activeJobs: Number(jobRow?.n ?? 0),
+      openBookings: Number(bookingRow?.n ?? 0),
+    };
+  }
+
   async adminHardDeleteUser(userId: number): Promise<void> {
     try {
       const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
