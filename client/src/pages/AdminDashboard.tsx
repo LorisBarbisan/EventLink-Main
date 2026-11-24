@@ -444,6 +444,7 @@ function AdminDashboardContent() {
   const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
   // Announcement composer additions
   const [bcCategory, setBcCategory] = useState<"" | "announcement" | "service">("");
+  const [bcRole, setBcRole] = useState("all");
   const [bcCountry, setBcCountry] = useState("all");
   const [bcLastActive, setBcLastActive] = useState("all");
   const [bcConfirming, setBcConfirming] = useState(false);
@@ -592,7 +593,7 @@ function AdminDashboardContent() {
       : {
           filters: {
             search: searchTerm || undefined,
-            role: roleFilter,
+            role: bcRole,
             status: statusFilter,
             profileStatus: profileStatusFilter,
             country: bcCountry,
@@ -632,10 +633,10 @@ function AdminDashboardContent() {
     bulkMsgOpen,
     bcCategory,
     bulkMsgMode,
+    bcRole,
     bcCountry,
     bcLastActive,
     searchTerm,
-    roleFilter,
     statusFilter,
     profileStatusFilter,
     bulkMsgSelectedUsers,
@@ -2744,6 +2745,7 @@ function AdminDashboardContent() {
                       setBulkMsgPickerSearch("");
                       setBulkMsgSelectedUsers([]);
                       setBcCategory("");
+                      setBcRole("all");
                       setBcCountry("all");
                       setBcLastActive("all");
                       setBcConfirming(false);
@@ -2842,7 +2844,20 @@ function AdminDashboardContent() {
                       {bulkMsgMode === "filtered" ? (
                         <div className="space-y-3 rounded-md border bg-muted/40 p-3 text-sm">
                           <p className="font-medium text-muted-foreground">Audience</p>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <span className="block text-xs text-muted-foreground">Type</span>
+                              <Select value={bcRole} onValueChange={setBcRole}>
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Everyone</SelectItem>
+                                  <SelectItem value="freelancer">Freelancers</SelectItem>
+                                  <SelectItem value="recruiter">Employers</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <div className="space-y-1">
                               <span className="block text-xs text-muted-foreground">
                                 Country contains
@@ -2871,27 +2886,26 @@ function AdminDashboardContent() {
                               </Select>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {roleFilter !== "all" && (
-                              <Badge variant="secondary">
-                                Role: {roleFilter === "recruiter" ? "employer" : roleFilter}
-                              </Badge>
-                            )}
-                            {statusFilter !== "all" && (
-                              <Badge variant="secondary">Status: {statusFilter}</Badge>
-                            )}
-                            {profileStatusFilter !== "all" && (
-                              <Badge variant="secondary">
-                                Profile: {profileStatusFilter.replace("_", " ")}
-                              </Badge>
-                            )}
-                            {searchTerm && (
-                              <Badge variant="secondary">Search: &quot;{searchTerm}&quot;</Badge>
-                            )}
-                          </div>
+                          {(statusFilter !== "all" ||
+                            profileStatusFilter !== "all" ||
+                            searchTerm) && (
+                            <div className="flex flex-wrap gap-2">
+                              {statusFilter !== "all" && (
+                                <Badge variant="secondary">Status: {statusFilter}</Badge>
+                              )}
+                              {profileStatusFilter !== "all" && (
+                                <Badge variant="secondary">
+                                  Profile: {profileStatusFilter.replace("_", " ")}
+                                </Badge>
+                              )}
+                              {searchTerm && (
+                                <Badge variant="secondary">Search: &quot;{searchTerm}&quot;</Badge>
+                              )}
+                            </div>
+                          )}
                           <p className="text-xs text-muted-foreground">
-                            Role, status, profile and search come from the Users table filters
-                            above; demo accounts and unverified addresses are always excluded.
+                            Status, profile and search come from the Users table filters above; demo
+                            accounts and unverified addresses are always excluded.
                           </p>
                         </div>
                       ) : (
