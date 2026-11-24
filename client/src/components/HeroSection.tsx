@@ -24,15 +24,14 @@ export const HeroSection = () => {
           </div>
 
           <h1 className="text-center text-3xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-            EventLink: <span className="text-primary">the freelance</span>{" "}
-            <span className="text-accent">events crew</span>{" "}
-            <span className="text-primary">network</span>
+            EventLink: <span className="text-primary">the home of freelance</span>{" "}
+            <span className="text-accent">event professionals</span>
           </h1>
 
-          <p className="text-base leading-relaxed text-muted-foreground sm:text-xl">
-            EventLink is where freelance event professionals build trusted profiles, showcase their
-            experience, and connect with the companies that power live events - get seen and grow
-            your network - all in one place.
+          <p className="text-base leading-relaxed text-foreground sm:text-xl">
+            Find opportunities, connect directly with clients, manage your bookings and build your
+            professional reputation. Everything you need to make freelance work work better, all in
+            one place.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
