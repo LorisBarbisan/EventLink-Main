@@ -924,39 +924,83 @@ export async function respondToInvitation(req: Request, res: Response) {
     // Or I can just import 'db' and 'job_applications', 'eq' from schema/db config.
     // Let's rely on adding a method to storage.ts
 
-    await storage.updateInvitationResponse(applicationId, status, responseMessage);
-
-    // If the freelancer declined the invitation, drop it from the employer pipeline
-    if (status === "declined") {
-      await removeBookingFromPipeline({
+    // Accept → the freelancer is hired automatically. An invitation is the
+    // employer already choosing this person, so there is no separate confirm
+    // step: run the same hire path (booking, earnings, close-when-full).
+    if (status === "applied") {
+      const result = await hireApplication({
+        applicationId,
         jobId: application.job_id,
         freelancerId: application.freelancer_id,
+        changedById: (req as any).user.id,
       });
+      cache.clearPattern("freelancer-applications-");
+      cache.clearPattern("recruiter-applications-");
+      cache.clearPattern("job");
+
+      if (result.kind === "not_found") {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      if (result.kind === "refused") {
+        return res.status(409).json({
+          error:
+            result.reason === "fully_crewed"
+              ? "This job is already fully crewed."
+              : "This job is closed, so the invitation can no longer be accepted.",
+          code: result.reason,
+        });
+      }
+
+      const job = await storage.getJobById(application.job_id);
+      if (job) {
+        await notifyJobPosterInApp({
+          job,
+          applicationId,
+          title: "Invitation accepted — crew confirmed",
+          message: `A freelancer accepted your invitation for "${job.title}" and is now confirmed.`,
+          metadata: { kind: "invitation_response", status: "hired", response: responseMessage },
+        });
+        await storage
+          .createNotification({
+            user_id: application.freelancer_id,
+            type: "application_update",
+            title: "You're confirmed",
+            message: `You accepted the invitation for "${job.title}" at ${job.company} — you're confirmed.`,
+            priority: "high",
+            related_entity_type: "application",
+            related_entity_id: applicationId,
+            action_url: "/dashboard?tab=jobs",
+          } as any)
+          .catch((err) => console.error("Invite-hire freelancer notification failed:", err));
+      }
+
+      if (result.kind === "hired" && result.jobClosed) {
+        sendJobClosureEmails(application.job_id).catch((err) =>
+          console.error(`Job closure email error for job ${application.job_id}:`, err)
+        );
+      }
+
+      return res.json({ success: true, hired: true });
     }
 
-    // Notify recruiter
+    // Decline → record it and drop the pending booking from the employer pipeline.
+    await storage.updateInvitationResponse(applicationId, status, responseMessage);
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
     const job = await storage.getJobById(application.job_id);
     if (job) {
-      const title = status === "applied" ? "Invitation Accepted" : "Invitation Declined";
-      const message =
-        status === "applied"
-          ? `Freelancer accepted your invitation for "${job.title}"`
-          : `Freelancer declined your invitation for "${job.title}"`;
-
       await notifyJobPosterInApp({
         job,
         applicationId,
-        title,
-        message,
-        metadata: {
-          kind: "invitation_response",
-          status,
-          response: responseMessage,
-        },
+        title: "Invitation Declined",
+        message: `Freelancer declined your invitation for "${job.title}"`,
+        metadata: { kind: "invitation_response", status, response: responseMessage },
       });
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
     console.error("Respond invitation error:", error);
     res.status(500).json({ error: "Internal server error" });
