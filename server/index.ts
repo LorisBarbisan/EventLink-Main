@@ -10,6 +10,7 @@ import { canonicalHost } from "./api/middleware/canonical-host";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
+import { backfillInviteHires } from "./api/utils/backfill-invite-hires";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
 import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.service";
 
@@ -246,6 +247,7 @@ app.use((req, res, next) => {
   backfillSlugs().catch((err) => console.error("Slug backfill failed:", err));
   backfillCountry().catch((err) => console.error("Country backfill failed:", err));
   correctCountries().catch((err) => console.error("Country corrections failed:", err));
+  backfillInviteHires().catch((err) => console.error("Invite-hire backfill failed:", err));
   registerJobNotificationScheduler();
   registerGuestJobNudgeScheduler();
   registerProfileNudgeScheduler();
