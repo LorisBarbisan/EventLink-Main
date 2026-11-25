@@ -4413,10 +4413,12 @@ export function BooksTab() {
   today.setHours(0, 0, 0, 0);
 
   // Future work (or no date) that hasn't been marked completed — belongs in My Jobs.
-  // A booking with status "completed" goes to Earnings even if its event_date is in the future
-  // (e.g. the repair loop advanced the status before the event date arrived).
+  // "My jobs" is work still ahead of you. Compare by DATE (not datetime), and
+  // strictly in the future: on the job's own day it drops out of My jobs and
+  // lives only in Earnings — where its hire-seeded entry already is — rather
+  // than showing in both. Undated bookings stay until dated or completed.
   const upcomingHired = allBookings.filter(
-    (b) => b.status !== "completed" && (!b.event_date || new Date(b.event_date) >= today)
+    (b) => b.status !== "completed" && (!b.event_date || b.event_date.slice(0, 10) > ukToday())
   );
   // Past work with no entry — edge case after backfill, but kept as a safety net
   const unloggedBookings = allBookings.filter(
