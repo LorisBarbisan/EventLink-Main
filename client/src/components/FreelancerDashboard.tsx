@@ -61,6 +61,7 @@ const BooksTab = lazy(() => import("./BooksTab").then((m) => ({ default: m.Books
 const BooksMobile = lazy(() => import("./BooksMobile").then((m) => ({ default: m.BooksMobile })));
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
+import { JobDetailsDialog } from "./JobDetailsDialog";
 import { BooksHiddenNotice } from "@/components/BooksRecordsNotice";
 import { useBooksAccess } from "@/hooks/useBooksAccess";
 
@@ -193,6 +194,7 @@ function DashLogPaymentDialog({
 function HiredJobsSection() {
   const { data: jobs = [], isLoading } = useFreelancerJobs();
   const [logPaymentFor, setLogPaymentFor] = useState<FreelancerJob | null>(null);
+  const [detailsJobId, setDetailsJobId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -291,31 +293,43 @@ function HiredJobsSection() {
           <span className="text-xs text-muted-foreground">Logged in Books</span>
         )}
       </div>
-      {hb.phase === "enquiry" && (
-        <div className="mt-3 flex gap-2">
-          <Button
-            size="sm"
-            disabled={acceptMutation.isPending || declineMutation.isPending}
-            onClick={() => acceptMutation.mutate(hb.booking.id)}
-            className="bg-green-600 text-white hover:bg-green-700"
-          >
-            Accept
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={acceptMutation.isPending || declineMutation.isPending}
-            onClick={() => declineMutation.mutate(hb.booking.id)}
-          >
-            Decline
-          </Button>
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => setDetailsJobId(hb.job.id)}>
+          View details
+        </Button>
+        {hb.phase === "enquiry" && (
+          <>
+            <Button
+              size="sm"
+              disabled={acceptMutation.isPending || declineMutation.isPending}
+              onClick={() => acceptMutation.mutate(hb.booking.id)}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acceptMutation.isPending || declineMutation.isPending}
+              onClick={() => declineMutation.mutate(hb.booking.id)}
+            >
+              Decline
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 
   return (
     <>
+      <JobDetailsDialog
+        jobId={detailsJobId}
+        open={detailsJobId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetailsJobId(null);
+        }}
+      />
       {logPaymentFor && (
         <DashLogPaymentDialog
           job={logPaymentFor}
