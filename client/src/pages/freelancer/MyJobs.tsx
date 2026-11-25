@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { JobDocumentsModal } from "@/components/JobDocumentsModal";
+import { JobDetailsDialog } from "@/components/JobDetailsDialog";
 import { useToast } from "@/hooks/use-toast";
 
 type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
@@ -62,6 +63,7 @@ export default function MyJobs() {
   // Docs modal state
   const [docsJobId, setDocsJobId] = useState<number | null>(null);
   const [docsJobTitle, setDocsJobTitle] = useState<string>("");
+  const [detailsJobId, setDetailsJobId] = useState<number | null>(null);
 
   // Upload state (freelancer uploading their own docs)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -394,9 +396,15 @@ export default function MyJobs() {
                   </p>
                 )}
 
-                {/* Docs button — shown for all non-cancelled bookings */}
-                {booking.status !== "cancelled" && (
-                  <div className="mb-2 mt-1 flex flex-wrap gap-2">
+                {/* View details (all bookings) + Docs (non-cancelled) */}
+                <div className="mb-2 mt-1 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setDetailsJobId(job.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    👁 View details
+                  </button>
+                  {booking.status !== "cancelled" && (
                     <button
                       onClick={() => {
                         setDocsJobId(job.id);
@@ -406,8 +414,8 @@ export default function MyJobs() {
                     >
                       📎 Docs
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {booking.status === "enquired" ? (
                   <div className="mt-2 flex gap-2">
@@ -545,6 +553,14 @@ export default function MyJobs() {
           isUploading={uploading}
         />
       )}
+
+      <JobDetailsDialog
+        jobId={detailsJobId}
+        open={detailsJobId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetailsJobId(null);
+        }}
+      />
     </div>
   );
 }
