@@ -88,6 +88,14 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
           gross_amount_pence: grossPence,
           currency,
           needs_review: needsReview || ratePence === null,
+          // This function only runs for active bookings (confirmed/briefed/
+          // completed). If a previous cancellation archived the entry and the
+          // booking was later re-confirmed, the expected income must reappear
+          // in the Earnings sheet. Un-archive auto-managed (un-invoiced)
+          // entries only — mirrors the cancel path, which archives the same set.
+          ...(existing.archived && !existing.invoice_id
+            ? { archived: false, archived_at: null }
+            : {}),
         });
       }
       entryId = existing.id;
