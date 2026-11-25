@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { receiptUploadLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { requireUkFreelancer, requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
+import { requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
 import {
   uploadReceipt,
   listReceiptsForExpense,
@@ -16,7 +16,7 @@ import {
 export function registerReceiptRoutes(app: Express) {
   // Same gate as the rest of Books: writes are UK-only; your own receipts
   // can still be viewed after you leave the UK.
-  const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
+  const auth = [authenticateJWT, requireRole("freelancer")];
   const ownRecords = [authenticateJWT, requireRole("freelancer"), requireUkOrOwnRecords];
 
   app.post("/api/receipts", ...auth, receiptUploadLimiter, uploadReceipt);

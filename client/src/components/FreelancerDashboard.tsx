@@ -520,10 +520,10 @@ export default function SimplifiedFreelancerDashboard() {
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const booksAccess = useBooksAccess();
   const isMobile = useIsMobile();
-  // Books is hidden outside the UK; don't leave those freelancers on an empty tab.
+  // Books is hidden only for non-freelancers; don't leave them on an empty tab.
   useEffect(() => {
-    if (activeTab === "books" && booksAccess === "unavailable") setActiveTab("profile");
-  }, [activeTab, booksAccess]);
+    if (activeTab === "books" && booksAccess.state === "unavailable") setActiveTab("profile");
+  }, [activeTab, booksAccess.state]);
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   const [profileIsPublic, setProfileIsPublic] = useState<boolean>(true);
@@ -877,7 +877,7 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {booksAccess !== "unavailable" && <SelectItem value="books">Books</SelectItem>}
+              {booksAccess.state !== "unavailable" && <SelectItem value="books">Books</SelectItem>}
               <SelectItem value="profile">Edit Profile</SelectItem>
               <SelectItem value="jobs">
                 My Applications
@@ -899,7 +899,7 @@ export default function SimplifiedFreelancerDashboard() {
           </Select>
         </div>
         <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
-          {booksAccess !== "unavailable" && (
+          {booksAccess.state !== "unavailable" && (
             <TabsTrigger value="books" data-help="dashboard.tab.books">
               Books
             </TabsTrigger>
@@ -932,7 +932,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Profile Tab */}
         <TabsContent value="profile">
-          {booksAccess === "unavailable" && <BooksHiddenNotice />}
+          {booksAccess.state === "unavailable" && <BooksHiddenNotice />}
           {profileLoading ? (
             <div className="flex justify-center p-8">Loading profile...</div>
           ) : (
@@ -1144,16 +1144,16 @@ export default function SimplifiedFreelancerDashboard() {
         </TabsContent>
 
         {/* Books Tab */}
-        {booksAccess !== "unavailable" && (
+        {booksAccess.state !== "unavailable" && (
           <TabsContent value="books">
-            {booksAccess === "needs-country" ? (
+            {booksAccess.state === "needs-country" ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
                 <h3 className="mb-2 font-semibold text-amber-900 dark:text-amber-200">
                   Where are you based?
                 </h3>
                 <p className="mb-4 text-sm text-amber-800 dark:text-amber-300">
-                  The Books tab is available to UK freelancers. Add your country in your profile to
-                  unlock it.
+                  Add your country in your profile to unlock Books. UK freelancers also get the tax
+                  tools (Self Assessment estimate, VAT, Making Tax Digital).
                 </p>
                 <Button
                   variant="outline"
@@ -1164,7 +1164,7 @@ export default function SimplifiedFreelancerDashboard() {
                   Go to Edit Profile
                 </Button>
               </div>
-            ) : booksAccess === "loading" ? (
+            ) : booksAccess.state === "loading" ? (
               <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
             ) : (
               <Suspense
@@ -1174,7 +1174,11 @@ export default function SimplifiedFreelancerDashboard() {
                   </div>
                 }
               >
-                {isMobile ? <BooksMobile /> : <BooksTab />}
+                {isMobile ? (
+                  <BooksMobile isUk={booksAccess.isUk} />
+                ) : (
+                  <BooksTab isUk={booksAccess.isUk} />
+                )}
               </Suspense>
             )}
           </TabsContent>

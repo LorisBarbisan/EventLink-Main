@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { requireUkFreelancer, requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
+import { requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
 import {
   getBillingProfile,
   upsertBillingProfile,
@@ -31,7 +31,7 @@ import {
 
 export function registerInvoiceRoutes(app: Express) {
   const auth = [authenticateJWT];
-  const freelancer = [...auth, requireRole("freelancer"), requireUkFreelancer];
+  const freelancer = [...auth, requireRole("freelancer")];
   // Exports of your own records stay available after moving abroad
   const ownRecords = [...auth, requireRole("freelancer"), requireUkOrOwnRecords];
 

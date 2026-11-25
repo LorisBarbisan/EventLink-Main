@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import {
   getRate,
   listSavedPlaces,
@@ -14,7 +13,7 @@ import {
 } from "../controllers/mileage.controller";
 
 export function registerMileageRoutes(app: Express) {
-  const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
+  const auth = [authenticateJWT, requireRole("freelancer")];
 
   app.get("/api/mileage/rate", ...auth, getRate);
   app.get("/api/mileage/places", ...auth, listSavedPlaces);
