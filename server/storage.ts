@@ -2879,7 +2879,11 @@ export class DatabaseStorage implements IStorage {
       // Never show soft-deleted jobs
       conditions.push(isNull(jobs.deleted_at));
 
-      // Show active jobs + jobs closed within the last 24 hours
+      // Show active jobs + jobs closed within the last 24 hours. The closed
+      // window is only for jobs that were actually posted to the board:
+      // moderation_status "approved". A private job (e.g. a direct offer) is
+      // left "pending" and flips straight to "closed" when its booking
+      // confirms — it was never listed, so it must not surface here.
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       conditions.push(
         or(
@@ -2887,6 +2891,7 @@ export class DatabaseStorage implements IStorage {
           isNull(jobs.status),
           and(
             eq(jobs.status, "closed"),
+            eq(jobs.moderation_status, "approved"),
             sql`${jobs.updated_at} >= ${twentyFourHoursAgo}::timestamptz`
           )
         )
