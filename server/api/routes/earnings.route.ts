@@ -7,7 +7,7 @@ import { backfillEarningsForFreelancer } from "../services/earnings.service";
 import { storage, normaliseClientName } from "../../storage";
 import { db } from "../config/db";
 import { bookings, earnings_entries } from "@shared/schema";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { currentTaxYear } from "@shared/tax-periods";
 import type { Request, Response } from "express";
 import {
@@ -69,7 +69,10 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
     const basis = (req.query.basis as "cash" | "accruals") ?? "cash";
     const ty = currentTaxYear();
 
-    // Lazy-backfill: seed entries for any past bookings that don't have one yet
+    // Lazy-backfill: reconcile entries for active bookings that are out of sync —
+    // either missing an entry entirely, or carrying an entry that a previous
+    // cancellation archived but which belongs to a now-active (re-confirmed)
+    // booking. Both are healed by backfillEarningsForFreelancer → seedEntryFromBooking.
     const [missingCheck] = await db
       .select({ count: sql<number>`cast(count(*) as int)` })
       .from(bookings)
@@ -78,7 +81,10 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
         and(
           eq(bookings.freelancerId, freelancerId),
           inArray(bookings.status, ["confirmed", "briefed", "completed"]),
-          isNull(earnings_entries.id)
+          or(
+            isNull(earnings_entries.id),
+            and(eq(earnings_entries.archived, true), isNull(earnings_entries.invoice_id))
+          )
         )
       );
     if (missingCheck.count > 0) await backfillEarningsForFreelancer(freelancerId);
