@@ -1,12 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FileText, Download } from "lucide-react";
 import type { Job } from "@shared/schema";
+
+interface JobDoc {
+  id: number;
+  fileName: string;
+  downloadUrl: string;
+  documentType?: string;
+}
+
+// Download with the auth header, falling back to opening the URL in a new tab.
+async function downloadDoc(doc: JobDoc) {
+  try {
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch(doc.downloadUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = doc.fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    window.open(doc.downloadUrl, "_blank");
+  }
+}
 
 /**
  * Read-only job details for a freelancer, fetched from /api/jobs/:id (which a
  * booking holder can access, including a private direct-offer job). Used from
- * the Bookings cards' "View details" button, mirroring My Applications.
+ * the Bookings cards' "View details" button, mirroring My Applications. Also
+ * lists the job's attachments as clickable downloads.
  */
 export function JobDetailsDialog({
   jobId,
@@ -24,6 +53,12 @@ export function JobDetailsDialog({
   } = useQuery<Job>({
     queryKey: ["/api/jobs", jobId],
     queryFn: () => apiRequest(`/api/jobs/${jobId}`),
+    enabled: open && jobId !== null,
+  });
+
+  const { data: docs = [] } = useQuery<JobDoc[]>({
+    queryKey: [`/api/job/${jobId}/documents`],
+    queryFn: () => apiRequest(`/api/job/${jobId}/documents`),
     enabled: open && jobId !== null,
   });
 
@@ -87,6 +122,30 @@ export function JobDetailsDialog({
                 </div>
               </div>
             )}
+
+            <div>
+              <p className="mb-1 text-xs text-muted-foreground">Attachments</p>
+              {docs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No attachments.</p>
+              ) : (
+                <div className="space-y-2">
+                  {docs.map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => downloadDoc(doc)}
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-4 w-4 shrink-0 text-orange-500" />
+                        <span className="truncate text-sm font-medium">{doc.fileName}</span>
+                      </span>
+                      <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>
