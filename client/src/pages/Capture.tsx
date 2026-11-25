@@ -32,7 +32,7 @@ export default function Capture() {
 
   const { data: count } = useQuery<{ count: number }>({
     queryKey: ["/api/receipts/unattached/count"],
-    enabled: access === "available",
+    enabled: access.state === "available",
   });
 
   const save = useMutation({
@@ -79,12 +79,12 @@ export default function Capture() {
   const waiting = count?.count ?? 0;
 
   let body: React.ReactNode;
-  if (!user || access === "loading") {
+  if (!user || access.state === "loading") {
     body = <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>;
-  } else if (access !== "available") {
+  } else if (access.state !== "available") {
     body = (
       <p className="py-16 text-center text-sm text-muted-foreground">
-        Receipt capture is part of Books, which is for UK-based freelancers.
+        Receipt capture is part of Books. Add your country in your profile to get started.
       </p>
     );
   } else {

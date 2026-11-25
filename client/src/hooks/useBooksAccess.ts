@@ -4,15 +4,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUkCountry, isCountryUnset } from "@shared/uk-country";
 
 /**
- * Access state for the Books tab (UK-specific tax surfaces):
+ * Access state for the Books tab. Books is now open to every freelancer; only
+ * the UK tax surfaces (HMRC estimate, VAT return, Making Tax Digital) are gated.
  * - "loading"       → profile not known yet: keep the tab (no flicker) but
  *                     don't mount Books until the answer is in.
- * - "available"     → UK freelancer, or the profile could not be loaded
- *                     (offline, server error): let the server decide.
- * - "needs-country" → no profile yet, or no country on it: show the prompt.
- * - "unavailable"   → non-UK freelancer, employer or admin: hide the tab.
+ * - "available"     → show Books. `isUk` decides whether the tax surfaces show.
+ * - "needs-country" → no profile yet, or no country on it: show the prompt
+ *                     (so Books can tailor itself once the country is known).
+ * - "unavailable"   → not a freelancer (employer or admin): hide the tab.
  */
-export type BooksAccess = "loading" | "available" | "needs-country" | "unavailable";
+export type BooksAccessState = "loading" | "available" | "needs-country" | "unavailable";
+
+export interface BooksAccess {
+  state: BooksAccessState;
+  /** Whether to show UK-only tax surfaces (tax estimate, VAT return, MTD). */
+  isUk: boolean;
+}
 
 export function useBooksAccess(): BooksAccess {
   const { user } = useAuth();
@@ -33,16 +40,19 @@ export function useBooksAccess(): BooksAccess {
     enabled: isFreelancer && !!user?.id,
   });
 
-  if (!isFreelancer) return "unavailable";
-  if (isLoading) return "loading";
+  if (!isFreelancer) return { state: "unavailable", isUk: false };
+  if (isLoading) return { state: "loading", isUk: false };
 
   if (isError) {
-    // 404 means there is no profile yet; anything else is a failed request,
-    // which must not tell someone with a country set to go and set one.
-    return (error as { status?: number })?.status === 404 ? "needs-country" : "available";
+    // 404 means there is no profile yet; anything else is a failed request.
+    // On a non-404 failure we fail open to the UK treatment (what shipped
+    // before), so a blip never strips a UK user of their tax surfaces.
+    return (error as { status?: number })?.status === 404
+      ? { state: "needs-country", isUk: false }
+      : { state: "available", isUk: true };
   }
 
   const country = (profile as { country?: unknown } | null)?.country;
-  if (isCountryUnset(country)) return "needs-country";
-  return isUkCountry(country) ? "available" : "unavailable";
+  if (isCountryUnset(country)) return { state: "needs-country", isUk: false };
+  return { state: "available", isUk: isUkCountry(country) };
 }
