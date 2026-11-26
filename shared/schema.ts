@@ -1626,6 +1626,9 @@ export const earnings_entries = pgTable(
     // Overtime calculation fields (PR 3)
     standard_hours_per_day: integer("standard_hours_per_day"),
     overtime_rate_pence: integer("overtime_rate_pence"),
+    // The freelancer's own overtime figure for the job; when set it wins over
+    // what the logged days give (see billableOvertime in shared/overtime.ts).
+    overtime_hours_confirmed: decimal("overtime_hours_confirmed", { precision: 6, scale: 2 }),
     archived: boolean("archived").notNull().default(false),
     job_ref: text("job_ref"),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
