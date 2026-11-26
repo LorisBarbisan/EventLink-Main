@@ -41,6 +41,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -1886,10 +1887,16 @@ function minutesToHHMM(mins: number): string {
   return `${h}h${m > 0 ? ` ${m}m` : ""}`;
 }
 
-function TimeSection() {
+/** Days, overtime and terms for one job — shown in the Time pop-up. */
+function TimeEditor({
+  selectedJobId,
+  setSelectedJobId,
+}: {
+  selectedJobId: string;
+  setSelectedJobId: (v: string) => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedJobId, setSelectedJobId] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     standard_hours: "",
@@ -1941,6 +1948,7 @@ function TimeSection() {
       queryClient.invalidateQueries({
         queryKey: ["/api/earnings/entries", entryId, "time/summary"],
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/time/jobs"] });
       setEditingDate(null);
     },
     onError: () => toast({ title: "Failed to save", variant: "destructive" }),
@@ -1949,10 +1957,12 @@ function TimeSection() {
   const deleteMut = useMutation({
     mutationFn: (id: number) =>
       apiRequest(`/api/earnings/entries/${entryId}/time/${id}`, { method: "DELETE" }),
-    onSuccess: () =>
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["/api/earnings/entries", entryId, "time/summary"],
-      }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/time/jobs"] });
+    },
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
 
@@ -1967,6 +1977,7 @@ function TimeSection() {
       queryClient.invalidateQueries({
         queryKey: ["/api/earnings/entries", entryId, "time/summary"],
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/time/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings", entryId] });
@@ -1990,6 +2001,7 @@ function TimeSection() {
       queryClient.invalidateQueries({
         queryKey: ["/api/earnings/entries", entryId, "time/summary"],
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/time/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings", entryId] });
@@ -2054,23 +2066,17 @@ function TimeSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 font-semibold">
-          <Timer className="h-4 w-4" /> Time &amp; overtime
-        </h3>
-      </div>
-
       <JobSelect
         value={selectedJobId}
         onChange={(v) => {
           setSelectedJobId(v);
           setEditingDate(null);
         }}
-        label="Select a job to log time against"
+        label="Job"
       />
 
       {!selectedJobId && (
-        <p className="text-sm text-muted-foreground">Choose a job above to log and review hours.</p>
+        <p className="text-sm text-muted-foreground">Choose the job to log hours against.</p>
       )}
 
       {selectedJobId && isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -2373,6 +2379,225 @@ function TimeSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface TimeJob {
+  id: number;
+  description: string;
+  work_date: string;
+  work_end_date: string | null;
+  client_name: string | null;
+  currency: string;
+  days_logged: number;
+  worked_minutes: number;
+  overtime_hours: number | null;
+  overtime_pence: number | null;
+  overtime_source: "confirmed" | "logged" | null;
+}
+
+/** First day of the UK tax year containing today (6 April). */
+function taxYearStart(today: string): string {
+  const y = Number(today.slice(0, 4));
+  return today >= `${y}-04-06` ? `${y}-04-06` : `${y - 1}-04-06`;
+}
+
+function TimeSection() {
+  const { user } = useAuth();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorJobId, setEditorJobId] = useState("");
+
+  const { data: jobs = [], isLoading } = useQuery<TimeJob[]>({
+    queryKey: ["/api/earnings/time/jobs"],
+    queryFn: () => apiRequest("/api/earnings/time/jobs"),
+    enabled: !!user?.id,
+  });
+
+  const fromTy = taxYearStart(ukToday());
+  const thisYear = jobs.filter((j) => j.work_date >= fromTy);
+  const yearMinutes = thisYear.reduce((s, j) => s + j.worked_minutes, 0);
+  const yearOtHours = thisYear.reduce((s, j) => s + (j.overtime_hours ?? 0), 0);
+  const yearOtPence = thisYear.reduce((s, j) => s + (j.overtime_pence ?? 0), 0);
+
+  const jobMonths = groupByMonth(jobs, "work_date").reverse();
+
+  const uid = user?.id ?? "anon";
+  const [listOpen, setListOpen] = useState(() => {
+    try {
+      return localStorage.getItem(`books-section-time-${uid}`) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleList = () => {
+    const next = !listOpen;
+    setListOpen(next);
+    try {
+      localStorage.setItem(`books-section-time-${uid}`, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const openEditor = (jobId: number | null) => {
+    setEditorJobId(jobId ? String(jobId) : "");
+    setEditorOpen(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary + action header */}
+      <Card className="overflow-hidden">
+        <div className="bg-emerald-600 px-5 py-3 dark:bg-emerald-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-emerald-100" />
+              <p className="font-semibold text-white">Time &amp; overtime</p>
+              {jobs.length > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                  {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="h-7 bg-white text-xs text-emerald-700 hover:bg-emerald-50"
+              onClick={() => openEditor(null)}
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              Log time
+            </Button>
+          </div>
+        </div>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-lg bg-emerald-50 px-5 py-3 dark:bg-emerald-950/40">
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
+                Hours this year
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+                {minutesToHHMM(yearMinutes)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-amber-50 px-5 py-3 dark:bg-amber-950/30">
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-600">
+                Overtime this year
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                {formatPence(yearOtPence)}
+              </p>
+              <p className="text-xs tabular-nums text-amber-700/80 dark:text-amber-300/80">
+                {yearOtHours.toFixed(2)}h
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Jobs with time */}
+      <Card className="overflow-hidden">
+        <div
+          className="cursor-pointer border-l-4 border-emerald-400 bg-emerald-50/40 px-5 py-3 dark:bg-emerald-950/20"
+          {...pressable(toggleList)}
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-emerald-600 transition-transform ${listOpen ? "" : "-rotate-90"}`}
+            />
+            <p className="font-semibold">Jobs with time logged</p>
+          </div>
+        </div>
+        {listOpen && (
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="animate-pulse space-y-2 p-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-10 rounded bg-muted" />
+                ))}
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+                <Timer className="h-8 w-8 opacity-30" />
+                <p className="text-sm">No time logged yet.</p>
+                <p className="text-xs">Log your hours on a job and any overtime is worked out.</p>
+              </div>
+            ) : (
+              <div>
+                {jobMonths.map(({ key: month, items: monthJobs }, mi) => (
+                  <MonthSection
+                    key={month}
+                    monthKey={month}
+                    total={monthJobs.reduce((s, j) => s + (j.overtime_pence ?? 0), 0)}
+                    accentClass="text-emerald-700 dark:text-emerald-400"
+                    headerClass="bg-emerald-50/60 dark:bg-emerald-950/20"
+                    storageKey={`books-time-month-${month}-${user?.id}`}
+                    divider={mi < jobMonths.length - 1}
+                  >
+                    {monthJobs.map((job, i) => (
+                      <div
+                        key={job.id}
+                        className={`flex cursor-pointer items-start justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                        {...pressable(() => openEditor(job.id))}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{job.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fmtDate(job.work_date)}
+                            {job.client_name ? ` · ${job.client_name}` : ""}
+                            {job.days_logged > 0
+                              ? ` · ${minutesToHHMM(job.worked_minutes)} over ${job.days_logged} ${job.days_logged === 1 ? "day" : "days"}`
+                              : ""}
+                          </p>
+                        </div>
+                        <div className="ml-3 text-right">
+                          {job.overtime_hours ? (
+                            <>
+                              <span className="block text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                                {job.overtime_pence != null
+                                  ? formatPence(job.overtime_pence, job.currency)
+                                  : "—"}
+                              </span>
+                              <span className="block text-[11px] text-muted-foreground">
+                                {job.overtime_hours.toFixed(2)}h OT
+                                {job.overtime_source === "confirmed" ? " · confirmed" : ""}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No overtime</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </MonthSection>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-emerald-600" /> Time &amp; overtime
+            </DialogTitle>
+            <DialogDescription>
+              Log the days you worked. Overtime is worked out from your terms for the job.
+            </DialogDescription>
+          </DialogHeader>
+          <TimeEditor selectedJobId={editorJobId} setSelectedJobId={setEditorJobId} />
+          <DialogFooter>
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => setEditorOpen(false)}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
