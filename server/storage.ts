@@ -2,6 +2,7 @@ import { normaliseRecordWrite } from "@shared/record-writes";
 import { NON_PUBLIC_BADGE_RESULTS } from "@shared/references";
 import { ukToday } from "@shared/job-dates";
 import { messagingAllowed } from "@shared/safety";
+import { billableOvertime, computeOvertime, type BillableOvertime } from "@shared/overtime";
 import { user_blocks, user_reports } from "@shared/schema";
 
 /** A user as the messaging queries select them — not every column of the row. */
@@ -7958,6 +7959,73 @@ export class DatabaseStorage implements IStorage {
 
   // ── Job time entries ─────────────────────────────────────────────────────────
 
+  /**
+   * The overtime each job bills (see billableOvertime), for a batch of entries
+   * in one query. Entries with no overtime terms, no confirmed figure and no
+   * logged time are left out, so callers treat a missing id as "no overtime".
+   */
+  async overtimeForEntries(
+    freelancerId: number,
+    entries: Array<
+      Pick<
+        EarningsEntry,
+        "id" | "standard_hours_per_day" | "overtime_rate_pence" | "overtime_hours_confirmed"
+      >
+    >
+  ): Promise<Map<number, BillableOvertime>> {
+    const out = new Map<number, BillableOvertime>();
+    const relevant = entries.filter(
+      (e) => e.standard_hours_per_day != null || e.overtime_hours_confirmed != null
+    );
+    if (relevant.length === 0) return out;
+    const rows = await db
+      .select({
+        earnings_entry_id: job_time_entries.earnings_entry_id,
+        start_time: job_time_entries.start_time,
+        finish_time: job_time_entries.finish_time,
+        break_minutes: job_time_entries.break_minutes,
+      })
+      .from(job_time_entries)
+      .where(
+        and(
+          eq(job_time_entries.freelancer_id, freelancerId),
+          inArray(
+            job_time_entries.earnings_entry_id,
+            relevant.map((e) => e.id)
+          )
+        )
+      );
+    const byEntry = new Map<number, typeof rows>();
+    for (const r of rows) {
+      const list = byEntry.get(r.earnings_entry_id) ?? [];
+      list.push(r);
+      byEntry.set(r.earnings_entry_id, list);
+    }
+    for (const e of relevant) {
+      const ot = billableOvertime(computeOvertime(byEntry.get(e.id) ?? [], e), e);
+      if (ot.hours !== null && ot.hours > 0) out.set(e.id, ot);
+    }
+    return out;
+  }
+
+  /** The same rows with overtime_hours / overtime_pence added (null when none). */
+  async withOvertime<
+    T extends Pick<
+      EarningsEntry,
+      "id" | "standard_hours_per_day" | "overtime_rate_pence" | "overtime_hours_confirmed"
+    >,
+  >(
+    freelancerId: number,
+    rows: T[]
+  ): Promise<Array<T & { overtime_hours: number | null; overtime_pence: number | null }>> {
+    const ot = await this.overtimeForEntries(freelancerId, rows);
+    return rows.map((r) => ({
+      ...r,
+      overtime_hours: ot.get(r.id)?.hours ?? null,
+      overtime_pence: ot.get(r.id)?.pence ?? null,
+    }));
+  }
+
   async listTimeEntries(freelancerId: number, earningsEntryId: number): Promise<JobTimeEntry[]> {
     return db
       .select()
@@ -8019,12 +8087,18 @@ export class DatabaseStorage implements IStorage {
   async updateEarningsEntryOvertimeSettings(
     id: number,
     freelancerId: number,
-    data: { standard_hours_per_day?: number | null; overtime_rate_pence?: number | null }
-  ): Promise<void> {
-    await db
+    data: {
+      standard_hours_per_day?: number | null;
+      overtime_rate_pence?: number | null;
+      overtime_hours_confirmed?: string | null;
+    }
+  ): Promise<boolean> {
+    const rows = await db
       .update(earnings_entries)
       .set({ ...data, updated_at: new Date() })
-      .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)));
+      .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)))
+      .returning({ id: earnings_entries.id });
+    return rows.length > 0;
   }
 
   // ── Books audit log ──────────────────────────────────────────────────────────

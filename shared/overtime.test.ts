@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeOvertime, workedMinutes, minutesToHours } from "./overtime";
+import { billableOvertime, computeOvertime, workedMinutes, minutesToHours } from "./overtime";
 
 describe("workedMinutes", () => {
   it("subtracts the break", () => {
@@ -59,5 +59,73 @@ describe("computeOvertime", () => {
     expect(r.total_overtime_minutes).toBe(0);
     expect(r.overtime_pence).toBe(0);
     expect(r.per_day).toEqual([]);
+  });
+});
+
+describe("billableOvertime", () => {
+  // The Aster case: one 09:00–20:00 day, no break, 10-hour standard, £18.75/h
+  const logged = computeOvertime(
+    [{ start_time: "09:00", finish_time: "20:00", break_minutes: 0 }],
+    {
+      standard_hours_per_day: 10,
+      overtime_rate_pence: 1875,
+    }
+  );
+
+  it("bills the logged overtime when nothing is confirmed", () => {
+    expect(
+      billableOvertime(logged, { standard_hours_per_day: 10, overtime_rate_pence: 1875 })
+    ).toEqual({
+      hours: 1,
+      pence: 1875,
+      source: "logged",
+    });
+  });
+
+  it("a confirmed figure wins over the logged one (decimal strings from the db too)", () => {
+    expect(
+      billableOvertime(logged, {
+        standard_hours_per_day: 10,
+        overtime_rate_pence: 1875,
+        overtime_hours_confirmed: "1.50",
+      })
+    ).toEqual({ hours: 1.5, pence: 2813, source: "confirmed" });
+  });
+
+  it("a confirmed zero means no overtime, not the logged hours", () => {
+    expect(
+      billableOvertime(logged, {
+        standard_hours_per_day: 10,
+        overtime_rate_pence: 1875,
+        overtime_hours_confirmed: 0,
+      })
+    ).toEqual({ hours: 0, pence: 0, source: "confirmed" });
+  });
+
+  it("without a standard day or confirmed figure there is nothing to bill", () => {
+    const noStd = computeOvertime(
+      [{ start_time: "09:00", finish_time: "20:00", break_minutes: 0 }],
+      {
+        standard_hours_per_day: null,
+        overtime_rate_pence: 1875,
+      }
+    );
+    expect(
+      billableOvertime(noStd, { standard_hours_per_day: null, overtime_rate_pence: 1875 })
+    ).toEqual({
+      hours: null,
+      pence: null,
+      source: null,
+    });
+  });
+
+  it("knows the hours but not the money when no rate is set", () => {
+    expect(
+      billableOvertime(logged, { standard_hours_per_day: 10, overtime_rate_pence: null })
+    ).toEqual({
+      hours: 1,
+      pence: null,
+      source: "logged",
+    });
   });
 });

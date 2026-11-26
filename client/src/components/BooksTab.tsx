@@ -114,6 +114,29 @@ function formatPence(pence: number | null | undefined, currency = "GBP"): string
   return `${symbol}${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** A job's full value: its fee plus any overtime it bills. */
+function jobValuePence(e: {
+  gross_amount_pence: number | null;
+  overtime_pence?: number | null;
+}): number {
+  return (e.gross_amount_pence ?? 0) + (e.overtime_pence ?? 0);
+}
+
+/** "incl. 1.50h overtime · £28.13" under a job's amount; nothing when no overtime. */
+function OvertimeNote({
+  entry,
+}: {
+  entry: { overtime_hours?: number | null; overtime_pence?: number | null; currency?: string };
+}) {
+  if (!entry.overtime_hours || entry.overtime_hours <= 0) return null;
+  return (
+    <span className="block text-[11px] font-normal text-amber-700 dark:text-amber-400">
+      incl. {entry.overtime_hours.toFixed(2)}h overtime
+      {entry.overtime_pence ? ` · ${formatPence(entry.overtime_pence, entry.currency)}` : ""}
+    </span>
+  );
+}
+
 // ── Month grouping helper + component ─────────────────────────────────────────
 
 /**
@@ -227,6 +250,9 @@ interface EarningsEntry {
   work_date: string;
   work_end_date?: string | null;
   gross_amount_pence: number;
+  /** The job's billable overtime (confirmed, else logged); null when none. */
+  overtime_hours?: number | null;
+  overtime_pence?: number | null;
   currency: string;
   status: string;
   source?: string;
@@ -1846,6 +1872,12 @@ interface OvertimeSummary {
   overtime_pence_suggested: number | null;
   standard_hours_per_day: number | null;
   overtime_rate_pence: number | null;
+  /** The freelancer's own figure; wins over the logged one when set. */
+  overtime_hours_confirmed: number | null;
+  /** What the job bills (cards, invoices): confirmed, else logged. */
+  overtime_hours_billable: number | null;
+  overtime_pence_billable: number | null;
+  overtime_source: "confirmed" | "logged" | null;
 }
 
 function minutesToHHMM(mins: number): string {
@@ -1871,8 +1903,8 @@ function TimeSection() {
     break_minutes: "60",
     notes: "",
   });
+  // The "Overtime hours to invoice" box; starts at the saved figure
   const [overtimeOverride, setOvertimeOverride] = useState<string>("");
-  const [overtimeConfirmed, setOvertimeConfirmed] = useState(false);
 
   const entryId = selectedJobId ? parseInt(selectedJobId) : null;
 
@@ -1893,8 +1925,6 @@ function TimeSection() {
           ? (summary.overtime_rate_pence / 100).toFixed(2)
           : "",
       });
-      setOvertimeOverride(summary.overtime_hours_suggested?.toString() ?? "");
-      setOvertimeConfirmed(false);
     }
   }
 
@@ -1926,6 +1956,27 @@ function TimeSection() {
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
 
+  const confirmOvertimeMut = useMutation({
+    mutationFn: (hours: number | null) =>
+      apiRequest(`/api/earnings/entries/${entryId}/overtime`, {
+        method: "PATCH",
+        body: JSON.stringify({ overtime_hours_confirmed: hours }),
+      }),
+    onSuccess: (_d, hours) => {
+      // The job's value changes on every list that shows it
+      queryClient.invalidateQueries({
+        queryKey: ["/api/earnings/entries", entryId, "time/summary"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings", entryId] });
+      toast({
+        title: hours === null ? "Using the hours you logged" : "Overtime confirmed",
+      });
+    },
+    onError: () => toast({ title: "Failed to save overtime", variant: "destructive" }),
+  });
+
   const settingsMut = useMutation({
     mutationFn: (data: {
       standard_hours_per_day: number | null;
@@ -1939,6 +1990,9 @@ function TimeSection() {
       queryClient.invalidateQueries({
         queryKey: ["/api/earnings/entries", entryId, "time/summary"],
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings", entryId] });
       setShowSettings(false);
       toast({ title: "Overtime settings saved" });
     },
@@ -1981,8 +2035,18 @@ function TimeSection() {
   }
 
   const suggestedHours = summary?.overtime_hours_suggested ?? null;
+  // Keep the box in step with what's saved: on load, on switching job, after a save
+  const savedOvertime = summary
+    ? (summary.overtime_hours_confirmed ?? summary.overtime_hours_suggested)
+    : null;
+  useEffect(() => {
+    setOvertimeOverride(savedOvertime != null ? String(savedOvertime) : "");
+  }, [entryId, savedOvertime]);
   const effectiveOvertimeHours =
     overtimeOverride !== "" ? parseFloat(overtimeOverride) : suggestedHours;
+  const isConfirmed =
+    summary?.overtime_hours_confirmed != null &&
+    effectiveOvertimeHours === summary.overtime_hours_confirmed;
   const overtimePence =
     effectiveOvertimeHours !== null && summary?.overtime_rate_pence
       ? Math.round(effectiveOvertimeHours * summary.overtime_rate_pence)
@@ -2001,7 +2065,6 @@ function TimeSection() {
         onChange={(v) => {
           setSelectedJobId(v);
           setEditingDate(null);
-          setOvertimeConfirmed(false);
         }}
         label="Select a job to log time against"
       />
@@ -2166,13 +2229,16 @@ function TimeSection() {
           )}
 
           {/* Overtime override */}
-          {summary.total_overtime_minutes !== null && summary.total_overtime_minutes > 0 && (
+          {((summary.total_overtime_minutes !== null && summary.total_overtime_minutes > 0) ||
+            summary.overtime_hours_confirmed !== null) && (
             <div className="space-y-3 rounded border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-800 dark:bg-amber-950/20">
               <p className="text-sm font-medium">Overtime to invoice</p>
               <p className="text-xs text-muted-foreground">
-                Based on the hours you logged, {summary.overtime_hours_suggested?.toFixed(2)}h of
-                overtime is suggested. You can adjust this before it reaches the invoice — this is a
-                prefill, not a ruling.
+                {summary.overtime_hours_suggested !== null
+                  ? `Based on the hours you logged, ${summary.overtime_hours_suggested.toFixed(2)}h of overtime is suggested. `
+                  : ""}
+                Change it if you agreed something different with the client, then confirm. The
+                confirmed figure is what the job card shows and new invoices bill.
               </p>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
@@ -2189,10 +2255,7 @@ function TimeSection() {
                         ? overtimeOverride
                         : (suggestedHours?.toString() ?? "")
                     }
-                    onChange={(e) => {
-                      setOvertimeOverride(e.target.value);
-                      setOvertimeConfirmed(false);
-                    }}
+                    onChange={(e) => setOvertimeOverride(e.target.value)}
                     style={{ fontSize: "16px" }}
                   />
                 </div>
@@ -2202,20 +2265,37 @@ function TimeSection() {
                   </div>
                 )}
               </div>
-              {!overtimeConfirmed ? (
+              {!isConfirmed ? (
                 <Button
                   size="sm"
-                  onClick={() => setOvertimeConfirmed(true)}
-                  disabled={effectiveOvertimeHours === null || effectiveOvertimeHours <= 0}
+                  onClick={() => confirmOvertimeMut.mutate(effectiveOvertimeHours)}
+                  disabled={
+                    confirmOvertimeMut.isPending ||
+                    effectiveOvertimeHours === null ||
+                    Number.isNaN(effectiveOvertimeHours) ||
+                    effectiveOvertimeHours < 0
+                  }
                 >
-                  Confirm overtime figure
+                  {confirmOvertimeMut.isPending ? "Saving…" : "Confirm overtime figure"}
                 </Button>
               ) : (
-                <p className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-                  <CheckCircle className="h-3 w-3" />
-                  {effectiveOvertimeHours?.toFixed(2)}h confirmed — this will prefill the invoice
-                  (PR 5)
-                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <p className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-3 w-3" />
+                    {summary.overtime_hours_confirmed?.toFixed(2)}h confirmed — new invoices for
+                    this job bill this figure
+                  </p>
+                  {summary.overtime_hours_suggested !== null && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline hover:text-foreground"
+                      onClick={() => confirmOvertimeMut.mutate(null)}
+                      disabled={confirmOvertimeMut.isPending}
+                    >
+                      Use the logged hours instead
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -4401,14 +4481,18 @@ function BooksTabInner() {
         unit_price_pence: entry.gross_amount_pence ?? 0,
       });
 
-      // Overtime line (if any suggested)
-      if (otSummary?.overtime_pence_suggested && otSummary.overtime_pence_suggested > 0) {
-        const otHours = otSummary.overtime_hours_suggested ?? 0;
+      // Overtime line: the job's billable figure (confirmed, else logged), the
+      // same one its card shows
+      if (otSummary?.overtime_pence_billable && otSummary.overtime_pence_billable > 0) {
+        const otHours = otSummary.overtime_hours_billable ?? 0;
+        const rate = otSummary.overtime_rate_pence;
         lineItems.push({
-          description: `Overtime (${otHours.toFixed(2)}h)`,
+          description: rate
+            ? `Overtime (${otHours.toFixed(2)}h @ ${formatPence(rate)}/h)`
+            : `Overtime (${otHours.toFixed(2)}h)`,
           rate_type: "flat",
           quantity: 1,
-          unit_price_pence: otSummary.overtime_pence_suggested,
+          unit_price_pence: otSummary.overtime_pence_billable,
         });
       }
 
@@ -5522,9 +5606,10 @@ function BooksTabInner() {
                               </p>
                             </div>
                             <div className="ml-3 flex items-center gap-2">
-                              {g.gross_amount_pence > 0 && (
-                                <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                                  {formatPence(g.gross_amount_pence, g.currency)}
+                              {jobValuePence(g) > 0 && (
+                                <span className="text-right text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                  {formatPence(jobValuePence(g), g.currency)}
+                                  <OvertimeNote entry={g} />
                                 </span>
                               )}
                               <span
@@ -5589,7 +5674,7 @@ function BooksTabInner() {
                 ? entries.filter((e) => !isBooksCurrency(e.currency))
                 : completedEntries.filter((e) => e.status === earningsFilter)
         ).filter((e) => matchesOrigin(e, earningsOrigin));
-        const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
+        const earningsTotal = filteredEntries.reduce((s, e) => s + jobValuePence(e), 0);
         const earningsMonths = groupByMonth(filteredEntries, "work_date").reverse();
         return (
           <Card className="overflow-hidden">
@@ -5756,10 +5841,7 @@ function BooksTabInner() {
                       </div>
                     )}
                     {earningsMonths.map(({ key, items: monthEntries }, mi) => {
-                      const monthTotal = monthEntries.reduce(
-                        (s, e) => s + (e.gross_amount_pence ?? 0),
-                        0
-                      );
+                      const monthTotal = monthEntries.reduce((s, e) => s + jobValuePence(e), 0);
                       const monthIds = monthEntries.map((e) => e.id);
                       const allSelected = monthIds.every((id) => selectedEntryIds.has(id));
                       const someSelected =
@@ -5872,9 +5954,10 @@ function BooksTabInner() {
                                   <StatusBadge entry={entry} />
                                 </button>
                                 <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
-                                  {entry.gross_amount_pence > 0
-                                    ? formatPence(entry.gross_amount_pence, entry.currency)
+                                  {jobValuePence(entry) > 0
+                                    ? formatPence(jobValuePence(entry), entry.currency)
                                     : "—"}
+                                  <OvertimeNote entry={entry} />
                                 </span>
                                 <button
                                   className="text-muted-foreground transition-colors hover:text-foreground"

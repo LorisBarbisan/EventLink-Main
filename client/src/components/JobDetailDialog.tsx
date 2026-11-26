@@ -34,6 +34,9 @@ interface JobEntry {
   work_status?: string | null;
   standard_hours_per_day?: number | null;
   overtime_rate_pence?: number | null;
+  /** The job's billable overtime (confirmed, else logged); null when none. */
+  overtime_hours?: number | null;
+  overtime_pence?: number | null;
   venue?: string | null;
   venue_address?: string | null;
   call_time?: string | null;
@@ -91,6 +94,9 @@ interface OvertimeSummary {
   total_overtime_minutes: number | null;
   overtime_hours_suggested: number | null;
   overtime_pence_suggested: number | null;
+  overtime_hours_billable: number | null;
+  overtime_pence_billable: number | null;
+  overtime_source: "confirmed" | "logged" | null;
 }
 
 interface Invoice {
@@ -292,8 +298,16 @@ export function JobDetailDialog({
           <SectionRow icon={<PoundSterling className="h-4 w-4" />} label="Money">
             <div className="space-y-1">
               <span className="font-semibold">
-                {fmtPence(entry.gross_amount_pence, entry.currency)}
+                {fmtPence(entry.gross_amount_pence + (entry.overtime_pence ?? 0), entry.currency)}
               </span>
+              {entry.overtime_hours != null && entry.overtime_hours > 0 && (
+                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                  incl. {entry.overtime_hours.toFixed(2)}h overtime
+                  {entry.overtime_pence
+                    ? ` · ${fmtPence(entry.overtime_pence, entry.currency)}`
+                    : ""}
+                </span>
+              )}
               {entry.status === "paid" ? (
                 <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">
                   <CheckCircle className="mr-0.5 inline h-3 w-3" />
@@ -351,12 +365,15 @@ export function JobDetailDialog({
             {timeSummary && timeSummary.total_worked_minutes > 0 ? (
               <div className="space-y-0.5">
                 <span>{minutesToHHMM(timeSummary.total_worked_minutes)} worked</span>
-                {timeSummary.total_overtime_minutes !== null &&
-                  timeSummary.total_overtime_minutes > 0 && (
+                {timeSummary.overtime_hours_billable !== null &&
+                  timeSummary.overtime_hours_billable > 0 && (
                     <div className="text-xs text-amber-600 dark:text-amber-400">
-                      {timeSummary.overtime_hours_suggested?.toFixed(2)}h overtime (suggested)
-                      {timeSummary.overtime_pence_suggested
-                        ? ` · ${fmtPence(timeSummary.overtime_pence_suggested)}`
+                      {timeSummary.overtime_hours_billable.toFixed(2)}h overtime
+                      {timeSummary.overtime_source === "confirmed"
+                        ? " (confirmed)"
+                        : " (from logged days)"}
+                      {timeSummary.overtime_pence_billable
+                        ? ` · ${fmtPence(timeSummary.overtime_pence_billable)}`
                         : ""}
                     </div>
                   )}

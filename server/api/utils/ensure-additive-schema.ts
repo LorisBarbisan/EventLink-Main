@@ -170,6 +170,8 @@ const STATEMENTS = [
   // PR 3 — Time and overtime
   `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS standard_hours_per_day integer`,
   `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS overtime_rate_pence integer`,
+  // Confirmed overtime hours (migration 0054) — overrides the logged calculation
+  `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS overtime_hours_confirmed numeric(6,2)`,
   `CREATE TABLE IF NOT EXISTS job_time_entries (
      id serial PRIMARY KEY,
      freelancer_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -55,7 +55,7 @@ router.get("/gigs", auth, async (req: Request, res: Response) => {
     const { from, to } = req.query as { from?: string; to?: string };
     if (!from || !to) return res.status(400).json({ error: "from and to are required" });
     const gigs = await storage.listEarningsGigs(freelancerId, from, to);
-    return res.json(gigs);
+    return res.json(await storage.withOvertime(freelancerId, gigs));
   } catch (err) {
     console.error("earnings gigs error:", err);
     return res.status(500).json({ error: "Failed to load gigs" });
@@ -129,12 +129,18 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
       storage.listEarningsEntries(freelancerId, { archived: false }),
     ]);
 
+    // Each job's overtime (confirmed, else logged), so lists show the job's full value
+    const [owedWithOt, entriesWithOt] = await Promise.all([
+      storage.withOvertime(freelancerId, owedEntries),
+      storage.withOvertime(freelancerId, allEntries),
+    ]);
+
     return res.json({
       tax_year: ty,
       basis,
       summary,
-      owed: owedEntries,
-      entries: allEntries,
+      owed: owedWithOt,
+      entries: entriesWithOt,
     });
   } catch (err) {
     console.error("earnings summary error:", err);
@@ -457,7 +463,8 @@ router.get("/:id", auth, async (req: Request, res: Response) => {
     const entry = await storage.getEarningsEntryWithClient(id);
     if (!entry || entry.freelancer_id !== req.user!.id)
       return res.status(404).json({ error: "Not found" });
-    return res.json(entry);
+    const [withOt] = await storage.withOvertime(entry.freelancer_id, [entry]);
+    return res.json(withOt);
   } catch (err) {
     console.error("get earnings entry error:", err);
     return res.status(500).json({ error: "Failed to load entry" });
