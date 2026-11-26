@@ -53,6 +53,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { fmtDate } from "@shared/dates";
+import { JobDetailDialog } from "./JobDetailDialog";
 
 // ── Downloads (auth-aware) ────────────────────────────────────────────────────
 
@@ -168,6 +169,9 @@ interface Invoice {
   notes: string | null;
   booking_id: number | null;
   job_id: number | null;
+  /** The Books job this invoice is for, and its name; null when none is linked. */
+  job_entry_id?: number | null;
+  job_description?: string | null;
   po_number: string | null;
   replaces_invoice_id: number | null;
   archived: boolean;
@@ -1533,6 +1537,7 @@ function InvoiceRow({
   onSend,
   onCorrect,
   onViewJob,
+  onOpenJobCard,
   onChangeStatus,
 }: {
   invoice: Invoice;
@@ -1543,6 +1548,7 @@ function InvoiceRow({
   onSend: (inv: Invoice) => void;
   onCorrect: (id: number) => void;
   onViewJob?: () => void;
+  onOpenJobCard?: (entryId: number) => void;
   onChangeStatus: (id: number, status: Invoice["status"]) => void;
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
@@ -1550,10 +1556,25 @@ function InvoiceRow({
 
   return (
     <tr className="border-b transition-colors last:border-0 hover:bg-muted/30">
-      <td className="px-4 py-3 font-mono text-sm">
-        <button className="text-primary hover:underline" onClick={() => onOpen(invoice)}>
-          {invoice.invoice_number}
-        </button>
+      <td className="px-4 py-3 text-sm">
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+          <button
+            className="font-mono text-primary hover:underline"
+            onClick={() => onOpen(invoice)}
+          >
+            {invoice.invoice_number}
+          </button>
+          {invoice.job_entry_id && invoice.job_description && onOpenJobCard && (
+            <button
+              type="button"
+              className="max-w-[18rem] truncate text-left text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+              onClick={() => onOpenJobCard(invoice.job_entry_id!)}
+              aria-label={`Open the job: ${invoice.job_description}`}
+            >
+              {invoice.job_description}
+            </button>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-sm">{clientName}</td>
       <td className="px-4 py-3 text-right text-sm tabular-nums">
@@ -1736,6 +1757,8 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
   const [sendMessage, setSendMessage] = useState("");
   const [sendRecipientEmployerId, setSendRecipientEmployerId] = useState<number | null>(null);
   const [viewJobId, setViewJobId] = useState<number | null>(null);
+  // The Books job card opened from an invoice row
+  const [jobCardEntryId, setJobCardEntryId] = useState<number | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -2169,6 +2192,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                       setSendRecipientEmployerId(null);
                     }}
                     onViewJob={jobId !== null ? () => setViewJobId(jobId) : undefined}
+                    onOpenJobCard={setJobCardEntryId}
                     onChangeStatus={(id, status) => changeStatusMutation.mutate({ id, status })}
                   />
                 );
@@ -2449,6 +2473,18 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {jobCardEntryId !== null && (
+        <JobDetailDialog
+          earningsEntryId={jobCardEntryId}
+          onClose={() => setJobCardEntryId(null)}
+          onOpenInvoice={(invoiceId) => {
+            const inv = invoices.find((i) => i.id === invoiceId);
+            setJobCardEntryId(null);
+            if (inv) setEditingInvoice(inv);
+          }}
+        />
+      )}
     </div>
   );
 }
