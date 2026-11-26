@@ -29,7 +29,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
   AlertTriangle,
-  Briefcase,
   BookmarkPlus,
   Download,
   Pencil,
@@ -1536,7 +1535,6 @@ function InvoiceRow({
   onArchive,
   onSend,
   onCorrect,
-  onViewJob,
   onOpenJobCard,
   onChangeStatus,
 }: {
@@ -1547,7 +1545,6 @@ function InvoiceRow({
   onArchive: (id: number) => void;
   onSend: (inv: Invoice) => void;
   onCorrect: (id: number) => void;
-  onViewJob?: () => void;
   onOpenJobCard?: (entryId: number) => void;
   onChangeStatus: (id: number, status: Invoice["status"]) => void;
 }) {
@@ -1618,15 +1615,6 @@ function InvoiceRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          {onViewJob && (
-            <button
-              className="text-muted-foreground transition-colors hover:text-foreground"
-              title="View job"
-              onClick={onViewJob}
-            >
-              <Briefcase className="h-4 w-4" />
-            </button>
-          )}
           <PdfButton
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
@@ -1756,7 +1744,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
   const [sendMessage, setSendMessage] = useState("");
   const [sendRecipientEmployerId, setSendRecipientEmployerId] = useState<number | null>(null);
-  const [viewJobId, setViewJobId] = useState<number | null>(null);
   // The Books job card opened from an invoice row
   const [jobCardEntryId, setJobCardEntryId] = useState<number | null>(null);
 
@@ -1767,23 +1754,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
   const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
     queryKey: ["/api/bookings/freelancer"],
     enabled: !!user,
-  });
-
-  const { data: viewJobDetail } = useQuery<{
-    id: number;
-    title: string;
-    description?: string;
-    start_time?: string;
-    end_time?: string;
-    end_date?: string;
-    created_at?: string;
-    location?: string;
-    pay_rate?: number;
-    status?: string;
-  } | null>({
-    queryKey: ["/api/jobs", viewJobId],
-    queryFn: () => (viewJobId ? apiRequest(`/api/jobs/${viewJobId}`) : null),
-    enabled: !!viewJobId,
   });
 
   // Unified list of jobs the user can send an invoice to
@@ -2176,7 +2146,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             </thead>
             <tbody>
               {filtered.map((inv) => {
-                const jobId = inv.job_id ?? null;
                 return (
                   <InvoiceRow
                     key={inv.id}
@@ -2191,7 +2160,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                       setSendMessage("");
                       setSendRecipientEmployerId(null);
                     }}
-                    onViewJob={jobId !== null ? () => setViewJobId(jobId) : undefined}
                     onOpenJobCard={setJobCardEntryId}
                     onChangeStatus={(id, status) => changeStatusMutation.mutate({ id, status })}
                   />
@@ -2397,78 +2365,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             >
               <Send className="mr-2 h-4 w-4" />
               Send
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Job detail popup */}
-      <Dialog open={viewJobId !== null} onOpenChange={(open) => !open && setViewJobId(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="pr-6 text-xl font-bold leading-snug">
-              {viewJobDetail?.title ?? "Job details"}
-            </DialogTitle>
-          </DialogHeader>
-          {viewJobDetail && (
-            <>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {viewJobDetail.location && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Location</p>
-                    <p className="font-medium">{viewJobDetail.location}</p>
-                  </div>
-                )}
-                {viewJobDetail.pay_rate != null && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Rate</p>
-                    <p className="font-medium">£{(viewJobDetail.pay_rate / 100).toFixed(2)}/hr</p>
-                  </div>
-                )}
-                {viewJobDetail.status && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Status</p>
-                    <p className="font-medium capitalize">{viewJobDetail.status}</p>
-                  </div>
-                )}
-                {viewJobDetail.end_date && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Event date</p>
-                    <p className="font-medium">{viewJobDetail.end_date}</p>
-                  </div>
-                )}
-                {(viewJobDetail.start_time || viewJobDetail.end_time) && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Time</p>
-                    <p className="font-medium">
-                      {viewJobDetail.start_time ?? ""}
-                      {viewJobDetail.start_time && viewJobDetail.end_time ? " – " : ""}
-                      {viewJobDetail.end_time ?? ""}
-                    </p>
-                  </div>
-                )}
-                {viewJobDetail.created_at && (
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">Created</p>
-                    <p className="font-medium">
-                      {new Date(viewJobDetail.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {viewJobDetail.description && (
-                <div className="text-sm">
-                  <p className="mb-1 text-muted-foreground">Description</p>
-                  <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">
-                    {viewJobDetail.description}
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewJobId(null)}>
-              Close
             </Button>
           </DialogFooter>
         </DialogContent>
