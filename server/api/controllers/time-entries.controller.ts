@@ -68,7 +68,9 @@ export async function updateOvertimeSettings(req: Request, res: Response) {
   if (isNaN(earningsEntryId)) return res.status(400).json({ error: "Invalid entry id" });
 
   const { standard_hours_per_day, overtime_rate_pence } = req.body;
-  await storage.updateEarningsEntryOvertimeSettings(req.user!.id, earningsEntryId, {
+  // (entry id, freelancer id) — both numbers, so the compiler can't catch a swap;
+  // the test pins the order and a no-match is a 404, not a silent 204.
+  const updated = await storage.updateEarningsEntryOvertimeSettings(earningsEntryId, req.user!.id, {
     standard_hours_per_day:
       standard_hours_per_day !== undefined
         ? standard_hours_per_day === null || standard_hours_per_day === ""
@@ -82,5 +84,6 @@ export async function updateOvertimeSettings(req: Request, res: Response) {
           : parseInt(overtime_rate_pence)
         : undefined,
   });
+  if (!updated) return res.status(404).json({ error: "Earnings entry not found" });
   return res.status(204).send();
 }

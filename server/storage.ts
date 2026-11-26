@@ -8020,11 +8020,13 @@ export class DatabaseStorage implements IStorage {
     id: number,
     freelancerId: number,
     data: { standard_hours_per_day?: number | null; overtime_rate_pence?: number | null }
-  ): Promise<void> {
-    await db
+  ): Promise<boolean> {
+    const rows = await db
       .update(earnings_entries)
       .set({ ...data, updated_at: new Date() })
-      .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)));
+      .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)))
+      .returning({ id: earnings_entries.id });
+    return rows.length > 0;
   }
 
   // ── Books audit log ──────────────────────────────────────────────────────────
