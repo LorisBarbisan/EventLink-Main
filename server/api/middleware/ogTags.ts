@@ -408,6 +408,95 @@ ${sections}
 </html>`;
 }
 
+// FAQ for /manage-business. Single source of truth for both the visible Q&A and
+// the FAQPage JSON-LD the crawler page emits. Mirrors the mileage rate the app
+// actually applies (55p first 10,000 car miles from 6 Apr 2026, 25p above —
+// migration 0030_mileage_rates_2026).
+const MANAGE_BUSINESS_FAQ: Array<{ question: string; answer: string }> = [
+  {
+    question: "Does EventLink submit my Making Tax Digital updates to HMRC?",
+    answer:
+      "Not yet — EventLink organises your income, expenses and mileage into the same quarterly periods Making Tax Digital requires and estimates your tax as you go. You'll still need MTD-recognised software or your accountant to actually file with HMRC.",
+  },
+  {
+    question: "What mileage rate does EventLink use?",
+    answer:
+      "The current HMRC rate — 55p a mile for the first 10,000 business miles each tax year, then 25p after that.",
+  },
+];
+
+// Server-rendered /manage-business for crawlers: per-page title/description/H1,
+// the subhead and a short feature summary, plus the FAQPage JSON-LD and the
+// visible Q&A (so the structured data has matching on-page content). Goes through
+// the same crawler-prerender path as /faq, so non-JS engines actually see it.
+function buildManageBusinessHtml(baseUrl: string): string {
+  const url = `${baseUrl}/manage-business`;
+  const title = "MTD-Ready Bookkeeping for Freelance Event Professionals | EventLink";
+  const description =
+    "Track income, expenses, mileage and invoices in the same quarters Making Tax Digital requires, with a running Income Tax and NI estimate — a free way to get organised, whatever you use to file. Built for freelance event professionals.";
+  const h1 = "Get your books Making Tax Digital-ready";
+  const subhead =
+    "Income, expenses, mileage and invoices sorted into your MTD quarters automatically, with a running tax estimate — hand it to your accountant, or use it alongside MTD-recognised software when you're ready to file.";
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: MANAGE_BUSINESS_FAQ.map((q) => ({
+      "@type": "Question",
+      name: q.question,
+      acceptedAnswer: { "@type": "Answer", text: q.answer },
+    })),
+  };
+  const schemaJson = JSON.stringify(faqSchema);
+
+  const faqHtml = MANAGE_BUSINESS_FAQ.map(
+    (q) => `      <div>
+        <h3>${escapeHtml(q.question)}</h3>
+        <p>${escapeHtml(q.answer)}</p>
+      </div>`
+  ).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <link rel="canonical" href="${escapeHtml(url)}" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(url)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="EventLink" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+
+  <script type="application/ld+json">${schemaJson}</script>
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(h1)}</h1>
+    <p>${escapeHtml(subhead)}</p>
+    <p>Keep every job in one place, track what it costs you, log your mileage at the current HMRC rate, send invoices that get paid, and give your accountant one tidy export — free, built for freelance event professionals.</p>
+    <section>
+      <h2>Frequently asked questions</h2>
+${faqHtml}
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
 const STATIC_PAGES: Record<
   string,
   { title: string; description: string; h1: string; bodyHtml: string }
@@ -774,6 +863,12 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   if (req.path === "/faq") {
     const baseUrl = getBaseUrl(req);
     res.status(200).set({ "Content-Type": "text/html" }).end(buildFaqPageHtml(baseUrl));
+    return;
+  }
+
+  if (req.path === "/manage-business") {
+    const baseUrl = getBaseUrl(req);
+    res.status(200).set({ "Content-Type": "text/html" }).end(buildManageBusinessHtml(baseUrl));
     return;
   }
 
