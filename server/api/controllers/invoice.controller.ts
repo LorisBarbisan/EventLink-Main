@@ -26,9 +26,16 @@ import {
 } from "../services/earnings.service";
 import { buildInvoiceExtras } from "../services/invoice-extras.service";
 import { ObjectStorageService } from "../utils/object-storage";
-import { insertMessageSchema, bookings, invoices as invoicesTable, jobs } from "@shared/schema";
+import {
+  insertMessageSchema,
+  bookings,
+  earnings_entries,
+  invoices as invoicesTable,
+  jobs,
+} from "@shared/schema";
 import { db } from "../config/db";
 import { and, desc, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { SITE_URL } from "../config/site";
 
 // ── Billing profile ────────────────────────────────────────────────────────────
@@ -256,16 +263,37 @@ export async function listInvoices(req: Request, res: Response) {
   const { status } = req.query;
   const conditions: ReturnType<typeof eq>[] = [eq(invoicesTable.freelancer_id, user.id)];
   if (status) conditions.push(eq(invoicesTable.status as any, status as string));
+  // The job (Books entry) each invoice is for: linked by the entry's invoice_id,
+  // or for a booking invoice by the booking. Same lookup as recordInvoicePaid.
+  const byInvoice = alias(earnings_entries, "entry_by_invoice");
+  const byBooking = alias(earnings_entries, "entry_by_booking");
   const rows = await db
-    .select({ invoice: invoicesTable, bookingJobId: bookings.jobId })
+    .select({
+      invoice: invoicesTable,
+      bookingJobId: bookings.jobId,
+      invEntryId: byInvoice.id,
+      invEntryDesc: byInvoice.description,
+      bookEntryId: byBooking.id,
+      bookEntryDesc: byBooking.description,
+    })
     .from(invoicesTable)
     .leftJoin(bookings, eq(bookings.id, invoicesTable.booking_id))
+    .leftJoin(
+      byInvoice,
+      and(eq(byInvoice.invoice_id, invoicesTable.id), eq(byInvoice.freelancer_id, user.id))
+    )
+    .leftJoin(
+      byBooking,
+      and(eq(byBooking.booking_id, invoicesTable.booking_id), eq(byBooking.freelancer_id, user.id))
+    )
     .where(and(...conditions))
     .orderBy(desc(invoicesTable.created_at));
   return res.json(
-    rows.map(({ invoice, bookingJobId }) => ({
+    rows.map(({ invoice, bookingJobId, invEntryId, invEntryDesc, bookEntryId, bookEntryDesc }) => ({
       ...invoice,
       job_id: invoice.job_id ?? bookingJobId ?? null,
+      job_entry_id: invEntryId ?? bookEntryId ?? null,
+      job_description: invEntryDesc ?? bookEntryDesc ?? null,
     }))
   );
 }
