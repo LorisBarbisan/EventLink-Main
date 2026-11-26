@@ -49,6 +49,17 @@ router.get("/jobs", auth, async (req: Request, res: Response) => {
 
 // GET /api/earnings/gigs?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns scheduled gig entries (work_status IS NOT NULL) in range, for the calendar and My Jobs.
+// GET /api/earnings/time/jobs — jobs with time logged (or confirmed overtime),
+// newest first, with hours worked and the overtime each bills. The Time list.
+router.get("/time/jobs", auth, async (req: Request, res: Response) => {
+  try {
+    return res.json(await storage.listJobsWithTime(req.user!.id));
+  } catch (err) {
+    console.error("time jobs error:", err);
+    return res.status(500).json({ error: "Failed to load time" });
+  }
+});
+
 router.get("/gigs", auth, async (req: Request, res: Response) => {
   try {
     const freelancerId = req.user!.id;

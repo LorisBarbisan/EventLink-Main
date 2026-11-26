@@ -8008,6 +8008,88 @@ export class DatabaseStorage implements IStorage {
     return out;
   }
 
+  /**
+   * Every job with time logged against it (or a confirmed overtime figure),
+   * newest first, with its hours and the overtime it bills — the Time list.
+   */
+  async listJobsWithTime(freelancerId: number): Promise<
+    Array<{
+      id: number;
+      description: string;
+      work_date: string;
+      work_end_date: string | null;
+      client_name: string | null;
+      currency: string;
+      days_logged: number;
+      worked_minutes: number;
+      overtime_hours: number | null;
+      overtime_pence: number | null;
+      overtime_source: BillableOvertime["source"];
+    }>
+  > {
+    const times = await db
+      .select({
+        earnings_entry_id: job_time_entries.earnings_entry_id,
+        start_time: job_time_entries.start_time,
+        finish_time: job_time_entries.finish_time,
+        break_minutes: job_time_entries.break_minutes,
+      })
+      .from(job_time_entries)
+      .where(eq(job_time_entries.freelancer_id, freelancerId));
+    const byEntry = new Map<number, typeof times>();
+    for (const t of times) {
+      const list = byEntry.get(t.earnings_entry_id) ?? [];
+      list.push(t);
+      byEntry.set(t.earnings_entry_id, list);
+    }
+    const ids = [...byEntry.keys()];
+    const entries = await db
+      .select({
+        id: earnings_entries.id,
+        description: earnings_entries.description,
+        work_date: earnings_entries.work_date,
+        work_end_date: earnings_entries.work_end_date,
+        client_name: earnings_clients.name,
+        currency: earnings_entries.currency,
+        standard_hours_per_day: earnings_entries.standard_hours_per_day,
+        overtime_rate_pence: earnings_entries.overtime_rate_pence,
+        overtime_hours_confirmed: earnings_entries.overtime_hours_confirmed,
+      })
+      .from(earnings_entries)
+      .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          eq(earnings_entries.archived, false),
+          ids.length > 0
+            ? or(
+                inArray(earnings_entries.id, ids),
+                isNotNull(earnings_entries.overtime_hours_confirmed)
+              )
+            : isNotNull(earnings_entries.overtime_hours_confirmed)
+        )
+      )
+      .orderBy(desc(earnings_entries.work_date));
+    return entries.map((e) => {
+      const rows = byEntry.get(e.id) ?? [];
+      const calc = computeOvertime(rows, e);
+      const ot = billableOvertime(calc, e);
+      return {
+        id: e.id,
+        description: e.description,
+        work_date: e.work_date,
+        work_end_date: e.work_end_date,
+        client_name: e.client_name,
+        currency: e.currency,
+        days_logged: rows.length,
+        worked_minutes: calc.total_worked_minutes,
+        overtime_hours: ot.hours !== null && ot.hours > 0 ? ot.hours : null,
+        overtime_pence: ot.hours !== null && ot.hours > 0 ? ot.pence : null,
+        overtime_source: ot.hours !== null && ot.hours > 0 ? ot.source : null,
+      };
+    });
+  }
+
   /** The same rows with overtime_hours / overtime_pence added (null when none). */
   async withOvertime<
     T extends Pick<
