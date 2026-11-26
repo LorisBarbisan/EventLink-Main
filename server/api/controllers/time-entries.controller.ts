@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { computeOvertime } from "@shared/overtime";
+import { billableOvertime, computeOvertime } from "@shared/overtime";
 
 export async function listTimeEntries(req: Request, res: Response) {
   const earningsEntryId = parseInt(req.params.entryId);
@@ -51,6 +51,8 @@ export async function getOvertimeSummary(req: Request, res: Response) {
   });
 
   const days = rows.map((r, i) => ({ ...r, ...ot.per_day[i] }));
+  // What the job actually bills: the confirmed figure if set, else the logged one
+  const billable = billableOvertime(ot, entry);
 
   return res.json({
     days,
@@ -60,14 +62,31 @@ export async function getOvertimeSummary(req: Request, res: Response) {
     overtime_pence_suggested: ot.overtime_pence,
     standard_hours_per_day: entry.standard_hours_per_day ?? null,
     overtime_rate_pence: entry.overtime_rate_pence ?? null,
+    overtime_hours_confirmed:
+      entry.overtime_hours_confirmed != null ? Number(entry.overtime_hours_confirmed) : null,
+    overtime_hours_billable: billable.hours,
+    overtime_pence_billable: billable.pence,
+    overtime_source: billable.source,
   });
+}
+
+/** "" / null clears; a number (or numeric string) ≥ 0 sets; anything else is invalid. */
+function parseConfirmedHours(v: unknown): string | null | undefined | "invalid" {
+  if (v === undefined) return undefined;
+  if (v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > 999) return "invalid";
+  return n.toFixed(2);
 }
 
 export async function updateOvertimeSettings(req: Request, res: Response) {
   const earningsEntryId = parseInt(req.params.entryId);
   if (isNaN(earningsEntryId)) return res.status(400).json({ error: "Invalid entry id" });
 
-  const { standard_hours_per_day, overtime_rate_pence } = req.body;
+  const { standard_hours_per_day, overtime_rate_pence, overtime_hours_confirmed } = req.body;
+  const confirmed = parseConfirmedHours(overtime_hours_confirmed);
+  if (confirmed === "invalid")
+    return res.status(400).json({ error: "Overtime hours must be a number of hours, 0 or more" });
   // (entry id, freelancer id) — both numbers, so the compiler can't catch a swap;
   // the test pins the order and a no-match is a 404, not a silent 204.
   const updated = await storage.updateEarningsEntryOvertimeSettings(earningsEntryId, req.user!.id, {
@@ -83,6 +102,7 @@ export async function updateOvertimeSettings(req: Request, res: Response) {
           ? null
           : parseInt(overtime_rate_pence)
         : undefined,
+    overtime_hours_confirmed: confirmed,
   });
   if (!updated) return res.status(404).json({ error: "Earnings entry not found" });
   return res.status(204).send();

@@ -1,6 +1,5 @@
 import { storage } from "../../storage";
 import { invoiceVatRate, type VatProfile } from "@shared/invoice-vat";
-import { computeOvertime } from "@shared/overtime";
 
 export interface InvoiceExtraLine {
   description: string;
@@ -21,7 +20,8 @@ export interface InvoiceExtras {
  * The billable extras to fold into an invoice created from a booking:
  *  - every expense attached to the booking that is flagged billable-to-client
  *    and not yet rebilled, and
- *  - the overtime suggested by the booking's logged time entries.
+ *  - the job's overtime: the freelancer's confirmed hours, else what the
+ *    logged days give (billableOvertime), at the job's overtime rate.
  *
  * Expenses are billed at what the freelancer actually paid: the net amount when
  * they charge VAT on the invoice (so their own VAT lands on top, as a recharge),
@@ -62,18 +62,14 @@ export async function buildInvoiceExtras(params: {
     rebilledExpenseIds.push(e.id);
   }
 
-  // ── Overtime from the booking's earnings entry + logged time ───────────────
+  // ── Overtime: the same figure the job card and time panel show ───────────
   const entry = await storage.getEarningsEntryByBooking(bookingId);
-  if (entry && entry.standard_hours_per_day != null && entry.overtime_rate_pence != null) {
-    const timeEntries = await storage.listTimeEntries(freelancerId, entry.id);
-    const ot = computeOvertime(timeEntries, {
-      standard_hours_per_day: entry.standard_hours_per_day,
-      overtime_rate_pence: entry.overtime_rate_pence,
-    });
-    if (ot.overtime_pence != null && ot.overtime_pence > 0 && ot.overtime_hours > 0) {
+  if (entry && entry.overtime_rate_pence != null) {
+    const ot = (await storage.overtimeForEntries(freelancerId, [entry])).get(entry.id);
+    if (ot && ot.hours !== null && ot.hours > 0 && ot.pence !== null && ot.pence > 0) {
       lines.push({
         description: "Overtime",
-        quantity: ot.overtime_hours,
+        quantity: ot.hours,
         unit: "hour",
         unit_price_pence: entry.overtime_rate_pence,
         confident: true,

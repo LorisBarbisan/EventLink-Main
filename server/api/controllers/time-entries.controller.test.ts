@@ -46,6 +46,29 @@ describe("updateOvertimeSettings", () => {
     });
   });
 
+  it("saves confirmed overtime hours as a 2dp decimal, and clears them on empty", async () => {
+    await run({ overtime_hours_confirmed: 1.5 });
+    expect(updateEarningsEntryOvertimeSettings).toHaveBeenLastCalledWith(
+      412,
+      18,
+      expect.objectContaining({ overtime_hours_confirmed: "1.50" })
+    );
+    await run({ overtime_hours_confirmed: "" });
+    expect(updateEarningsEntryOvertimeSettings).toHaveBeenLastCalledWith(
+      412,
+      18,
+      expect.objectContaining({ overtime_hours_confirmed: null })
+    );
+  });
+
+  it("refuses negative or non-numeric overtime hours with 400", async () => {
+    for (const bad of [-1, "lots"]) {
+      const res = await run({ overtime_hours_confirmed: bad });
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+    expect(updateEarningsEntryOvertimeSettings).not.toHaveBeenCalled();
+  });
+
   it("answers 404 when no entry of theirs matched, instead of claiming it saved", async () => {
     const res = await run({ standard_hours_per_day: 10 }, false);
     expect(res.status).toHaveBeenCalledWith(404);

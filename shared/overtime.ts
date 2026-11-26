@@ -89,3 +89,41 @@ export function computeOvertime(
     overtime_pence: overtimePence,
   };
 }
+
+export interface BillableOvertime {
+  /** Hours to bill: the freelancer's confirmed figure, else what the logged days give. */
+  hours: number | null;
+  /** hours × the entry's overtime rate; null when either is unknown. */
+  pence: number | null;
+  /** Where hours came from — "confirmed" overrides the logged calculation. */
+  source: "confirmed" | "logged" | null;
+}
+
+/**
+ * The overtime a job bills, everywhere it is shown or invoiced. A confirmed
+ * figure (the freelancer's own, e.g. agreed with the client) wins over the
+ * logged calculation; without either, there is no overtime to bill.
+ */
+export function billableOvertime(
+  result: Pick<OvertimeResult, "has_standard" | "overtime_hours">,
+  settings: OvertimeSettings & { overtime_hours_confirmed?: number | string | null }
+): BillableOvertime {
+  const confirmedRaw = settings.overtime_hours_confirmed;
+  const confirmed =
+    confirmedRaw === null || confirmedRaw === undefined || confirmedRaw === ""
+      ? null
+      : Number(confirmedRaw);
+  let hours: number | null = null;
+  let source: BillableOvertime["source"] = null;
+  if (confirmed !== null && Number.isFinite(confirmed) && confirmed >= 0) {
+    hours = Math.round(confirmed * 100) / 100;
+    source = "confirmed";
+  } else if (result.has_standard) {
+    hours = result.overtime_hours;
+    source = "logged";
+  }
+  const rate = settings.overtime_rate_pence;
+  const pence =
+    hours !== null && rate !== null && rate !== undefined ? Math.round(hours * rate) : null;
+  return { hours, pence, source };
+}
