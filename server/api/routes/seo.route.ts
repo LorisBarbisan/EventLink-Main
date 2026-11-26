@@ -23,6 +23,7 @@ export function registerSeoRoutes(app: Express) {
         { url: `${SITE_URL}/freelancers`, priority: "0.9" },
         { url: `${SITE_URL}/post-job`, priority: "0.8" },
         { url: `${SITE_URL}/how-it-works`, priority: "0.7" },
+        { url: `${SITE_URL}/manage-business`, priority: "0.6" },
         { url: `${SITE_URL}/about`, priority: "0.6" },
         { url: `${SITE_URL}/faq`, priority: "0.5" },
         { url: `${SITE_URL}/contact-us`, priority: "0.4" },

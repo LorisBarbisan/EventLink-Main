@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { BookingStatus, EarningsEntry } from "@shared/schema";
 
-export type JobPhase = "upcoming" | "awaiting_payment" | "paid" | "cancelled";
+export type JobPhase = "enquiry" | "upcoming" | "awaiting_payment" | "paid" | "cancelled";
 
 export interface FreelancerJob {
   booking: {
@@ -40,6 +40,9 @@ export interface FreelancerJob {
 
 function derivePhase(hb: Omit<FreelancerJob, "phase">): JobPhase {
   if (hb.booking.status === "cancelled") return "cancelled";
+  // An unconfirmed enquiry is not a confirmed booking and has earned nothing —
+  // never show it as "Confirmed"/"Awaiting payment" purely because of its date.
+  if (hb.booking.status === "enquired") return "enquiry";
   if (hb.booking.entry_status === "paid") return "paid";
   const eventDate = hb.job.eventDate || hb.booking.entry_work_date;
   if (!eventDate || new Date(eventDate) >= new Date(new Date().toDateString())) return "upcoming";

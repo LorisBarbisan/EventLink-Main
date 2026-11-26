@@ -61,6 +61,7 @@ const BooksTab = lazy(() => import("./BooksTab").then((m) => ({ default: m.Books
 const BooksMobile = lazy(() => import("./BooksMobile").then((m) => ({ default: m.BooksMobile })));
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
+import { JobDetailsDialog } from "./JobDetailsDialog";
 import { BooksHiddenNotice } from "@/components/BooksRecordsNotice";
 import { useBooksAccess } from "@/hooks/useBooksAccess";
 
@@ -193,10 +194,42 @@ function DashLogPaymentDialog({
 function HiredJobsSection() {
   const { data: jobs = [], isLoading } = useFreelancerJobs();
   const [logPaymentFor, setLogPaymentFor] = useState<FreelancerJob | null>(null);
+  const [detailsJobId, setDetailsJobId] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const acceptMutation = useMutation({
+    mutationFn: (bookingId: number) =>
+      apiRequest(`/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "confirmed", note: "Accepted by freelancer" }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Enquiry accepted", description: "It's now a confirmed booking." });
+    },
+    onError: () => toast({ title: "Couldn't accept the enquiry", variant: "destructive" }),
+  });
+  const declineMutation = useMutation({
+    mutationFn: (bookingId: number) =>
+      apiRequest(`/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellationReason: "Declined by freelancer",
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Enquiry declined" });
+    },
+    onError: () => toast({ title: "Couldn't decline the enquiry", variant: "destructive" }),
+  });
 
   if (isLoading)
     return <div className="py-8 text-center text-muted-foreground">Loading bookings…</div>;
 
+  const enquiries = jobs.filter((j) => j.phase === "enquiry");
   const upcoming = jobs.filter((j) => j.phase === "upcoming");
   const awaitingPayment = jobs.filter((j) => j.phase === "awaiting_payment");
   const paid = jobs.filter((j) => j.phase === "paid");
@@ -207,6 +240,12 @@ function HiredJobsSection() {
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <h4 className="font-semibold">{hb.job.title}</h4>
+            {hb.phase === "enquiry" && (
+              <Badge className="bg-purple-600 text-xs text-white">
+                <Clock className="mr-1 h-3 w-3" />
+                Enquiry · needs your response
+              </Badge>
+            )}
             {hb.phase === "upcoming" && (
               <Badge className="bg-green-600 text-xs text-white">
                 <CheckCircle className="mr-1 h-3 w-3" />
@@ -254,11 +293,43 @@ function HiredJobsSection() {
           <span className="text-xs text-muted-foreground">Logged in Books</span>
         )}
       </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => setDetailsJobId(hb.job.id)}>
+          View details
+        </Button>
+        {hb.phase === "enquiry" && (
+          <>
+            <Button
+              size="sm"
+              disabled={acceptMutation.isPending || declineMutation.isPending}
+              onClick={() => acceptMutation.mutate(hb.booking.id)}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acceptMutation.isPending || declineMutation.isPending}
+              onClick={() => declineMutation.mutate(hb.booking.id)}
+            >
+              Decline
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 
   return (
     <>
+      <JobDetailsDialog
+        jobId={detailsJobId}
+        open={detailsJobId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetailsJobId(null);
+        }}
+      />
       {logPaymentFor && (
         <DashLogPaymentDialog
           job={logPaymentFor}
@@ -284,6 +355,14 @@ function HiredJobsSection() {
             </div>
           ) : (
             <>
+              {enquiries.length > 0 && (
+                <div>
+                  <p className="mb-3 text-sm font-medium text-purple-600">
+                    Enquiries · needs your response ({enquiries.length})
+                  </p>
+                  <div className="space-y-3">{enquiries.map(renderJob)}</div>
+                </div>
+              )}
               {awaitingPayment.length > 0 && (
                 <div>
                   <p className="mb-3 text-sm font-medium text-amber-600">
@@ -441,10 +520,10 @@ export default function SimplifiedFreelancerDashboard() {
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const booksAccess = useBooksAccess();
   const isMobile = useIsMobile();
-  // Books is hidden outside the UK; don't leave those freelancers on an empty tab.
+  // Books is hidden only for non-freelancers; don't leave them on an empty tab.
   useEffect(() => {
-    if (activeTab === "books" && booksAccess === "unavailable") setActiveTab("profile");
-  }, [activeTab, booksAccess]);
+    if (activeTab === "books" && booksAccess.state === "unavailable") setActiveTab("profile");
+  }, [activeTab, booksAccess.state]);
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   const [profileIsPublic, setProfileIsPublic] = useState<boolean>(true);
@@ -798,7 +877,7 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {booksAccess !== "unavailable" && <SelectItem value="books">Books</SelectItem>}
+              {booksAccess.state !== "unavailable" && <SelectItem value="books">Books</SelectItem>}
               <SelectItem value="profile">Edit Profile</SelectItem>
               <SelectItem value="jobs">
                 My Applications
@@ -820,7 +899,7 @@ export default function SimplifiedFreelancerDashboard() {
           </Select>
         </div>
         <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
-          {booksAccess !== "unavailable" && (
+          {booksAccess.state !== "unavailable" && (
             <TabsTrigger value="books" data-help="dashboard.tab.books">
               Books
             </TabsTrigger>
@@ -853,7 +932,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Profile Tab */}
         <TabsContent value="profile">
-          {booksAccess === "unavailable" && <BooksHiddenNotice />}
+          {booksAccess.state === "unavailable" && <BooksHiddenNotice />}
           {profileLoading ? (
             <div className="flex justify-center p-8">Loading profile...</div>
           ) : (
@@ -1014,16 +1093,32 @@ export default function SimplifiedFreelancerDashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {jobApplications.map((application: JobApplication) => (
-                <ApplicationCard
-                  key={application.id}
-                  application={application}
-                  userType="freelancer"
-                  currentUserId={user.id}
-                />
-              ))}
-            </div>
+            (() => {
+              // Once hired or completed, the job lives in My Bookings — don't
+              // also list it as an open application.
+              const visible = jobApplications.filter(
+                (a: JobApplication) => !["hired", "completed"].includes(a.status)
+              );
+              return visible.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    No active applications. Jobs you were hired for have moved to{" "}
+                    <span className="font-medium">My Bookings</span>.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {visible.map((application: JobApplication) => (
+                    <ApplicationCard
+                      key={application.id}
+                      application={application}
+                      userType="freelancer"
+                      currentUserId={user.id}
+                    />
+                  ))}
+                </div>
+              );
+            })()
           )}
         </TabsContent>
 
@@ -1049,16 +1144,16 @@ export default function SimplifiedFreelancerDashboard() {
         </TabsContent>
 
         {/* Books Tab */}
-        {booksAccess !== "unavailable" && (
+        {booksAccess.state !== "unavailable" && (
           <TabsContent value="books">
-            {booksAccess === "needs-country" ? (
+            {booksAccess.state === "needs-country" ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
                 <h3 className="mb-2 font-semibold text-amber-900 dark:text-amber-200">
                   Where are you based?
                 </h3>
                 <p className="mb-4 text-sm text-amber-800 dark:text-amber-300">
-                  The Books tab is available to UK freelancers. Add your country in your profile to
-                  unlock it.
+                  Add your country in your profile to unlock Books. UK freelancers also get the tax
+                  tools (Self Assessment estimate, VAT, Making Tax Digital).
                 </p>
                 <Button
                   variant="outline"
@@ -1069,7 +1164,7 @@ export default function SimplifiedFreelancerDashboard() {
                   Go to Edit Profile
                 </Button>
               </div>
-            ) : booksAccess === "loading" ? (
+            ) : booksAccess.state === "loading" ? (
               <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
             ) : (
               <Suspense
@@ -1079,7 +1174,11 @@ export default function SimplifiedFreelancerDashboard() {
                   </div>
                 }
               >
-                {isMobile ? <BooksMobile /> : <BooksTab />}
+                {isMobile ? (
+                  <BooksMobile isUk={booksAccess.isUk} />
+                ) : (
+                  <BooksTab isUk={booksAccess.isUk} />
+                )}
               </Suspense>
             )}
           </TabsContent>

@@ -8,12 +8,12 @@ import {
   type ColType,
 } from "../utils/xlsx";
 import { storage } from "../../storage";
-import { sendContactReplyEmail, sendEmail } from "../utils/emailService";
+import { sendContactReplyEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
+import { resolveBroadcastAudience } from "../services/broadcast-audience.service";
 import { db } from "../config/db";
 import { teamMembers, users } from "../../../shared/schema";
 import { eq } from "drizzle-orm";
-import { SITE_URL } from "../config/site";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -259,7 +259,8 @@ export async function getPendingGuestJobs(req: Request, res: Response) {
 export async function getDirectOffers(req: Request, res: Response) {
   try {
     const offers = await storage.listDirectOffersForAdmin();
-    res.json({ offers, total: offers.length });
+    const reportedCount = offers.filter((o) => o.reportedAt).length;
+    res.json({ offers, total: offers.length, reportedCount });
   } catch (error) {
     console.error("getDirectOffers error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -380,6 +381,23 @@ export async function adminDeleteUser(req: Request, res: Response) {
     const requestingAdmin = (req as any).user;
     if (requestingAdmin?.id === userId) {
       return res.status(400).json({ error: "You cannot delete your own account" });
+    }
+
+    // Don't hard-delete an account that still has live activity — deleting it
+    // would orphan or destroy live jobs and bookings. Refuse with a clear
+    // reason so the admin can close those first.
+    const blockers = await storage.getAccountDeletionBlockers(userId);
+    if (blockers.activeJobs > 0 || blockers.openBookings > 0) {
+      const parts: string[] = [];
+      if (blockers.activeJobs > 0) {
+        parts.push(`${blockers.activeJobs} active job${blockers.activeJobs > 1 ? "s" : ""}`);
+      }
+      if (blockers.openBookings > 0) {
+        parts.push(`${blockers.openBookings} open booking${blockers.openBookings > 1 ? "s" : ""}`);
+      }
+      return res.status(409).json({
+        error: `This account still has ${parts.join(" and ")}. Close or cancel them before removing it.`,
+      });
     }
 
     await storage.adminHardDeleteUser(userId);
@@ -936,36 +954,80 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-// Renders an admin broadcast as a full branded EventLink email (same navy/orange
-// template as the automatic emails), carrying the whole message — not a preview.
-function buildBroadcastEmailHtml(recipientName: string, body: string): string {
-  const site = SITE_URL;
-  const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br/>");
-  return `
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:32px 16px;"><tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-      <tr><td style="background-color:#1B2A4A;padding:28px 36px 20px 36px;border-bottom:4px solid #D8690E;">
-        <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EventLink</p>
-        <p style="margin:4px 0 0 0;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px;">Event Industry Professional Network</p>
-      </td></tr>
-      <tr><td style="padding:36px 36px 24px 36px;">
-        <p style="margin:0 0 16px 0;font-size:16px;color:#1F2937;">Hi ${escapeHtml(recipientName)},</p>
-        <div style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">${bodyHtml}</div>
-        <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">The EventLink Team<br/><a href="${site}" style="color:#D8690E;text-decoration:none;">eventlink.one</a></p>
-      </td></tr>
-      <tr><td style="background-color:#F9FAFB;padding:20px 36px;border-top:1px solid #E5E7EB;">
-        <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;">You are receiving this because you have an EventLink account. You can reply to this message from your dashboard.</p>
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`.trim();
+// Live recipient breakdown for the announcement composer. Uses the same
+// resolver as the send path, so the count shown is the count that is used.
+export async function getBroadcastAudience(req: Request, res: Response) {
+  try {
+    const adminUser = (req as any).user;
+    if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
+
+    const { category, filters, userIds } = req.body as {
+      category?: string;
+      filters?: Record<string, unknown>;
+      userIds?: number[];
+    };
+    if (category !== "announcement" && category !== "service") {
+      return res.status(400).json({ error: "category must be 'announcement' or 'service'" });
+    }
+
+    const { breakdown } = await resolveBroadcastAudience({
+      adminId: adminUser.id,
+      category,
+      filters: filters as any,
+      userIds,
+    });
+    res.json(breakdown);
+  } catch (error) {
+    console.error("getBroadcastAudience error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
-function buildBroadcastText(recipientName: string, body: string): string {
-  return `Hi ${recipientName},\n\n${body}\n\nThe EventLink Team\neventlink.one`;
+// Send the composed email to the admin only — same template, subject and
+// footer a recipient would get, with a [TEST] prefix and a banner. The address
+// is ANNOUNCEMENT_TEST_EMAIL, falling back to the signed-in admin's own.
+export async function sendBroadcastTest(req: Request, res: Response) {
+  try {
+    const adminUser = (req as any).user;
+    if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
+
+    const { message, emailSubject, count } = req.body as {
+      message?: string;
+      emailSubject?: string;
+      count?: number;
+    };
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+    const subjectClean =
+      typeof emailSubject === "string" && emailSubject.trim()
+        ? emailSubject.trim()
+        : "A message from EventLink";
+    const to = process.env.ANNOUNCEMENT_TEST_EMAIL || adminUser.email;
+    const n = typeof count === "number" && Number.isFinite(count) ? count : null;
+    const banner = `<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#92400E;">This is a <strong>test</strong>.${
+      n != null ? ` The real send would reach <strong>${n}</strong> recipient(s).` : ""
+    }</div>`;
+    const messageHtml = banner + escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
+    const replyTo = process.env.BROADCAST_REPLY_TO || "admin@eventlink.one";
+
+    const okSent = await emailService.sendSystemUpdateNotification({
+      recipientId: adminUser.id,
+      recipientEmail: to,
+      recipientName: adminUser.first_name?.trim() || "there",
+      title: subjectClean,
+      message: messageHtml,
+      subjectOverride: `[TEST] ${subjectClean}`,
+      hideHeading: true,
+      skipPreferenceCheck: true,
+      replyTo,
+    });
+    if (!okSent) return res.status(502).json({ error: "Test email could not be sent" });
+    res.json({ ok: true, to });
+  } catch (error) {
+    console.error("sendBroadcastTest error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function sendBulkMessages(req: Request, res: Response) {
@@ -973,110 +1035,99 @@ export async function sendBulkMessages(req: Request, res: Response) {
     const adminUser = (req as any).user;
     if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
 
-    const { message, filters, userIds, emailSubject } = req.body;
+    const { message, filters, userIds, emailSubject, category } = req.body;
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return res.status(400).json({ error: "Message is required" });
     }
-
-    let recipients: Awaited<ReturnType<typeof storage.getAllUsers>>["users"];
-
-    if (Array.isArray(userIds) && userIds.length > 0) {
-      // Specific user IDs were provided — fetch only those users
-      const { users } = await storage.getAllUsers(
-        1,
-        100000,
-        undefined,
-        undefined,
-        undefined,
-        "created_at",
-        "desc",
-        undefined
-      );
-      recipients = users.filter(
-        (u) => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin"
-      );
-    } else {
-      const search = filters?.search || undefined;
-      const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
-      const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
-      const profileStatus =
-        filters?.profileStatus && filters.profileStatus !== "all"
-          ? filters.profileStatus
-          : undefined;
-
-      // Fetch all matching users (no pagination cap)
-      const { users } = await storage.getAllUsers(
-        1,
-        100000,
-        search,
-        role,
-        status,
-        "created_at",
-        "desc",
-        profileStatus
-      );
-
-      // Never message admins or the sender
-      recipients = users.filter((u) => u.id !== adminUser.id && u.role !== "admin");
+    if (category !== "announcement" && category !== "service") {
+      return res.status(400).json({ error: "category must be 'announcement' or 'service'" });
     }
 
-    let sent = 0;
-    let failed = 0;
+    // Single source of truth for who receives what — the same resolver the live
+    // count endpoint uses, so the number shown is the number sent.
+    const { breakdown, emailRecipients, inAppRecipients } = await resolveBroadcastAudience({
+      adminId: adminUser.id,
+      category,
+      filters,
+      userIds,
+    });
 
     const adminName =
       adminUser.first_name && adminUser.last_name
         ? `${adminUser.first_name} ${adminUser.last_name}`
         : "EventLink";
-
     const broadcastSubject =
       typeof emailSubject === "string" && emailSubject.trim()
         ? emailSubject.trim()
         : "A message from EventLink";
+    const messageHtml = escapeHtml(message.trim()).replace(/\r?\n/g, "<br/>");
+    const replyTo = process.env.BROADCAST_REPLY_TO || "admin@eventlink.one";
+    const logMetadata = JSON.stringify({
+      broadcast: true,
+      category,
+      filters: filters ?? null,
+      byUserIds: Array.isArray(userIds) && userIds.length > 0,
+    });
 
-    for (const recipient of recipients) {
-      try {
-        const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
-        await storage.sendMessage({
-          conversation_id: conversation.id,
-          sender_id: adminUser.id,
-          content: message.trim(),
-          is_system_message: false,
-        });
-
-        const conversationUrl = `/dashboard?tab=messages&conversationId=${conversation.id}`;
-
-        await storage.createNotification({
-          user_id: recipient.id,
-          type: "new_message",
-          title: "New Message from EventLink",
-          message: `You have a new message from ${adminName}`,
-          metadata: JSON.stringify({ conversation_id: conversation.id }),
-          action_url: conversationUrl,
-        });
-
-        // Send the FULL message as a branded EventLink email (not just a preview).
-        // Greeting uses the first name only. Non-blocking — a failure doesn't abort.
-        const greetingName = recipient.first_name?.trim() || "there";
-
-        sendEmail({
-          to: recipient.email,
-          subject: broadcastSubject,
-          text: buildBroadcastText(greetingName, message.trim()),
-          html: buildBroadcastEmailHtml(greetingName, message.trim()),
-          fromName: "EventLink Team",
-        }).catch((err: unknown) =>
-          console.error(`Bulk message email failed for user ${recipient.id}:`, err)
-        );
-
-        sent++;
-      } catch (err) {
-        console.error(`Bulk message: failed for user ${recipient.id}:`, err);
-        failed++;
+    // In-app message + notification: service/legal only. A broadcast is not a
+    // conversation, so an announcement is email-only — opted out means opted
+    // out, and nothing lands in a one-sided thread nobody is watching.
+    let inAppCreated = 0;
+    if (category === "service") {
+      for (const recipient of inAppRecipients) {
+        try {
+          const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
+          await storage.sendMessage({
+            conversation_id: conversation.id,
+            sender_id: adminUser.id,
+            content: message.trim(),
+            is_system_message: false,
+          });
+          await storage.createNotification({
+            user_id: recipient.id,
+            type: "new_message",
+            title: "New Message from EventLink",
+            message: `You have a new message from ${adminName}`,
+            metadata: JSON.stringify({ conversation_id: conversation.id }),
+            action_url: `/dashboard?tab=messages&conversationId=${conversation.id}`,
+          });
+          inAppCreated++;
+        } catch (err) {
+          console.error(`Broadcast in-app failed for user ${recipient.id}:`, err);
+        }
       }
     }
 
-    console.log(`📨 Bulk message sent by admin ${adminUser.id}: ${sent} sent, ${failed} failed`);
-    res.json({ sent, failed, total: recipients.length });
+    // Email through the shared system-update path (real template, unsubscribe
+    // link, send-log row). Announcement is gated on the toggle — belt-and-
+    // braces, since the resolver already excluded opted-out users; service/legal
+    // skips the gate. replyTo so a reply to an email-only send lands somewhere.
+    // Fire-and-forget so a whole-base send doesn't block the request; delivery
+    // is recorded in email_notification_logs.
+    for (const recipient of emailRecipients) {
+      const greetingName = recipient.first_name?.trim() || "there";
+      emailService
+        .sendSystemUpdateNotification({
+          recipientId: recipient.id,
+          recipientEmail: recipient.email,
+          recipientName: greetingName,
+          title: broadcastSubject,
+          message: messageHtml,
+          subjectOverride: broadcastSubject,
+          hideHeading: true,
+          skipPreferenceCheck: category === "service",
+          replyTo,
+          metadata: logMetadata,
+        })
+        .catch((err: unknown) =>
+          console.error(`Broadcast email failed for user ${recipient.id}:`, err)
+        );
+    }
+
+    console.log(
+      `📨 Broadcast (${category}) by admin ${adminUser.id}: email ${emailRecipients.length}, in-app ${inAppCreated}`
+    );
+    res.json({ category, breakdown, emailQueued: emailRecipients.length, inAppCreated });
   } catch (error) {
     console.error("Bulk message error:", error);
     res.status(500).json({ error: "Internal server error" });

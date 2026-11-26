@@ -63,12 +63,15 @@ export class EmailNotificationService {
       type: string;
       disposition: "attachment";
     }>;
+    replyTo?: string;
+    metadata?: string | null;
   }): Promise<boolean> {
     try {
       await sendEmail({
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
         ...(params.attachments?.length ? { attachments: params.attachments } : {}),
       });
 
@@ -81,7 +84,7 @@ export class EmailNotificationService {
         status: "sent",
         related_entity_type: params.relatedEntityType || null,
         related_entity_id: params.relatedEntityId || null,
-        metadata: null,
+        metadata: params.metadata ?? null,
         error_message: null,
       });
 
@@ -99,7 +102,7 @@ export class EmailNotificationService {
         status: "failed",
         related_entity_type: params.relatedEntityType || null,
         related_entity_id: params.relatedEntityId || null,
-        metadata: null,
+        metadata: params.metadata ?? null,
         error_message: error.message || "Unknown error",
       });
 
@@ -532,19 +535,30 @@ export class EmailNotificationService {
     message: string;
     actionUrl?: string;
     actionText?: string;
+    subjectOverride?: string;
+    hideHeading?: boolean;
+    // Service/legal broadcasts must reach everyone, so they skip the toggle.
+    skipPreferenceCheck?: boolean;
+    replyTo?: string;
+    metadata?: string | null;
   }): Promise<boolean> {
-    // Check if user wants system update notifications
-    if (!(await this.canSendEmail(params.recipientId, "system"))) {
+    // Check if user wants system update notifications (unless this is a message
+    // everyone is entitled to receive, e.g. a service/legal broadcast).
+    if (!params.skipPreferenceCheck && !(await this.canSendEmail(params.recipientId, "system"))) {
       console.log(`User ${params.recipientId} has system update notifications disabled`);
       return false;
     }
 
+    const unsubscribeToken = await storage.getOrCreateUnsubscribeToken(params.recipientId);
     const { subject, html } = emailTemplates.systemUpdateEmail({
       recipientName: params.recipientName,
       title: params.title,
       message: params.message,
       actionUrl: params.actionUrl,
       actionText: params.actionText,
+      unsubscribeUrl: `${SITE_URL}/unsubscribe?token=${unsubscribeToken}`,
+      subjectOverride: params.subjectOverride,
+      hideHeading: params.hideHeading,
     });
 
     return this.sendEmailWithLogging({
@@ -555,6 +569,8 @@ export class EmailNotificationService {
       notificationType: "system",
       relatedEntityType: null,
       relatedEntityId: null,
+      replyTo: params.replyTo,
+      metadata: params.metadata,
     });
   }
   /**

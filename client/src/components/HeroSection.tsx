@@ -7,7 +7,7 @@ export const HeroSection = () => {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
       <div className="container mx-auto px-4 py-6 sm:py-10 lg:py-14">
-        <div className="mx-auto max-w-3xl space-y-5 text-center sm:space-y-6">
+        <div className="mx-auto max-w-3xl space-y-5 text-center sm:space-y-6 lg:max-w-5xl">
           {/* Logo is hidden on mobile — the header already shows one, and a second
               one here pushes the primary actions below the fold. */}
           <div className="hidden items-center justify-center gap-3 sm:flex">
@@ -24,15 +24,15 @@ export const HeroSection = () => {
           </div>
 
           <h1 className="text-center text-3xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-            EventLink: <span className="text-primary">the freelance</span>{" "}
-            <span className="text-accent">events crew</span>{" "}
-            <span className="text-primary">network</span>
+            EventLink:{" "}
+            <span className="text-primary lg:whitespace-nowrap">the home of freelance</span>{" "}
+            <span className="text-accent lg:whitespace-nowrap">event professionals</span>
           </h1>
 
-          <p className="text-base leading-relaxed text-muted-foreground sm:text-xl">
-            EventLink is where freelance event professionals build trusted profiles, showcase their
-            experience, and connect with the companies that power live events - get seen and grow
-            your network - all in one place.
+          <p className="mx-auto max-w-3xl text-base leading-relaxed text-foreground sm:text-xl">
+            Find opportunities, connect directly with clients, manage your bookings and build your
+            professional reputation. Everything you need to make freelance work flow better, all in
+            one place.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">

@@ -44,8 +44,8 @@ export default function ManageBusiness() {
   const { user } = useAuth();
 
   usePageSeo(
-    "Manage Your Freelance Business | EventLink",
-    "Free tools to keep on top of the money — income records, expenses, mileage, invoices and exports, all in the same place as your jobs."
+    "MTD-Ready Bookkeeping for Freelance Event Professionals | EventLink",
+    "Track income, expenses, mileage and invoices in the same quarters Making Tax Digital requires, with a running Income Tax and NI estimate — a free way to get organised, whatever you use to file. Built for freelance event professionals."
   );
 
   const handleCTA = () => {
@@ -61,10 +61,12 @@ export default function ManageBusiness() {
             <Calculator className="h-8 w-8 text-white" />
           </div>
           <h1 className="mb-4 bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
-            Run your freelance business
+            Get your books Making Tax Digital-ready
           </h1>
           <p className="text-xl leading-relaxed text-muted-foreground">
-            Everything you need to keep on top of the money — free, for everyone
+            Income, expenses, mileage and invoices sorted into your MTD quarters automatically, with
+            a running tax estimate — hand it to your accountant, or use it alongside MTD-recognised
+            software when you&rsquo;re ready to file.
           </p>
         </div>
 

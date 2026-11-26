@@ -370,9 +370,16 @@ export function systemUpdateEmail(data: {
   message: string;
   actionUrl?: string;
   actionText?: string;
+  unsubscribeUrl?: string;
+  // Use the subject verbatim instead of the "🔔 <title>" default (e.g. an admin
+  // broadcast, where the subject is the sender's own line, not a system label).
+  subjectOverride?: string;
+  // Omit the "🔔 <title>" heading in the body — otherwise the subject is
+  // repeated immediately above the greeting.
+  hideHeading?: boolean;
 }): { subject: string; html: string } {
   const content = `
-    <h2>🔔 ${data.title}</h2>
+    ${data.hideHeading ? "" : `<h2>🔔 ${data.title}</h2>`}
     <p>Hi ${data.recipientName},</p>
     <div style="line-height: 1.8;">
       ${data.message}
@@ -386,10 +393,19 @@ export function systemUpdateEmail(data: {
     `
         : ""
     }
+    ${
+      data.unsubscribeUrl
+        ? `
+      <p style="margin-top:24px;font-size:12px;color:#9CA3AF;">
+        <a href="${data.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a> from these emails.
+      </p>
+    `
+        : ""
+    }
   `;
 
   return {
-    subject: `🔔 ${data.title}`,
+    subject: data.subjectOverride ?? `🔔 ${data.title}`,
     html: masterTemplate(content),
   };
 }

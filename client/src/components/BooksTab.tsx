@@ -95,6 +95,15 @@ import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
+// Whether to show the UK-only tax surfaces (Self Assessment estimate, VAT
+// return, Making Tax Digital). Defaults to true so any other caller is
+// unaffected; FreelancerDashboard passes the freelancer's real value.
+const BooksIsUkContext = React.createContext<boolean>(true);
+/** True when UK tax surfaces should be shown; false for a non-UK freelancer. */
+function useBooksIsUk(): boolean {
+  return React.useContext(BooksIsUkContext);
+}
+
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
 function formatPence(pence: number | null | undefined, currency = "GBP"): string {
@@ -493,6 +502,7 @@ function ExpenseDialog({
   vatRegistered: boolean;
   prefill?: Partial<ExpenseForm>;
 }) {
+  const isUk = useBooksIsUk();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const amountRef = useRef<HTMLInputElement>(null);
@@ -672,7 +682,7 @@ function ExpenseDialog({
           {(() => {
             const selectedCat = categories.find((c) => String(c.id) === form.category_id);
             const isVehicleCategory = selectedCat?.name.toLowerCase().includes("vehicle");
-            if (!isVehicleCategory) return null;
+            if (!isVehicleCategory || !isUk) return null;
             return (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
                 <p data-help="tax.vehicleCapitalAllowance" className="font-semibold">
@@ -2833,6 +2843,7 @@ function OverviewSection({
 }: {
   onShowOtherCurrency?: (kind: "earnings" | "expenses") => void;
 }) {
+  const isUk = useBooksIsUk();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [downloading, setDownloading] = useState(false);
@@ -2912,6 +2923,15 @@ function OverviewSection({
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  // Throws on a non-OK response so a 401/500 is treated as a query error (data
+  // stays undefined) instead of "succeeding" with an error body that later code
+  // .find()s / .map()s and crashes on. Raw fetch().then(r=>r.json()) did not.
+  const fetchJson = async <T,>(url: string): Promise<T> => {
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+    return res.json() as Promise<T>;
+  };
+
   // Fire-and-forget on mount: promote stale invoiced entries to overdue
   useEffect(() => {
     fetch("/api/books/sync-overdue", { method: "POST", headers: authHeaders() })
@@ -2930,18 +2950,17 @@ function OverviewSection({
 
   const { data, isLoading } = useQuery<BooksSummary>({
     queryKey: ["/api/books/summary"],
-    queryFn: () => fetch("/api/books/summary", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<BooksSummary>("/api/books/summary"),
   });
 
   const { data: monthlyData } = useQuery<{ months: MonthlyRow[] }>({
     queryKey: ["/api/books/monthly"],
-    queryFn: () => fetch("/api/books/monthly", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ months: MonthlyRow[] }>("/api/books/monthly"),
   });
 
   const { data: catData } = useQuery<{ name: string; pence: number }[]>({
     queryKey: ["/api/books/expense-categories"],
-    queryFn: () =>
-      fetch("/api/books/expense-categories", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ name: string; pence: number }[]>("/api/books/expense-categories"),
   });
 
   type QuarterRow = {
@@ -2955,18 +2974,18 @@ function OverviewSection({
   };
   const { data: receiptCount } = useQuery<{ count: number }>({
     queryKey: ["/api/receipts/unattached/count"],
-    queryFn: () =>
-      fetch("/api/receipts/unattached/count", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ count: number }>("/api/receipts/unattached/count"),
   });
   const { data: quarterlyData } = useQuery<{ tax_year: string; quarters: QuarterRow[] }>({
     queryKey: ["/api/books/quarterly"],
-    queryFn: () => fetch("/api/books/quarterly", { headers: authHeaders() }).then((r) => r.json()),
+    queryFn: () => fetchJson<{ tax_year: string; quarters: QuarterRow[] }>("/api/books/quarterly"),
+    enabled: isUk, // Making Tax Digital is UK-only
   });
 
   // Which MTD quarter is today in? (inline — no shared import needed)
   const todayIso = ukToday();
   const currentQuarter = (() => {
-    const q = quarterlyData?.quarters.find((q) => todayIso >= q.from && todayIso <= q.to);
+    const q = quarterlyData?.quarters?.find((q) => todayIso >= q.from && todayIso <= q.to);
     return q?.quarter ?? null;
   })();
 
@@ -2997,6 +3016,7 @@ function OverviewSection({
       fetch(`/api/books/tax-estimate${taxQueryString ? `?${taxQueryString}` : ""}`, {
         headers: authHeaders(),
       }).then((r) => r.json()),
+    enabled: isUk, // UK Self Assessment tax & NI estimate only
   });
 
   function downloadWithAuth(url: string, setPending?: (v: boolean) => void) {
@@ -3078,7 +3098,8 @@ function OverviewSection({
         data-help="tax.cashBasis"
         className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
       >
-        {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
+        {fmtDate(data.from)} – {fmtDate(data.to)}
+        {isUk ? " · cash basis" : ""}
       </p>
       {vatTreatmentNote(data) && (
         <p className="-mt-3 text-xs text-muted-foreground">{vatTreatmentNote(data)}</p>
@@ -3642,364 +3663,369 @@ function OverviewSection({
       {/* ── Your business: who you are, used on invoices and the workbook ── */}
       <BusinessDetailsCard />
 
-      {/* ── Tax settings ── */}
-      <Card className="overflow-hidden">
-        <div className="border-l-4 border-slate-500 bg-slate-50/50 px-5 py-3 dark:bg-slate-900/40">
-          <p className="font-semibold">Tax estimate settings</p>
-          <p className="text-xs text-muted-foreground">
-            Figures are estimates — always check with your accountant.
-          </p>
-        </div>
-        <CardContent className="space-y-3 py-4">
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="books-label-data-3449"
-              data-help="tax.estimate.otherIncome"
-              className="w-48 shrink-0 text-sm text-muted-foreground"
-            >
-              Other income this year
-            </label>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                £
-              </span>
+      {/* ── Tax settings (UK Self Assessment only) ── */}
+      {isUk && (
+        <Card className="overflow-hidden">
+          <div className="border-l-4 border-slate-500 bg-slate-50/50 px-5 py-3 dark:bg-slate-900/40">
+            <p className="font-semibold">Tax estimate settings</p>
+            <p className="text-xs text-muted-foreground">
+              Figures are estimates — always check with your accountant.
+            </p>
+          </div>
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="books-label-data-3449"
+                data-help="tax.estimate.otherIncome"
+                className="w-48 shrink-0 text-sm text-muted-foreground"
+              >
+                Other income this year
+              </label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  £
+                </span>
+                <input
+                  id="books-label-data-3449"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={otherIncomeInput}
+                  onChange={(e) => {
+                    setOtherIncomeInput(e.target.value);
+                    try {
+                      localStorage.setItem("books_other_income", e.target.value);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="w-32 rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">salary, pension, rental, etc.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="books-scottish-taxpayer-3479"
+                data-help="tax.scotland"
+                className="w-48 shrink-0 text-sm text-muted-foreground"
+              >
+                Scottish taxpayer
+              </label>
               <input
-                id="books-label-data-3449"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={otherIncomeInput}
+                id="books-scottish-taxpayer-3479"
+                type="checkbox"
+                className="h-4 w-4 rounded"
+                checked={scotland}
                 onChange={(e) => {
-                  setOtherIncomeInput(e.target.value);
+                  setScotland(e.target.checked);
                   try {
-                    localStorage.setItem("books_other_income", e.target.value);
+                    localStorage.setItem("books_scotland", e.target.checked ? "1" : "0");
                   } catch {
                     /* ignore */
                   }
                 }}
-                className="w-32 rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
               />
+              <p className="text-xs text-muted-foreground">uses Scottish Income Tax rates</p>
             </div>
-            <p className="text-xs text-muted-foreground">salary, pension, rental, etc.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="books-scottish-taxpayer-3479"
-              data-help="tax.scotland"
-              className="w-48 shrink-0 text-sm text-muted-foreground"
-            >
-              Scottish taxpayer
-            </label>
-            <input
-              id="books-scottish-taxpayer-3479"
-              type="checkbox"
-              className="h-4 w-4 rounded"
-              checked={scotland}
-              onChange={(e) => {
-                setScotland(e.target.checked);
-                try {
-                  localStorage.setItem("books_scotland", e.target.checked ? "1" : "0");
-                } catch {
-                  /* ignore */
-                }
-              }}
-            />
-            <p className="text-xs text-muted-foreground">uses Scottish Income Tax rates</p>
-          </div>
-          <div className="space-y-1.5">
-            <p data-help="tax.studentLoan" className="text-sm text-muted-foreground">
-              Student loan plan(s)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { value: "plan1", label: "Plan 1" },
-                  { value: "plan2", label: "Plan 2" },
-                  { value: "plan4", label: "Plan 4 (Scotland)" },
-                  { value: "plan5", label: "Plan 5" },
-                  { value: "postgrad", label: "Postgraduate" },
-                ] as const
-              ).map(({ value, label }) => {
-                const active = studentLoanPlans.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      const next = active
-                        ? studentLoanPlans.filter((p) => p !== value)
-                        : [...studentLoanPlans, value];
-                      setStudentLoanPlans(next);
-                      try {
-                        localStorage.setItem("books_student_loan_plans", JSON.stringify(next));
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                      active
-                        ? "border-purple-600 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
-                        : "border-muted-foreground/30 text-muted-foreground hover:border-purple-400"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <p data-help="tax.studentLoan" className="text-sm text-muted-foreground">
+                Student loan plan(s)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "plan1", label: "Plan 1" },
+                    { value: "plan2", label: "Plan 2" },
+                    { value: "plan4", label: "Plan 4 (Scotland)" },
+                    { value: "plan5", label: "Plan 5" },
+                    { value: "postgrad", label: "Postgraduate" },
+                  ] as const
+                ).map(({ value, label }) => {
+                  const active = studentLoanPlans.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        const next = active
+                          ? studentLoanPlans.filter((p) => p !== value)
+                          : [...studentLoanPlans, value];
+                        setStudentLoanPlans(next);
+                        try {
+                          localStorage.setItem("books_student_loan_plans", JSON.stringify(next));
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        active
+                          ? "border-purple-600 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+                          : "border-muted-foreground/30 text-muted-foreground hover:border-purple-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select any plans you repay — deducted from take-home
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Select any plans you repay — deducted from take-home
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="books-pension-contributions-3543"
-              className="text-sm text-muted-foreground"
-            >
-              Pension contributions (£/year gross)
-            </label>
-            <div className="relative w-40">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                £
-              </span>
-              <input
-                id="books-pension-contributions-3543"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={pensionInput}
-                onChange={(e) => {
-                  setPensionInput(e.target.value);
-                  try {
-                    localStorage.setItem("books_pension", e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
-              />
+            <div className="space-y-1.5">
+              <label
+                htmlFor="books-pension-contributions-3543"
+                className="text-sm text-muted-foreground"
+              >
+                Pension contributions (£/year gross)
+              </label>
+              <div className="relative w-40">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  £
+                </span>
+                <input
+                  id="books-pension-contributions-3543"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={pensionInput}
+                  onChange={(e) => {
+                    setPensionInput(e.target.value);
+                    try {
+                      localStorage.setItem("books_pension", e.target.value);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Personal pension or SIPP: what you paid plus the 25% top-up. Leave out a workplace
+                pension taken from your salary.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Personal pension or SIPP: what you paid plus the 25% top-up. Leave out a workplace
-              pension taken from your salary.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <p
-              id="wfh-label"
-              data-help="tax.workingFromHome"
-              className="text-sm text-muted-foreground"
-            >
-              Working from home (HMRC flat rate)
-            </p>
-            <div className="flex gap-2" role="group" aria-labelledby="wfh-label">
-              {(
-                [
-                  { value: "low", label: "25–50 h/mo", detail: "£10/mo" },
-                  { value: "mid", label: "51–100 h/mo", detail: "£18/mo" },
-                  { value: "high", label: "101+ h/mo", detail: "£26/mo" },
-                ] as const
-              ).map(({ value, label, detail }) => {
-                const active = wfhTier === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => {
-                      const next = active ? null : value;
-                      setWfhTier(next);
-                      try {
-                        if (next) localStorage.setItem("books_wfh_tier", next);
-                        else localStorage.removeItem("books_wfh_tier");
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" : "border-border text-muted-foreground hover:border-sky-400"}`}
-                  >
-                    {label} <span className="font-normal opacity-70">{detail}</span>
-                  </button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <p
+                id="wfh-label"
+                data-help="tax.workingFromHome"
+                className="text-sm text-muted-foreground"
+              >
+                Working from home (HMRC flat rate)
+              </p>
+              <div className="flex gap-2" role="group" aria-labelledby="wfh-label">
+                {(
+                  [
+                    { value: "low", label: "25–50 h/mo", detail: "£10/mo" },
+                    { value: "mid", label: "51–100 h/mo", detail: "£18/mo" },
+                    { value: "high", label: "101+ h/mo", detail: "£26/mo" },
+                  ] as const
+                ).map(({ value, label, detail }) => {
+                  const active = wfhTier === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        const next = active ? null : value;
+                        setWfhTier(next);
+                        try {
+                          if (next) localStorage.setItem("books_wfh_tier", next);
+                          else localStorage.removeItem("books_wfh_tier");
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" : "border-border text-muted-foreground hover:border-sky-400"}`}
+                    >
+                      {label} <span className="font-normal opacity-70">{detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p data-help="tax.mileage" className="text-xs text-muted-foreground">
+                Reduces profit for both IT and NI · simplified expenses (SA103F)
+              </p>
             </div>
-            <p data-help="tax.mileage" className="text-xs text-muted-foreground">
-              Reduces profit for both IT and NI · simplified expenses (SA103F)
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="books-gift-aid-donations-3609"
-              className="text-sm text-muted-foreground"
-            >
-              Gift Aid donations (£/year net)
-            </label>
-            <div className="relative w-40">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                £
-              </span>
-              <input
-                id="books-gift-aid-donations-3609"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={giftAidInput}
-                onChange={(e) => {
-                  setGiftAidInput(e.target.value);
-                  try {
-                    localStorage.setItem("books_gift_aid", e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
-              />
+            <div className="space-y-1.5">
+              <label
+                htmlFor="books-gift-aid-donations-3609"
+                className="text-sm text-muted-foreground"
+              >
+                Gift Aid donations (£/year net)
+              </label>
+              <div className="relative w-40">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  £
+                </span>
+                <input
+                  id="books-gift-aid-donations-3609"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={giftAidInput}
+                  onChange={(e) => {
+                    setGiftAidInput(e.target.value);
+                    try {
+                      localStorage.setItem("books_gift_aid", e.target.value);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Extends basic rate band and reduces adjusted net income · grossed up at 20%
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Extends basic rate band and reduces adjusted net income · grossed up at 20%
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="books-losses-carried-forward-3636"
-              className="text-sm text-muted-foreground"
-            >
-              Losses carried forward (£)
-            </label>
-            <div className="relative w-40">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                £
-              </span>
-              <input
-                id="books-losses-carried-forward-3636"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={lossesInput}
-                onChange={(e) => {
-                  setLossesInput(e.target.value);
-                  try {
-                    localStorage.setItem("books_losses", e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
-              />
+            <div className="space-y-1.5">
+              <label
+                htmlFor="books-losses-carried-forward-3636"
+                className="text-sm text-muted-foreground"
+              >
+                Losses carried forward (£)
+              </label>
+              <div className="relative w-40">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  £
+                </span>
+                <input
+                  id="books-losses-carried-forward-3636"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={lossesInput}
+                  onChange={(e) => {
+                    setLossesInput(e.target.value);
+                    try {
+                      localStorage.setItem("books_losses", e.target.value);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Unused trading losses from earlier years — offsets IT only, not NI
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Unused trading losses from earlier years — offsets IT only, not NI
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="books-child-benefit-received-3663"
-              className="text-sm text-muted-foreground"
-            >
-              Child Benefit received (£/year)
-            </label>
-            <div className="relative w-40">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                £
-              </span>
-              <input
-                id="books-child-benefit-received-3663"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={childBenefitInput}
-                onChange={(e) => {
-                  setChildBenefitInput(e.target.value);
-                  try {
-                    localStorage.setItem("books_child_benefit", e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
-              />
+            <div className="space-y-1.5">
+              <label
+                htmlFor="books-child-benefit-received-3663"
+                className="text-sm text-muted-foreground"
+              >
+                Child Benefit received (£/year)
+              </label>
+              <div className="relative w-40">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  £
+                </span>
+                <input
+                  id="books-child-benefit-received-3663"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={childBenefitInput}
+                  onChange={(e) => {
+                    setChildBenefitInput(e.target.value);
+                    try {
+                      localStorage.setItem("books_child_benefit", e.target.value);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+                />
+              </div>
+              <p
+                data-help="tax.estimate.adjustedNetIncome"
+                className="text-xs text-muted-foreground"
+              >
+                High Income Child Benefit Charge applies if adjusted net income exceeds £60,000
+              </p>
             </div>
-            <p data-help="tax.estimate.adjustedNetIncome" className="text-xs text-muted-foreground">
-              High Income Child Benefit Charge applies if adjusted net income exceeds £60,000
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <p id="marriage-allowance-label" className="text-sm text-muted-foreground">
-              Marriage Allowance
-            </p>
-            <div className="flex gap-2" role="group" aria-labelledby="marriage-allowance-label">
-              {(
-                [
-                  {
-                    value: "giving" as const,
-                    label: "I'm the lower earner",
-                    detail: "giving £1,260",
-                  },
-                  {
-                    value: "receiving" as const,
-                    label: "I'm the higher earner",
-                    detail: "receiving £252",
-                  },
-                ] as const
-              ).map(({ value, label, detail }) => {
-                const active = marriageAllowance === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => {
-                      const next = active ? null : value;
-                      setMarriageAllowance(next);
-                      try {
-                        if (next) localStorage.setItem("books_marriage_allowance", next);
-                        else localStorage.removeItem("books_marriage_allowance");
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-rose-400 bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "border-border text-muted-foreground hover:border-rose-300"}`}
-                  >
-                    {label} <span className="font-normal opacity-70">{detail}</span>
-                  </button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <p id="marriage-allowance-label" className="text-sm text-muted-foreground">
+                Marriage Allowance
+              </p>
+              <div className="flex gap-2" role="group" aria-labelledby="marriage-allowance-label">
+                {(
+                  [
+                    {
+                      value: "giving" as const,
+                      label: "I'm the lower earner",
+                      detail: "giving £1,260",
+                    },
+                    {
+                      value: "receiving" as const,
+                      label: "I'm the higher earner",
+                      detail: "receiving £252",
+                    },
+                  ] as const
+                ).map(({ value, label, detail }) => {
+                  const active = marriageAllowance === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        const next = active ? null : value;
+                        setMarriageAllowance(next);
+                        try {
+                          if (next) localStorage.setItem("books_marriage_allowance", next);
+                          else localStorage.removeItem("books_marriage_allowance");
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-rose-400 bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "border-border text-muted-foreground hover:border-rose-300"}`}
+                    >
+                      {label} <span className="font-normal opacity-70">{detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Transfer £1,260 of personal allowance between spouses/civil partners
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Transfer £1,260 of personal allowance between spouses/civil partners
-            </p>
-          </div>
-          {taxData?.vatRegistered && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              {taxData.vatScheme === "flat_rate" ? (
-                <>
-                  You are on the VAT Flat Rate Scheme. Expenses count including VAT, as you
-                  can&apos;t reclaim it. Earnings exclude the VAT you charge, so the difference
-                  between that and the flat-rate VAT you pay (which is taxable income) isn&apos;t in
-                  this estimate: ask your accountant to add it.
-                </>
-              ) : (
-                <>
-                  You are VAT registered, so this estimate excludes VAT on both sides: earnings net
-                  of the VAT you charge, expenses net of the VAT you reclaim. Enter any earnings
-                  logged by hand ex-VAT, and the VAT on each receipt.
-                </>
-              )}
-            </p>
-          )}
-          {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Trading income is £1,000 or less — you may be able to use the{" "}
-              <span className="font-medium">Trading Allowance</span> instead of claiming actual
-              expenses, making the profit from this source £0.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            {taxData?.vatRegistered && (
+              <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                {taxData.vatScheme === "flat_rate" ? (
+                  <>
+                    You are on the VAT Flat Rate Scheme. Expenses count including VAT, as you
+                    can&apos;t reclaim it. Earnings exclude the VAT you charge, so the difference
+                    between that and the flat-rate VAT you pay (which is taxable income) isn&apos;t
+                    in this estimate: ask your accountant to add it.
+                  </>
+                ) : (
+                  <>
+                    You are VAT registered, so this estimate excludes VAT on both sides: earnings
+                    net of the VAT you charge, expenses net of the VAT you reclaim. Enter any
+                    earnings logged by hand ex-VAT, and the VAT on each receipt.
+                  </>
+                )}
+              </p>
+            )}
+            {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Trading income is £1,000 or less — you may be able to use the{" "}
+                <span className="font-medium">Trading Allowance</span> instead of claiming actual
+                expenses, making the profit from this source £0.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Quarterly breakdown ── */}
-      {quarterlyData && (
+      {quarterlyData?.quarters && (
         <Card className="overflow-hidden">
           <div className="border-l-4 border-indigo-500 bg-indigo-50/50 px-5 py-3 dark:bg-indigo-950/20">
             <p data-help="tax.quarters" className="font-semibold">
@@ -4059,15 +4085,17 @@ function OverviewSection({
         </Card>
       )}
 
-      {/* ── VAT return (VAT-registered only; renders nothing otherwise) ── */}
-      <VatReturnCard />
+      {/* ── VAT return (UK, VAT-registered only; renders nothing otherwise) ── */}
+      {isUk && <VatReturnCard />}
 
       {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">
         <div className="border-l-4 border-orange-400 bg-orange-50/50 px-5 py-3 dark:bg-orange-950/20">
           <p className="font-semibold">Your records</p>
           <p className="text-xs text-muted-foreground">
-            Download everything for your accountant or Self Assessment.
+            {isUk
+              ? "Download everything for your accountant or Self Assessment."
+              : "Download everything for your accountant."}
           </p>
         </div>
         <CardContent className="py-3">
@@ -4113,7 +4141,21 @@ export interface HiredBookingForCalendar {
   companyName: string | null;
 }
 
-export function BooksTab() {
+/**
+ * Books. `isUk` controls the UK-only tax surfaces (Self Assessment estimate,
+ * VAT return, Making Tax Digital quarters). A non-UK freelancer gets the full
+ * bookkeeping — earnings, expenses, mileage, invoices, clients — without them.
+ */
+export function BooksTab({ isUk = true }: { isUk?: boolean }) {
+  return (
+    <BooksIsUkContext.Provider value={isUk}>
+      <BooksTabInner />
+    </BooksIsUkContext.Provider>
+  );
+}
+
+function BooksTabInner() {
+  const isUk = useBooksIsUk();
   const initialSection = (() => {
     const p = new URLSearchParams(window.location.search).get("section");
     const valid = [
@@ -4406,10 +4448,12 @@ export function BooksTab() {
   today.setHours(0, 0, 0, 0);
 
   // Future work (or no date) that hasn't been marked completed — belongs in My Jobs.
-  // A booking with status "completed" goes to Earnings even if its event_date is in the future
-  // (e.g. the repair loop advanced the status before the event date arrived).
+  // "My jobs" is work still ahead of you. Compare by DATE (not datetime), and
+  // strictly in the future: on the job's own day it drops out of My jobs and
+  // lives only in Earnings — where its hire-seeded entry already is — rather
+  // than showing in both. Undated bookings stay until dated or completed.
   const upcomingHired = allBookings.filter(
-    (b) => b.status !== "completed" && (!b.event_date || new Date(b.event_date) >= today)
+    (b) => b.status !== "completed" && (!b.event_date || b.event_date.slice(0, 10) > ukToday())
   );
   // Past work with no entry — edge case after backfill, but kept as a safety net
   const unloggedBookings = allBookings.filter(
@@ -5165,10 +5209,13 @@ export function BooksTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-blue-100" />
-              <p className="font-semibold text-white">Tax year {tax_year.label}</p>
+              <p className="font-semibold text-white">
+                {isUk ? `Tax year ${tax_year.label}` : "This year"}
+              </p>
             </div>
             <span className="text-xs text-blue-200">
-              {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
+              {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)}
+              {isUk ? " · cash basis" : ""}
             </span>
           </div>
           {vatTreatmentNote(topLevelBillingProfile) && (

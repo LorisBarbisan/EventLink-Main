@@ -204,6 +204,9 @@ export interface IStorage {
   isUserDeleted(userId: number): Promise<boolean>;
   markWelcomeEmailSent(userId: number): Promise<void>;
   getUserByUnsubscribeToken(token: string): Promise<User | undefined>;
+  // Returns the user's unsubscribe token, generating and saving one if absent
+  // (older/guest accounts have null tokens, which make unsubscribe links 404).
+  getOrCreateUnsubscribeToken(userId: number): Promise<string>;
   setMarketingOptOut(userId: number): Promise<void>;
   setCredentialRemindersOptOut(userId: number): Promise<void>;
   canSendMessageToUser(
@@ -1319,6 +1322,18 @@ export class DatabaseStorage implements IStorage {
   async getUserByUnsubscribeToken(token: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.unsubscribe_token, token)).limit(1);
     return result[0];
+  }
+
+  async getOrCreateUnsubscribeToken(userId: number): Promise<string> {
+    const [row] = await db
+      .select({ token: users.unsubscribe_token })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (row?.token) return row.token;
+    const token = randomBytes(32).toString("hex");
+    await db.update(users).set({ unsubscribe_token: token }).where(eq(users.id, userId));
+    return token;
   }
 
   async setMarketingOptOut(userId: number): Promise<void> {
@@ -2864,7 +2879,11 @@ export class DatabaseStorage implements IStorage {
       // Never show soft-deleted jobs
       conditions.push(isNull(jobs.deleted_at));
 
-      // Show active jobs + jobs closed within the last 24 hours
+      // Show active jobs + jobs closed within the last 24 hours. The closed
+      // window is only for jobs that were actually posted to the board:
+      // moderation_status "approved". A private job (e.g. a direct offer) is
+      // left "pending" and flips straight to "closed" when its booking
+      // confirms — it was never listed, so it must not surface here.
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       conditions.push(
         or(
@@ -2872,6 +2891,7 @@ export class DatabaseStorage implements IStorage {
           isNull(jobs.status),
           and(
             eq(jobs.status, "closed"),
+            eq(jobs.moderation_status, "approved"),
             sql`${jobs.updated_at} >= ${twentyFourHoursAgo}::timestamptz`
           )
         )
@@ -4305,6 +4325,30 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Live attachments that should stop an account being hard-deleted: active or
+  // paused job posts it owns, and bookings (either side) that aren't finished.
+  async getAccountDeletionBlockers(
+    userId: number
+  ): Promise<{ activeJobs: number; openBookings: number }> {
+    const [jobRow] = await db
+      .select({ n: count() })
+      .from(jobs)
+      .where(and(eq(jobs.recruiter_id, userId), inArray(jobs.status as any, ["active", "paused"])));
+    const [bookingRow] = await db
+      .select({ n: count() })
+      .from(bookings)
+      .where(
+        and(
+          or(eq(bookings.employerId, userId), eq(bookings.freelancerId, userId)),
+          notInArray(bookings.status as any, ["cancelled", "completed"])
+        )
+      );
+    return {
+      activeJobs: Number(jobRow?.n ?? 0),
+      openBookings: Number(bookingRow?.n ?? 0),
+    };
+  }
+
   async adminHardDeleteUser(userId: number): Promise<void> {
     try {
       const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -5155,6 +5199,27 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // User ids flagged as internal seed/demo/test records (on freelancer_profiles).
+  // Used to keep demo accounts out of broadcasts.
+  async getDemoUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ userId: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.is_demo, true));
+    return rows.map((r) => r.userId);
+  }
+
+  // User ids that turned OFF "Platform updates and announcements". The default
+  // is on, so only an explicit false row counts. Used to gate announcement
+  // broadcasts set-based rather than one canSendEmail call per recipient.
+  async getSystemUpdatesOptedOutUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ userId: notification_preferences.user_id })
+      .from(notification_preferences)
+      .where(eq(notification_preferences.email_system_updates, false));
+    return rows.map((r) => r.userId);
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
@@ -5985,7 +6050,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(reference_requests.status, "pending"),
           eq(reference_requests.reminder_sent, false),
-          sql`${reference_requests.created_at} <= ${cutoff}`
+          lte(reference_requests.created_at, cutoff)
         )
       );
   }
@@ -6594,9 +6659,21 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(bookings.employerId, users.id))
       .innerJoin(freelancerUser, eq(bookings.freelancerId, freelancerUser.id))
       .where(and(eq(jobs.poster_type as any, "guest"), eq(jobs.status as any, "private")))
-      .orderBy(desc(bookings.createdAt))
+      // Reported offers first so they can't sink below the limit as new offers
+      // arrive. NULLS LAST is explicit: Postgres sorts DESC nulls-first by
+      // default, which would otherwise float the unreported offers to the top.
+      .orderBy(sql`${bookings.reported_at} desc nulls last`, desc(bookings.createdAt))
       .limit(limit);
     return rows;
+  }
+
+  // Admin user ids (by role), for in-app notifications such as a reported offer.
+  async listAdminUserIds(): Promise<number[]> {
+    const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role as any, "admin"));
+    return rows.map((r) => r.id);
   }
 
   // ── Guest job drafts ────────────────────────────────────────────────────────

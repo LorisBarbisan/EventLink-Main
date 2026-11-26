@@ -2,7 +2,6 @@ import { Router } from "express";
 import { expensiveWorkLimiter } from "../middleware/expensive-limit.middleware";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import {
   uploadImport,
   listImports,
@@ -30,7 +29,6 @@ const router = Router();
 
 router.use(authenticateJWT);
 router.use(requireRole("freelancer"));
-router.use(requireUkFreelancer);
 
 router.post("/", expensiveWorkLimiter, uploadImport);
 router.get("/", listImports);

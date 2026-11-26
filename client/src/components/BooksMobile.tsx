@@ -27,7 +27,7 @@ type Invoice = {
  * availability on the calendar. The rest
  * of Books stays on the computer, and this says so.
  */
-export function BooksMobile() {
+export function BooksMobile({ isUk = true }: { isUk?: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const q = savedTaxQuery();
@@ -37,6 +37,7 @@ export function BooksMobile() {
   }>({
     queryKey: ["/api/books/tax-estimate", q],
     queryFn: () => apiRequest(`/api/books/tax-estimate${q ? `?${q}` : ""}`),
+    enabled: isUk, // UK Self Assessment set-aside only
   });
   const { data: invoices = [] } = useQuery<Invoice[]>({ queryKey: ["/api/invoices"] });
   const { data: count } = useQuery<{ count: number }>({
@@ -67,26 +68,29 @@ export function BooksMobile() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="space-y-1 py-4">
-          <p className="text-sm text-muted-foreground">Put aside</p>
-          {!set ? (
-            <p className="text-sm text-muted-foreground">Working it out…</p>
-          ) : set.past || tax!.paymentSchedule.januaryPence === 0 ? (
-            <p className="text-sm">Nothing to put aside right now.</p>
-          ) : (
-            <>
-              <p className="text-3xl font-bold tabular-nums">
-                {gbp(set.monthly)}
-                <span className="text-base font-normal text-muted-foreground"> a month</span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                for {gbp(tax!.paymentSchedule.januaryPence)} due {tax!.paymentSchedule.januaryDate}
-              </p>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {isUk && (
+        <Card>
+          <CardContent className="space-y-1 py-4">
+            <p className="text-sm text-muted-foreground">Put aside</p>
+            {!set ? (
+              <p className="text-sm text-muted-foreground">Working it out…</p>
+            ) : set.past || tax!.paymentSchedule.januaryPence === 0 ? (
+              <p className="text-sm">Nothing to put aside right now.</p>
+            ) : (
+              <>
+                <p className="text-3xl font-bold tabular-nums">
+                  {gbp(set.monthly)}
+                  <span className="text-base font-normal text-muted-foreground"> a month</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  for {gbp(tax!.paymentSchedule.januaryPence)} due{" "}
+                  {tax!.paymentSchedule.januaryDate}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="space-y-3 py-4">
